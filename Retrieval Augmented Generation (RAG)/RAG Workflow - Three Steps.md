@@ -410,6 +410,54 @@ QUERY TIME
 
 ---
 
+### 🟩 Q6 · Bi-Encoder → Cross-Encoder: Is It a Pipeline, and Does Cross-Encoder Read the Whole Library? *(follow-up to Q1)*
+
+> **🗣️ Asked (as said):** "You mentioned the bi-encoder and the cross-encoder. When a question is asked, the bi-encoder matches the encoded question to the already-stored embeddings in the vector database, using some algorithm like ANN or HNSW — right? But in the cross-encoder, you match the user query with each and every document stored in the vector database. Does that mean the output of the bi-encoder could be used as the input to the cross-encoder? Also, this isn't really an encoding method — it's about how the process is done, not what is being done, correct? So does that mean the cross-encoder reads the whole library?"
+>
+> **✍️ Refreshed:** Does the bi-encoder match the query against stored embeddings using ANN/HNSW, while the cross-encoder compares the query against every document in the vector database? Does the bi-encoder's output feed into the cross-encoder as input? And is the bi-encoder/cross-encoder distinction really about *how* matching is done rather than a type of encoding — meaning does the cross-encoder read through the whole library?
+
+**💡 Answer**
+
+**Three parts right, one part to fix.**
+
+**✅ Part 1 — correct:** The bi-encoder embeds the query, then an ANN algorithm like HNSW searches the vector database for the closest stored embeddings. Exactly right.
+
+**✅ Part 2 — correct:** Yes, the bi-encoder's output *is* the cross-encoder's input. That's the whole pipeline — one feeds directly into the other:
+
+```
+        MILLIONS of documents (the "whole library")
+                        │
+        ① Bi-encoder + ANN search (HNSW)
+           ← fast, approximate, scans everything
+                        │
+                        ▼
+        Shortlist: e.g. top 50 candidates
+                        │
+        ② Cross-encoder reranks ONLY these 50
+           ← slow, precise, query + each doc together
+                        │
+                        ▼
+        Final: top 3–5 most relevant → sent to the LLM
+```
+
+**❌ Part 3 — needs a correction:** the cross-encoder does **not** compare the query against *every document in the vector database*. That was exactly the problem the bi-encoder exists to solve. The cross-encoder only ever runs on the small **shortlist** the bi-encoder already narrowed things down to — say, 50 documents, not millions. So no, **the cross-encoder does not read the whole library** — it only reads the shelf of books the bi-encoder already pulled out.
+
+**On your fourth point — "this is about *how*, not *what*":** you're onto something real, worth stating precisely. Both bi-encoder and cross-encoder genuinely *are* encoding methods — both use a transformer model to turn text into a representation. So it's not that one is "encoding" and the other "isn't." The real difference is procedural:
+
+- **Bi-encoder** = encode the query and each document **separately**, then compare the two resulting vectors with math (cosine similarity) afterward.
+- **Cross-encoder** = feed the query and **one** document **together** into the model at once, so the model itself outputs a relevance score directly — no separate vectors to compare.
+
+So your instinct is right in spirit: the names "bi-" and "cross-" describe *how many things go into the model at once and when*, not a different kind of embedding output. Same building block (a transformer encoder), two different strategies for using it.
+
+**Simple analogy 📚:** A librarian (bi-encoder) skims book spines *ahead of time* and separately skims your request, then matches them by gist — fast, done for millions of books in advance. A second librarian (cross-encoder) sits down and reads your request *together with* one specific book at a time to judge fit precisely — accurate, but only ever done for the 50 books the first librarian already pulled off the shelf, never the whole library.
+
+**One line:** You're right that the bi-encoder's shortlist feeds directly into the cross-encoder as its input, and right that the bi-/cross- naming describes *how* the matching happens rather than a different type of encoding — but the cross-encoder never reads the whole library, only the small shortlist the bi-encoder already narrowed down, since reading every document that way would be far too slow.
+
+*(End of Q6)*
+
+---
+
+
 
 ### Step 2: Fuse the Data
 
