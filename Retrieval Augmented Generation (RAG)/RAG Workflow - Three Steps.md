@@ -259,6 +259,31 @@ In practice, when anyone says "semantic search" today, they mean dense vector re
 
 ---
 
+### 🟩 Q3 · Keyword Search vs. Meaning Search — When to Use Which
+
+> **🗣️ Asked (as said):** "There are two methods — first is keyword searching, and the second is meaning search. So tell me, when do we use either of them, and what is a use case for each? Explain in the simplest and shortest manner."
+>
+> **✍️ Refreshed:** When should I use keyword search versus meaning (semantic) search, and what's one use case for each?
+
+**💡 Answer**
+
+**Use keyword search when the exact words matter.** Order numbers, product codes, error codes, names, IDs, legal citations — things where a "close match" is useless; you need `INV-4521`, not something similar to it.
+
+> Use case: searching a support system for `ERROR_502` — you want that exact code, not documents "about similar errors."
+
+**Use meaning search when the user's words won't match the document's words.** Natural-language questions, FAQs, customer support, chatbots — anywhere someone might ask something a different way than it's written.
+
+> Use case: a user asks "how do I reset my password?" and the help doc says "steps to recover your login credentials" — no shared words, same intent, meaning search finds it.
+
+**Simple analogy 📚:** Keyword search is looking up a book by its exact title on the spine. Meaning search is telling a librarian "I want something about not giving up" and getting a good recommendation even if no book has those exact words on the cover.
+
+**In real systems:** most production search doesn't pick just one — it runs both together (**hybrid search**) and combines the results, since real queries often mix an exact ID with natural language.
+
+**One line:** Use keyword search for exact identifiers (IDs, codes, names) where a near-match is worthless, and use meaning search for natural-language questions where the user's wording won't match the document's wording — real systems typically run both together as hybrid search.
+
+*(End of Q3)*
+
+
 
 ### Step 2: Fuse the Data
 
