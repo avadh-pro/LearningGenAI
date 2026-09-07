@@ -229,6 +229,37 @@ In practice, when anyone says "semantic search" today, they mean dense vector re
 
 ---
 
+### 🟩 Q2 · Other Methods of Semantic Search *(follow-up to Q1)*
+
+> **🗣️ Asked (as said):** "Correct me if I'm wrong — this is a follow-up to Q1. You are saying that dense vector retrieval is one of the methods of semantic search. So is there any other method that we do for semantic search? If yes, please list that down and explain each one in a one-liner with the simplest explanation."
+>
+> **✍️ Refreshed:** Is dense vector retrieval just one of several methods used to do semantic search — and if so, what are the other methods, each explained in one simple line?
+
+**💡 Answer**
+
+**Your premise is correct** — dense vector retrieval is indeed just one method for doing semantic search, not the only one. Here are the others:
+
+| Method | One-liner explanation |
+|---|---|
+| **Dense vector retrieval** *(already covered)* | Turn text into a fully-filled list of numbers that captures meaning, then find the closest ones. |
+| **Latent Semantic Analysis / LSI** | The pre-embeddings, statistical approach — it studies which words tend to appear *together* across many documents to figure out "car" and "automobile" are related, without any neural network. |
+| **Learned sparse retrieval** (e.g. SPLADE) | Keeps BM25's fast, word-based format, but a neural network quietly adds *related* words too — so searching "car" also lights up documents about "automobile." |
+| **Knowledge graph / ontology-based search** | Skips numbers entirely — it matches your query against a map of real-world facts, like "Paris → capital of → France," so it understands meaning through explicit connections instead of learned patterns. |
+
+**Simple analogy for all three "other" methods 🗺️:**
+- **LSA** = noticing that words which keep showing up in the *same rooms* of a building are probably related.
+- **Learned sparse retrieval** = a smart librarian who, when you ask for "car" books, quietly also pulls the "automobile" ones off the shelf.
+- **Knowledge graph search** = following a hand-drawn map of "this connects to that," rather than measuring distances at all.
+
+**In practice today:** dense vector retrieval has become the dominant, go-to method — it's what almost every modern RAG system uses. The other three still show up (LSA in older systems, learned sparse retrieval in some hybrid search setups, knowledge graphs in enterprise/structured-data search), but if someone just says "semantic search" without more context, they almost always mean dense vector retrieval.
+
+**One line:** No, dense vector retrieval isn't the only way to do semantic search — Latent Semantic Analysis (word co-occurrence patterns), learned sparse retrieval like SPLADE (keyword search quietly expanded with related terms), and knowledge-graph search (matching facts and relationships instead of numbers) are the other three, but dense vector retrieval is by far the most common one used today.
+
+*(End of Q2)*
+
+---
+
+
 ### Step 2: Fuse the Data
 
 *(no questions yet)*
