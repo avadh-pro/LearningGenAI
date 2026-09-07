@@ -57,11 +57,11 @@ Each step above is packed with technical terms. This section unpacks them one at
 | — | Vector database, indexing, HNSW, ANN | Knowledge base | ✅ Covered in *Introduction to Vector Database* Q1–Q5 |
 | 1 | **Dense vector retrieval** | Step 1 | ✅ Done |
 | 2 | Semantic search | Step 1 | ✅ Answered directly in Step 1 Q&A (Q1) |
-| 3 | Chunking ("data segments") + top-K | Step 1 | ⬜ |
-| 4 | Context augmentation (how query + docs are actually "fused") | Step 2 | ⬜ |
-| 5 | Transformer-based architecture | Step 2 | ⬜ |
-| 6 | Attention mechanism | Step 2 | ⬜ |
-| 7 | Context window | Step 2 | ⬜ |
+| 3 | Chunking ("data segments") + top-K | Step 1 | ✅ Closed — touched on in Q1's mechanics diagram; Step 1 marked complete |
+| 4 | Context augmentation (how query + docs are actually "fused") | Step 2 | ✅ Done |
+| 5 | Transformer-based architecture | Step 2 | ✅ Done |
+| 6 | Attention mechanism | Step 2 | ✅ Done |
+| 7 | Context window | Step 2 | ✅ Done |
 | 8 | Factual grounding & hallucination reduction | Step 3 | ⬜ |
 | 9 | Decoding (how "coherent" text is actually produced) | Step 3 | ⬜ |
 
@@ -184,6 +184,105 @@ That second stage is called **reranking**.
 **One line:** Dense vector retrieval = your question and your documents are converted by the *same* model into short lists of numbers where every slot is filled ("dense"), and the database returns the documents whose numbers sit closest to your question's — which is how "recover your login credentials" gets found by someone asking to "reset my password".
 
 ---
+
+### 4. Context Augmentation — How Query + Docs Actually Get "Fused"
+
+*(Step 2: Fuse the Data)*
+
+**In one sentence:** "fusing" isn't a special merging technique — it's just building one combined prompt out of the retrieved chunks and the user's question, then handing that to the LLM like normal input.
+
+```
+Retrieved chunks (from Step 1):
+1. "Go to Settings > Security > Reset to recover your login credentials."
+2. "Password resets require email verification."
+
+User's question: "How do I reset my password?"
+
+              ↓  glued together into one prompt  ↓
+
+  "Context:
+   1. Go to Settings > Security > Reset to recover your login credentials.
+   2. Password resets require email verification.
+
+   Question: How do I reset my password?
+   Answer using only the context above."
+
+              ↓
+
+     sent to the LLM as one normal text input
+```
+
+That's the entire "fusion" step — there's no separate fusion module. This is called **context augmentation**: you augment (add to) the query with retrieved context *before* the LLM ever sees it. All the hard work already happened in Step 1 (finding the *right* chunks); this step is comparatively simple stitching.
+
+So when the workflow overview said "attention mechanisms and transformer-based architectures are commonly employed to achieve optimal data integration," it isn't describing a separate fusion algorithm — it's describing what happens *inside the LLM itself* once it reads that combined prompt. That's exactly what the next two terms explain.
+
+**One line:** Context augmentation = concatenating the retrieved chunks with the user's question into a single prompt — the "fusing" is just prompt-building, and all the real intelligence happens afterward, inside the LLM that reads this augmented prompt.
+
+### 5. Transformer-Based Architecture
+
+*(Step 2: Fuse the Data)*
+
+**In one sentence:** the generative model in this step — GPT, LLaMA, etc. — *is* a transformer; "transformer-based architecture" just means the engine doing the reading and writing here is built the way your Week 1 note already covers.
+
+You have the full deep-dive already in *1.The Evolution of Transformers to Large Language Models (LLMs).md* (Week 1). The one thing worth restating simply for this step:
+
+A transformer reads the **entire augmented prompt at once** — question, retrieved chunks, and instructions, all together as one sequence — rather than one isolated word at a time. That "read everything together, and weigh how each part relates to every other part" ability is exactly why it can take a pile of retrieved text plus a question and produce one coherent answer. And "weighing how each part relates to every other part" is precisely the attention mechanism, covered next.
+
+**One line:** The generative model that does the fusing and answering is a transformer, the same architecture from your Week 1 notes, and its defining trick is reading the whole augmented prompt at once rather than word by word — which is what makes combining retrieved context with a question actually work.
+
+### 6. Attention Mechanism
+
+*(Step 2: Fuse the Data)*
+
+**In one sentence:** attention is how the model decides, for every word it's about to write, *which* words in the prompt matter most right now.
+
+**Simple example.** In the sentence *"The trophy didn't fit in the suitcase because **it** was too big,"* what does "it" refer to — the trophy or the suitcase? A human instantly knows: the trophy. Attention is the mechanism that lets the model do the same — for the word "it," it looks back across the sentence and assigns a **high weight** to "trophy" and a **low weight** to "suitcase."
+
+**In RAG specifically**, attention is what lets the model, while writing the answer, constantly glance back at the retrieved chunks and decide which sentence is actually relevant to the word it's producing right now, instead of treating the whole context as one equally-important blob:
+
+```
+Question: "How do I reset my password?"
+
+Chunk 1: "Go to Settings > Security > Reset..."     ← high attention
+Chunk 2: "Password resets require email verify."    ← medium attention
+Chunk 3: (unrelated leftover text)                   ← low attention
+
+Model writes: "Go to Settings, then Security, then Reset..."
+```
+
+The model doesn't read top to bottom like a human — for every single word it generates, it re-checks the *whole* prompt and re-weighs what matters. That re-weighing, redone at every step, is literally what "attention" computes.
+
+**Simple analogy 🔦:** Attention is like a spotlight the model can swing anywhere across the page while writing each word — it can shine brightest on the one sentence in the retrieved context that actually answers the question, and dim everything else, without losing sight of the rest of the page.
+
+**One line:** Attention is the mechanism that lets the model weigh which words or retrieved sentences matter most for whatever it's producing right now, which is exactly what makes it possible to fuse a pile of retrieved chunks with a question into one focused answer instead of treating everything as equally important.
+
+### 7. Context Window
+
+*(Step 2: Fuse the Data)*
+
+**In one sentence:** the context window is the maximum amount of text — question, retrieved chunks, and instructions, all counted together — that the model can look at in one go; anything beyond that limit simply doesn't fit.
+
+Text is measured in **tokens** (roughly ¾ of a word each — "reset" ≈ 1 token, "unbelievable" ≈ 2–3). Every model has a maximum token count it can accept at once. Older, smaller models cap out around a few thousand tokens; newer ones allow far more — but every model has *some* ceiling.
+
+**Why this matters for RAG specifically:**
+
+```
+Context window budget (example): 8,000 tokens
+
+  Instructions / system prompt          ~200 tokens
+  User's question                       ~20 tokens
+  Retrieved chunks (top-K)              ~??? tokens   ← the variable part
+  Room left for the model's answer      ~500 tokens
+```
+
+If Step 1 retrieves too many chunks, or chunks that are too large, they can overflow the context window — meaning some retrieved information the model was *supposed* to use never actually reaches it. This is exactly why **top-K** and **chunk size** from Step 1 aren't arbitrary choices — they're picked to fit comfortably inside the context window, leaving room for the question, instructions, and the model's own answer.
+
+**Simple analogy 🗄️:** The context window is like the size of a desk. You can only spread out so many documents on it at once. Bring more than fit, and some get pushed off the edge — the model literally never sees them, however relevant they might have been.
+
+**One line:** The context window is the hard cap on how much text — question, instructions, and retrieved chunks together — the model can process in a single pass, measured in tokens, and it's exactly why chunk size and top-K from Step 1 have to be chosen carefully: retrieve too much and some of it simply won't fit.
+
+---
+
 
 ## Q&A
 
