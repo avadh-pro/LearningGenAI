@@ -187,19 +187,28 @@ That second stage is called **reranking**.
 
 ## Q&A
 
-*Questions asked while working through the deep dive above, with answers, kept for future reference.*
+Every question asked while working through this file is logged here, grouped under the step it belongs to. Each entry follows the same blog-style block, so it's easy to see where one question ends and the next begins:
+
+- A `---` rule opens the block, and a `---` rule closes it.
+- A numbered heading names the topic.
+- The question is quoted **as asked**, then restated as a **Refreshed** version.
+- The **Answer** follows, then an *(End of Qn)* marker before the closing rule.
 
 ### Knowledge Base
 
+*(no questions yet)*
+
 ### Step 1: Query the Knowledge Base
 
-#### Q1
+---
 
-**Question (as asked):** "We have a dense vector retrieval and the sparse vector retrieval. So the dense vector retrieval is nothing but a semantic search, which searches for the meaning, and not the exact keyword. But as the sparse vector retrieval is the keyword searching, which is something like BM25. I'm not wrong?"
+### 🟩 Q1 · Dense Retrieval vs. Semantic Search, Sparse Retrieval vs. BM25
 
-**Refreshed Question:** Is dense vector retrieval the same thing as semantic search, and is sparse vector retrieval the same thing as keyword search like BM25?
+> **🗣️ Asked (as said):** "We have a dense vector retrieval and the sparse vector retrieval. So the dense vector retrieval is nothing but a semantic search, which searches for the meaning, and not the exact keyword. But as the sparse vector retrieval is the keyword searching, which is something like BM25. I'm not wrong?"
+>
+> **✍️ Refreshed:** Is dense vector retrieval the same thing as semantic search, and is sparse vector retrieval the same thing as keyword search like BM25?
 
-**Answer:**
+**💡 Answer**
 
 **Verdict: almost exactly right, with one small precision worth knowing.**
 
@@ -216,7 +225,14 @@ In practice, when anyone says "semantic search" today, they mean dense vector re
 
 **One line:** You're right — sparse retrieval is keyword search (BM25-style), and dense vector retrieval is what people mean when they say "semantic search," searching by meaning instead of exact words; the only nuance is that semantic search is the goal and dense vector retrieval is the specific technique that delivers it.
 
+*(End of Q1)*
+
+---
 
 ### Step 2: Fuse the Data
 
+*(no questions yet)*
+
 ### Step 3: Generate a Response
+
+*(no questions yet)*
