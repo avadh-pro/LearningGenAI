@@ -457,6 +457,49 @@ So your instinct is right in spirit: the names "bi-" and "cross-" describe *how 
 
 ---
 
+### 🟩 Q7 · Do Both Bi-Encoder and Cross-Encoder Just "Embed the Query"? *(follow-up to Q6)*
+
+> **🗣️ Asked (as said):** "You're saying that the bi-encoder and cross-encoder use a transformer model to turn text into a representation. Here, we're simply talking about embedding the query, right? And both the bi-encoder and cross-encoder could use the same transformer model to embed the query — correct?"
+>
+> **✍️ Refreshed:** Since both bi-encoder and cross-encoder use a transformer model to turn text into a representation, is that representation just the query's embedding — and could both use the exact same transformer model to do that embedding?
+
+**💡 Answer**
+
+**Two things to correct here, both important.**
+
+**❌ Correction 1 — "we're simply talking about embedding the query" is only true for the bi-encoder.** The cross-encoder does **not** produce a query embedding at all. It never outputs a standalone vector for the query. Instead, it glues the query and **one document together** into a single input, and outputs **one number** — a relevance score (e.g. `0.87`). There's no "query representation" sitting on its own anywhere in that process.
+
+```
+BI-ENCODER                              CROSS-ENCODER
+─────────────                           ──────────────
+query  → [transformer] → vector A       query + document (glued together)
+doc    → [transformer] → vector B              → [transformer]
+                                                → single relevance score
+vector A vs vector B
+→ compared afterward (cosine similarity)  (no separate vectors exist at all)
+```
+
+So: bi-encoder → produces embeddings (plural: one for the query, one for each document). Cross-encoder → produces a score, not an embedding.
+
+**❌ Correction 2 — "the same transformer model" needs a nuance.** They can share the same *starting point* (e.g. both might begin from a base model like BERT), but in a real pipeline they end up as **two separately fine-tuned models**, not one shared model doing double duty:
+
+| | Bi-encoder | Cross-encoder |
+|---|---|---|
+| Trained to do what | Produce vectors that land close together *when compared by math afterward* | Directly output a good relevance score for a *pair* fed in together |
+| Can reuse the other's trained weights? | ❌ No — a model trained for joint scoring doesn't produce good standalone vectors |
+| Base architecture | Often the same family (e.g. BERT) | Often the same family (e.g. BERT) |
+
+A plain, un-fine-tuned BERT model actually produces mediocre standalone embeddings — that's a well-known finding, which is *why* bi-encoder models (like Sentence-BERT) needed their own special fine-tuning recipe to become good at it. So "same transformer *architecture* as a starting point" — often yes. "Same trained model file doing both jobs interchangeably" — no, in practice they're trained separately for their own job.
+
+**Simple analogy 📝:** The bi-encoder librarian writes a one-line summary card for your request, and a separate one-line card for each book, then compares the two cards side by side. The cross-encoder librarian doesn't write any card at all — they just read your request and one book together in one sitting and tell you a score out of 10. No "representation of your request" exists on its own in that second case.
+
+**One line:** Only the bi-encoder is really "embedding the query" — it produces a standalone vector; the cross-encoder skips embeddings entirely and outputs a single relevance score for the query-and-document pair jointly, and while both may start from the same base transformer architecture, they end up as two separately fine-tuned models rather than one shared model used for both jobs.
+
+*(End of Q7)*
+
+---
+
+
 
 
 ### Step 2: Fuse the Data
