@@ -283,7 +283,68 @@ In practice, when anyone says "semantic search" today, they mean dense vector re
 
 *(End of Q3)*
 
+---
 
+### 🟩 Q4 · Where Does Each Retrieval Algorithm Actually Run? (Hybrid Search, Visualized)
+
+> **🗣️ Asked (as said):** "The first step, when the user asks a question, is basically a retrieval stage of knowledge that we have stored using embeddings, because the LLM understands embeddings. But there could be a hybrid approach here, where keyword search plus semantic search comes into play, and each would have a different algorithm. For example, in the case of semantic search, there would be a dense vector retrieval algorithm used. So exactly where does this algorithm lie — does it lie on the vector database where the embedding is stored, or before, or after that stage? I'm confused here. Explain in the simplest manner, and if you could visually explain the answer, that would be much better."
+>
+> **✍️ Refreshed:** In a hybrid search setup, where does each retrieval algorithm actually run — is the dense vector retrieval algorithm part of the vector database itself, or does it happen before or after the vector database stores the embeddings?
+
+**💡 Answer**
+
+**One small correction first:** the LLM does not read embeddings. It only ever reads **plain text**. Embeddings are a purely *internal* tool used to *find* the right text — once the right chunks are found, the actual retrieved sentences (not the vectors) get handed to the LLM in Step 2. Keep that in mind below.
+
+**Now the main question — where does each algorithm live?** In a hybrid setup, keyword search and semantic search are actually **two separate systems running side by side**, not one system with two modes. Here's the full picture:
+
+```
+                              USER QUERY
+                                   │
+                 ┌─────────────────┴─────────────────┐
+                 │                                     │
+          KEYWORD PATH                          SEMANTIC PATH
+          (sparse / BM25)                        (dense vector)
+                 │                                     │
+        query used as raw text              ① Embedding Model
+        (no embedding needed)                  ← runs BEFORE the
+                 │                               vector database
+                 ▼                                     ▼
+   ② Keyword Search Engine              ③ Vector Database
+      (inverted index)                     (stores the vectors AND
+      ★ BM25 algorithm                       runs the ANN/HNSW
+        RUNS HERE                             search algorithm)
+                 │                          ★ dense retrieval
+                 │                            algorithm RUNS HERE
+                 │                                     │
+                 └───────────────┬─────────────────────┘
+                                  ▼
+                    ④ Fusion / Reranking
+                    ← happens in your APPLICATION code,
+                      AFTER both engines reply — not
+                      inside either engine
+                                  ▼
+                    Top-K relevant TEXT CHUNKS
+                    (plain text, not vectors!)
+                                  ▼
+                    Passed to the LLM (Step 2: Fuse the Data)
+```
+
+**In words, the four locations:**
+
+| # | Component | Where does it actually run? |
+|---|---|---|
+| ① | Embedding model (text → vector) | **Before** the vector database — a separate model, used both when the documents were first indexed and again on the live query |
+| ② | Keyword algorithm (BM25) | **Not related to the vector database at all** — a completely separate search engine, built on raw text |
+| ③ | Dense retrieval algorithm (ANN, e.g. HNSW) | **Inside** the vector database — running that search *is* the database's actual job |
+| ④ | Merging keyword + semantic results | **After** both engines reply, in your own application/orchestration code |
+
+**Simple analogy 🏪:** Imagine two separate shops next door to each other — a "keyword shop" (a librarian with a card catalog of exact words) and a "meaning shop" (a librarian who's memorized what every book is *about*). You send your question to both at once. Each shop does its own search using its own method. Then a manager standing outside both shops (your application code) compares the two shortlists and picks the best combined list. Neither shop knows the other exists.
+
+**One line:** Keyword search and dense vector retrieval are two independent systems, not two settings on one database — the embedding model runs *before* the vector database, the dense-retrieval algorithm (like HNSW) runs *inside* it, BM25 runs in a completely separate keyword engine, and combining both results happens *after*, in your application code — and either way, what finally reaches the LLM is plain retrieved text, never the vectors themselves.
+
+*(End of Q4)*
+
+---
 
 ### Step 2: Fuse the Data
 
