@@ -56,7 +56,7 @@ Each step above is packed with technical terms. This section unpacks them one at
 | — | Embeddings | Knowledge base | ✅ Covered in *Introduction to Vector Embeddings* (Week 2) |
 | — | Vector database, indexing, HNSW, ANN | Knowledge base | ✅ Covered in *Introduction to Vector Database* Q1–Q5 |
 | 1 | **Dense vector retrieval** | Step 1 | ✅ Done |
-| 2 | Semantic search | Step 1 | ⬜ |
+| 2 | Semantic search | Step 1 | ✅ Answered directly in Step 1 Q&A (Q1) |
 | 3 | Chunking ("data segments") + top-K | Step 1 | ⬜ |
 | 4 | Context augmentation (how query + docs are actually "fused") | Step 2 | ⬜ |
 | 5 | Transformer-based architecture | Step 2 | ⬜ |
@@ -192,6 +192,30 @@ That second stage is called **reranking**.
 ### Knowledge Base
 
 ### Step 1: Query the Knowledge Base
+
+#### Q1
+
+**Question (as asked):** "We have a dense vector retrieval and the sparse vector retrieval. So the dense vector retrieval is nothing but a semantic search, which searches for the meaning, and not the exact keyword. But as the sparse vector retrieval is the keyword searching, which is something like BM25. I'm not wrong?"
+
+**Refreshed Question:** Is dense vector retrieval the same thing as semantic search, and is sparse vector retrieval the same thing as keyword search like BM25?
+
+**Answer:**
+
+**Verdict: almost exactly right, with one small precision worth knowing.**
+
+**Half 2 first, since it's fully correct:** Sparse vector retrieval = keyword search = things like BM25 or TF-IDF. Yes, that's exactly it. It matches on exact words, not meaning.
+
+**Half 1, the small precision:** Dense vector retrieval and semantic search are used interchangeably almost everywhere, and for everyday purposes you're right to treat them as the same. The tiny technical difference:
+
+- **Semantic search** = the *goal*. "Search by meaning, not exact words."
+- **Dense vector retrieval** = the *method* used today to achieve that goal, using embeddings + a vector database.
+
+**Simple analogy 🎯:** "Semantic search" is like saying "I want to find books by topic." "Dense vector retrieval" is like saying "I'll do that by turning every book into a GPS coordinate on a map of topics, and finding the ones closest to where my question sits." One is the *what*, the other is the *how*.
+
+In practice, when anyone says "semantic search" today, they mean dense vector retrieval. There's no other popular way to do semantic search right now. So your statement is correct for all practical purposes — just remember dense vector retrieval is the technique, semantic search is the name for what that technique achieves.
+
+**One line:** You're right — sparse retrieval is keyword search (BM25-style), and dense vector retrieval is what people mean when they say "semantic search," searching by meaning instead of exact words; the only nuance is that semantic search is the goal and dense vector retrieval is the specific technique that delivers it.
+
 
 ### Step 2: Fuse the Data
 
