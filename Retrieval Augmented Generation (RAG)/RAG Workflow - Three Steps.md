@@ -598,7 +598,7 @@ A plain, un-fine-tuned BERT model actually produces mediocre standalone embeddin
 
 ---
 
-### 🟩 Q8 · Mind Map: How Dense Vector Retrieval Fits Into Everything *(summary of Q1–Q7)*
+### 🟩 Q8 · Mind Map: How Dense Vector Retrieval Fits Into Everything *(summary of Q1–Q7 — revised after Q9–Q10's correction)*
 
 > **🗣️ Asked (as said):** "I need you to create something like a mind map of the things in the Q&A we're creating right now, revolving around dense vector retrieval. Dense vector retrieval is nothing but a semantic search, right, and it's one of the methods by which we do semantic search — there could be many other methods too. And as you said earlier, dense vector retrieval is based on some embedding models, correct? And there are other related things, like ANN and HNSW, that do the actual retrieval. I want you to map things in a hierarchical way — what comes first, what comes last, and how the things relate to each other. Visually explain this with a mind map."
 >
@@ -606,7 +606,9 @@ A plain, un-fine-tuned BERT model actually produces mediocre standalone embeddin
 
 **💡 Answer**
 
-**Your synthesis is exactly right, all four pieces.** Dense vector retrieval is a method of semantic search, not the only one; it's built on an embedding model; and ANN/HNSW are the retrieval machinery underneath it. Here's all of that laid out as one map, split into two views: **how things relate** and **what happens in what order**.
+**📝 Revision note:** the first version of this map placed bi-encoder and cross-encoder as flat siblings under "embedding model," which correctly showed they're both transformer-based encoding strategies, but wrongly implied cross-encoder sits at the *same point* in the pipeline as bi-encoder. Q9 and Q10 corrected this: they're two of **three sequential stages**, and cross-encoder depends on the *search* stage's output (as text), never on the bi-encoder's vectors. This version fixes that.
+
+**Your original synthesis is still exactly right:** dense vector retrieval is a method of semantic search, not the only one; it's built on an embedding model; and ANN/HNSW are the retrieval machinery underneath it.
 
 **View 1 — Relationships (what belongs under what):**
 
@@ -627,52 +629,53 @@ A plain, un-fine-tuned BERT model actually produces mediocre standalone embeddin
    │                                            │
 BUILT ON:                              STORED / SEARCHED IN:
 Embedding Model                        Vector Database
-(often a transformer,                          │
- e.g. BERT-based)                    ┌─────────┴──────────┐
+(a transformer,                                │
+ uses ATTENTION internally)          ┌─────────┴──────────┐
    │                                 │                     │
-   uses ATTENTION               Indexing                ANN search
-   internally to build          (e.g. HNSW —            (Approximate Nearest
-   the embedding                 layered graph,          Neighbor — trades a
-   │                              "highways + local        little accuracy for
-   │                              roads")                  a lot of speed)
-   ├── Bi-encoder — query & doc encoded SEPARATELY
-   │      → 2 vectors, compared by cosine similarity → FAST (does the first pass)
-   │
-   └── Cross-encoder — query + ONE doc encoded TOGETHER
-          → 1 relevance score, not a vector → SLOW (used only to RERANK after)
-
-RULE HOLDING ALL OF THIS TOGETHER:
-Query and documents must go through the SAME embedding model —
-otherwise their vectors live in different, incomparable "meaning spaces."
+   RULE: query & docs MUST      Indexing                ANN search
+   use the SAME model           (e.g. HNSW —            (or brute-force —
+   (else vectors land in         layered graph)          either way, this
+   different, incomparable                               IS "Stage 2" below)
+   "meaning spaces")
 ```
 
-**View 2 — Sequence (what actually happens, in order):**
+**View 2 — The Three Sequential Stages (this is where bi-encoder and cross-encoder actually live — corrected):**
 
 ```
-OFFLINE — done once, ahead of any user
- ①  Documents → chunked → embedding model (attention runs inside it) → vectors
- ②  Vectors → stored + indexed (HNSW) → Vector Database
+STAGE 1 — ENCODE   (this is the "bi-encoder")
+  Query text  →  embedding model  →  query vector
+  Doc text    →  embedding model  →  doc vector    (done OFFLINE, ahead of time)
+  → produces VECTORS only. Nothing is searched or compared yet.
 
-ONLINE — every time a user asks something
- ③  Query → the SAME embedding model → query vector
- ④  Vector DB runs ANN search → closest stored vectors found
- ⑤  DB returns the TEXT paired with those vectors
-     (never the vector itself — a stored lookup, nothing "decoded")
- ⑥  (optional) Cross-encoder reranks the shortlist for extra precision
+                              │
+                              ▼
 
- ══════════════════ Step 1 / Step 2 boundary ══════════════════
- Only the TEXT crosses this line.
- Embeddings, ANN scores, and Step 1's attention computations
- are all discarded right here.
+STAGE 2 — SEARCH   (the vector database: indexing + ANN, or brute-force)
+  query vector compared against ALL stored document vectors
+  → shortlist of top-K candidates, returned as TEXT
+    (never as vectors — nothing is "decoded," see Q5)
 
- ⑦  Step 2's generative model runs its OWN, separate attention
-     mechanism over that plain text — unconnected to anything
-     computed back in Step 1.
+                              │
+                              ▼
+
+STAGE 3 — RERANK   (this is the "cross-encoder") — OPTIONAL
+  INPUT: query TEXT + each shortlisted document's TEXT
+         (plain text only — this NEVER touches Stage 1's vectors)
+  → re-reads query + document TOGETHER, from scratch, per pair
+  → outputs a fresh relevance score → shortlist reordered / narrowed
+    (depends on Stage 2's SELECTION, not on Stage 1's computation)
+
+                              │
+                              ▼
+
+              Final TEXT chunks  →  Step 2 (the LLM)
 ```
 
-**How to read it:** View 1 answers "what is dense vector retrieval built from, and what's it a sibling of?" View 2 answers "in what order does this actually run, and where does it hand off to Step 2?" Every box in both diagrams traces back to a question you've already asked: semantic search's siblings from Q2, keyword-vs-meaning from Q3, where each algorithm runs from Q4, the embedding-to-text lookup from Q5, bi-/cross-encoder from Q6–Q7, and the attention hand-off at the very bottom of View 2 from Step 2's Q2.
+**The rule this map hangs on:** Stage 1 (bi-encoder) and Stage 2 (search) are independent axes — swap ANN for brute-force and Stage 1 doesn't change (Q9). Stage 3 (cross-encoder) is a separate, later stage that reads Stage 2's *shortlist selection*, but rebuilds its understanding of the text from zero — it never reuses a single vector from Stage 1 (Q10).
 
-**One line:** Dense vector retrieval is one of four methods under the broader goal of semantic search, built on an embedding model (which itself uses attention internally) that's required to be identical for query and documents, stored and searched via a vector database's indexing (HNSW) and ANN algorithm, optionally refined by a slower cross-encoder rerank — and the entire chain ends the moment the matching text is found, since only that text, never the vectors or attention state, crosses into Step 2.
+**How to read it:** View 1 answers "what is dense vector retrieval built from, and what's it a sibling of?" View 2 answers "in what order does this run, and exactly what does each stage hand to the next?" Every box traces back to a question you've asked: semantic search's siblings (Q2), keyword-vs-meaning (Q3), where each algorithm runs (Q4), the embedding-to-text lookup (Q5), bi-/cross-encoder (Q6–Q7), their independence (Q9), and cross-encoder's real dependency (Q10).
+
+**One line:** Dense vector retrieval is one of four semantic search methods, built on an embedding model whose vectors get produced in an encode stage (bi-encoder), compared in a search stage (ANN/brute-force inside a vector database), and optionally refined in a rerank stage (cross-encoder) that depends only on *which* candidates the search stage selected — never on the encode stage's actual vectors — with just the resulting plain text crossing into Step 2 at the very end.
 
 *(End of Q8)*
 
