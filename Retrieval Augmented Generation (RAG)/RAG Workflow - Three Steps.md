@@ -905,10 +905,10 @@ Say you already know (ground truth) there are **3 target fish** hiding somewhere
 - **Recall — 'Of everything I was hoping to catch, how much did I actually get?'** *(you had this exactly right)*
   There were 3 target fish total in the lake, you caught 2 of them → **Recall = 2/3 ≈ 67%**. This is about *completeness* — it doesn't care how much junk is also in your net, only how much of the good stuff you didn't miss.
 
-- **MRR — 'How many empty nets did I pull up before I got my FIRST target fish?'**
+- **MRR, short for Mean Reciprocal Rank — 'How many empty nets did I pull up before I got my FIRST target fish?'**
   Forget the rest of the catch entirely — MRR only asks: was your very first fish a target? If yes, perfect score. If your first 2 pulls were junk and the 3rd was finally a target fish, that's a worse score, even if your final net eventually had plenty of good fish in it. It's purely about **how fast you hit something good**, averaged across many separate fishing trips (queries).
 
-- **NDCG — 'Not just did I catch good fish — did I catch the BEST fish first?'**
+- **NDCG, short for Normalized Discounted Cumulative Gain — 'Not just did I catch good fish — did I catch the BEST fish first?'**
   Say one of your target fish is a huge prize catch, and the other is a small, so-so one. NDCG checks whether the prize fish came up *before* the so-so one. If your net order was [prize fish, junk, junk, so-so fish], that scores well. If it was [so-so fish, junk, junk, prize fish] — same 2 fish caught, same precision and recall — NDCG scores it *worse*, because your best catch was buried near the bottom instead of sitting at the top.
 
 **Mapped onto the actual example (query: 'reset password,' ground truth: A, D, F are correct; system returned A, B, C, D, E in that order):**
@@ -926,8 +926,8 @@ F, the one truly relevant doc that never showed up at all, is exactly what Recal
 |---|---|
 | Precision@K | Of what I showed, how much was actually good? |
 | Recall@K | Of everything good that exists, how much did I find? |
-| MRR | How fast did I hit the first good one? |
-| NDCG | Is my *very best* result sitting at the top, not buried? |
+| MRR (Mean Reciprocal Rank) | How fast did I hit the first good one? |
+| NDCG (Normalized Discounted Cumulative Gain) | Is my *very best* result sitting at the top, not buried? |
 
 ---
 
