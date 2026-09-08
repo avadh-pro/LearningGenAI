@@ -603,6 +603,55 @@ A plain, un-fine-tuned BERT model actually produces mediocre standalone embeddin
 
 ### Step 2: Fuse the Data
 
+---
+
+### 🟩 Q1 · "Reweighting, Redone at Every Step" — Do the Model's Weights Actually Change? *(follow-up to the Attention Mechanism deep dive)*
+
+> **🗣️ Asked (as said):** "In the case of the attention mechanism, can you tell me what you mean by 'reweighting' and 'redone at every step'? Are the weights adjusted every time? I think no, because the pretrained model has its weights already computed — unless you fine-tune it, it does not change. But I think what I mean is the weights of the prompt. Also, can we tweak the attention mechanism, how it's configured, or is it fixed? For example, in the retrieval part we have some free hand — we can adjust things here and there, right? But the generation part, does it all depend on what kind of generation model we use — correct?"
+>
+> **✍️ Refreshed:** Does "reweighting, redone at every step" mean the model's trained parameters change each time, or something else, like per-prompt importance scores? And can the attention mechanism itself be configured or tweaked by us, or is it entirely fixed by whichever generation model we choose — unlike retrieval, where we have more freedom to adjust things?
+
+**💡 Answer**
+
+**Your instinct is exactly right, and it points at a genuine terminology clash.** There are two completely different things both called "weights," and my earlier answer used the word for the second one without flagging that.
+
+**✅ You're correct: the model's trained parameters never change during inference.** Those are the billions of numbers set once during training (and only ever changed again through fine-tuning). They're frozen. Nothing about answering your specific question adjusts them.
+
+**❌ What I meant by "reweighting" is something else entirely: attention scores** — and your own guess, "weights of the prompt," is exactly the right correction. Here's the distinction:
+
+| | Model weights (parameters) | Attention weights (scores) |
+|---|---|---|
+| What it is | The trained W_Q, W_K, W_V matrices inside the model | A number saying "how much should this word attend to that word" |
+| Where it comes from | Learned once, during training | Calculated fresh from (fixed parameters) × (your specific input) |
+| Does it get stored? | Yes — it's part of the model file | No — computed, used, then thrown away |
+| Does it change per-query? | ❌ No | ✅ Yes, completely different every time |
+
+**Concrete walkthrough:** the *fixed* matrices (W_Q, W_K, W_V) take your input tokens and project them into "query," "key," and "value" vectors. The model then compares queries against keys (a dot product) and turns that into a set of scores that sum to 1 — *those scores* are the "attention weights" I meant. They're a live calculation *using* the fixed parameters, not the parameters themselves.
+
+**Why "redone at every step":** in autoregressive generation, the model produces one word, appends it to the sequence, then has to decide the *next* word — which means re-running that score calculation, now including the newly added word. One practical nuance worth knowing: real systems use a **KV cache**, so the key/value vectors for *already-processed* words aren't recomputed from scratch each time — only the brand-new word's query gets freshly compared against everything cached so far. So it's not *all* redone every step, but the actual attention *scores* for the new token genuinely are calculated fresh, every single step.
+
+**Simple analogy 🧮:** the model's parameters are like a fixed calculator — the buttons and their functions never change. Attention weights are like the *answer* you get when you type in a specific sum. The calculator (parameters) is frozen; the answer (attention scores) is different every time you use it, because the input is different.
+
+---
+
+**Now the second part — can we configure attention, and is generation truly "no free hand" compared to retrieval?**
+
+**Right in spirit, a bit too absolute in practice.** You're correct that you can't reach in and rewire *how* attention computes (how many heads, whether it's causal, the hidden size) — that's baked into whichever model you're using, the same way you can't edit GPT's or LLaMA's source code through an API call. But "no free hand at all" overstates it. Both steps actually follow the *same* pattern: you configure a pipeline around a black-box core, and the box's internals aren't yours to touch unless you go deeper.
+
+| | What you **can** adjust | What's **fixed**, baked into the tool you picked |
+|---|---|---|
+| **Step 1: Retrieval** | Embedding model choice, chunk size, top-K, hybrid search weighting, reranking | The literal math inside that embedding model / ANN algorithm |
+| **Step 2: Generation** | Prompt content & structure, decoding settings (temperature, top-p, max tokens), system instructions, **which model you call**, fine-tuning (if you have the weights) | The attention mechanism's internal architecture — number of heads, layers, causal masking |
+
+So at generation time you do still have real levers: how you write the prompt directly shapes *what* the (fixed) attention mechanism ends up focusing on, decoding parameters shape how the output is sampled, and choosing a different model is itself a form of choosing a different "attention design." And if you're working with an *open-weight* model (like the LoRA/QLoRA fine-tuning from your Week 2 notes), fine-tuning actually **does** adjust the trained W_Q/W_K/W_V matrices through further training — so even attention's *learned behavior* isn't permanently untouchable, just not something you tweak casually through a prompt.
+
+**Simple analogy 🚗:** you can't redesign the engine (attention internals) of a car you don't own the blueprints for. But you still choose *which car* to drive (model choice), *how* you drive it (prompt + decoding settings), and if you own the engine outright (open-weight model), a mechanic *can* retune it (fine-tuning) — just not usually rebuild it from scratch.
+
+**One line:** You're right that the model's trained parameters never change per-query — what I called "reweighting, redone at every step" is the attention *scores*, a fresh, per-prompt, per-step calculation made using those fixed parameters, exactly matching your own correction to "weights of the prompt"; and generation isn't truly "no free hand" — you can't rewire attention's internals through a prompt, but prompt design, decoding settings, model choice, and fine-tuning (on open-weight models) are all real levers, just a different *kind* of lever than retrieval's.
+
+*(End of Q1)*
+
+
 *(no questions yet)*
 
 ### Step 3: Generate a Response
