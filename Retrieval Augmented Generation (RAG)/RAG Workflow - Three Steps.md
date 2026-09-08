@@ -892,14 +892,38 @@ Each individual number gets rounded to something coarser — '0.83' instead of '
 
 **🎙️ Interview Q7:** "How would you evaluate whether your retrieval step is actually working well?"
 
-**✅ Strong answer:** "Treat retrieval as its own testable component, separate from generation quality — build a labeled evaluation set of queries with known relevant chunks, and track standard ranking metrics whenever you change the embedding model, chunking, or top-K."
+**✅ Strong answer, broken down with one running example:** "Treat retrieval as its own testable component, separate from generation quality — build a labeled evaluation set of queries with known relevant chunks, and track standard ranking metrics whenever you change the embedding model, chunking, or top-K. Here's exactly what those metrics mean — and to clear up one likely mishearing, it's **MRR**, not MRI — walked through with one running example.
 
-| Metric | What it measures |
+**The setup:** someone searches *'How do I reset my password?'* We know ahead of time that only **3 documents** in the whole knowledge base are truly relevant — call them **A, D, and F**. The system searches and returns its top 5 results, in this order:
+
+```
+1st: A   → relevant ✅
+2nd: B   → not relevant ❌
+3rd: C   → not relevant ❌
+4th: D   → relevant ✅
+5th: E   → not relevant ❌
+
+(F, the third truly relevant doc, didn't make the top 5 at all.)
+```
+
+**Precision@5 — 'Of what I showed the user, how much was actually useful?'**
+2 of the 5 results shown (A and D) are relevant → **Precision@5 = 2/5 = 40%**
+
+**Recall@5 — 'Of everything that truly mattered, how much did I manage to find?'**
+2 of the 3 truly relevant docs (A and D) made it into the top 5; F was missed → **Recall@5 = 2/3 ≈ 67%**
+
+**MRR (Mean Reciprocal Rank) — 'How quickly does the user hit something useful?'**
+The *first* relevant result was A, sitting at position 1 → reciprocal rank = 1/1 = **1** (a perfect score for this query). If the first relevant result had instead been 3rd in line, that query's score would only be 1/3. MRR is this number averaged across many test queries — a high MRR means users rarely have to scroll past junk before finding something good.
+
+**NDCG — 'Is the BEST content at the top, not just present somewhere?'**
+This one adds a twist: not all relevant results are equally good. Say A is a perfect answer and D is only somewhat helpful — NDCG rewards A sitting at position 1 more than it would if D had somehow outranked A. It's the stricter cousin of Precision/Recall: it doesn't just ask 'is the good stuff in there,' it asks 'is my *best* stuff at the *top*.'"
+
+| Metric | The one-line question it answers |
 |---|---|
-| Precision@K | Of the K chunks retrieved, how many are actually relevant |
-| Recall@K | Of all truly relevant chunks, how many made it into the top K |
-| MRR (Mean Reciprocal Rank) | How high up the *first* relevant result lands |
-| NDCG | Rewards relevant results ranked higher, and can weight by *degree* of relevance |
+| Precision@K | Of what I showed, how much was useful? |
+| Recall@K | Of what mattered, how much did I find? |
+| MRR | How fast did I hit something useful? |
+| NDCG | Is my *best* result actually on top? |
 
 ---
 
