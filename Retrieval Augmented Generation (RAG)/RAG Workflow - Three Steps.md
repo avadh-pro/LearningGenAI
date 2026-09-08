@@ -818,42 +818,6 @@ an ANN algorithm like HNSW, running over quantized (compressed) vectors.
 
 ---
 
-### 🟩 Q12 · Does MRR Vary on Repeated Queries, and How Do You Find the Query Dragging the Average Down? *(follow-up to Interview Q7)*
-
-> **🗣️ Asked (as said):** "Because retrieval isn't predefined — let's say we have top-5 K configured, and the user asks the same query again and again — could MRR be different each time? And you said MRR across different queries is averaged, right? So if we ask ten queries and the average comes close to 1, does that mean the response for every one of those ten queries was very fast? But if the MRR across the ten queries is 0.1, which is very bad — or say 0.5 or 0.6 — how do I know which particular query is making that MRR score poor? Does the MRR average score measure one query asked multiple times, or different queries asked once or multiple times?"
->
-> **✍️ Refreshed:** (1) If the same query is asked repeatedly with a fixed top-K, would MRR vary between repeats? (2) Does a high average MRR guarantee every individual query did well, and if a middling average shows up, how do you find which specific query is dragging it down? (3) Is MRR's average computed over one query asked many times, or over different queries?
-
-**💡 Answer**
-
-**Part 1 — repeated queries: no, MRR shouldn't normally vary, and this reveals an important difference from Step 2.** Retrieval, for the exact same query text against an *unchanged* index, is normally **deterministic** — the same embedding model produces the same query vector every time, and ANN search over the same stored vectors returns the same top-K in the same order every time. So the reciprocal rank for a literal repeat of the same query should come out identical each time. It would only genuinely change if something *upstream* changed between the two calls: the document corpus was updated (new or removed documents), a query-rewriting step introduced some randomness before embedding, or — rarely — tiny floating-point non-determinism in some implementations. This is worth sitting with: retrieval is not probabilistic the way text generation is; if a repeated query starts returning different results, that's a signal something changed, not expected day-to-day behavior.
-
-**Part 3, answered first since it resolves Part 1's premise — MRR is averaged over *different* queries, not the same query repeated.** Since retrieval is deterministic (Part 1), averaging repeats of one identical query would just give you that same number back — no new information. The entire point of "Mean" in Mean Reciprocal Rank is to summarize performance across a **diverse set of different test queries** (a benchmark you built with known correct answers) into one overall health score for the system.
-
-**Part 2 — does a near-1 average guarantee every query did well? Close to yes, but the reasoning matters, and it flips once you move away from the extreme.** Reciprocal rank has a hard ceiling of **1** (only reached when the first relevant result sits at position 1). If the average across 10 queries is very close to 1 — say 0.95 — nearly every query *must* be close to perfect too, because no single query can score above 1 to cover for a bad one. But your instinct to be suspicious is exactly right once the average drops toward the middle of the range, because **the same average can hide completely different realities:**
-
-```
-Scenario A — everyone mediocre:
-  10 queries, each scoring 0.55  →  average = 0.55
-
-Scenario B — half perfect, half broken:
-  5 queries scoring 1.0, 5 queries scoring 0.1
-  →  average = (5×1.0 + 5×0.1) / 10 = 5.5 / 10 = 0.55
-
-BOTH give the identical average MRR of 0.55 — but Scenario A means
-"consistently okay for everyone," while Scenario B means "great half
-the time, badly broken the other half." The average alone cannot
-tell you which one you're looking at.
-```
-
-**So how do you actually find the query dragging the score down? You can't from the average alone — you need the per-query breakdown, not just the mean.** In practice: keep every individual query's reciprocal rank score, not just the aggregate; sort them from worst to best; and manually inspect the worst performers looking for a pattern — maybe every failing query shares a topic the knowledge base covers poorly, uses jargon the embedding model doesn't handle well, or is unusually long or vague. The single averaged number is a good **trend signal** (did the system get better or worse after a change), but diagnosing *why* always requires drilling into the individual scores behind it.
-
-**One line:** Repeated identical queries shouldn't change MRR at all since retrieval is deterministic unless something upstream changed, MRR's averaging is across a set of *different* test queries rather than repeats of one, a near-1 average does genuinely mean nearly every query did well because 1 is a hard ceiling, but a middling average like 0.55 could equally mean everyone is consistently mediocre or that half the queries are perfect and half are completely broken — and the only way to tell which, and find the specific offending query, is to inspect the individual per-query scores rather than trusting the mean alone.
-
-*(End of Q12)*
-
----
-
 ### 🎤 Step 1 Interview Prep — Mock Interview (~4 Years' AI Engineering Experience)
 
 *Everything above taught the concepts. This section rehearses them the way a real interview actually tests them — as back-and-forth dialogue, calibrated to what's expected from someone with roughly four years of AI/ML engineering experience: not just definitions, but trade-off reasoning, production awareness, and the ability to handle a follow-up push. Try answering each question out loud before reading the model answer.*
@@ -964,6 +928,14 @@ F, the one truly relevant doc that never showed up at all, is exactly what Recal
 | Recall@K | Of everything good that exists, how much did I find? |
 | MRR | How fast did I hit the first good one? |
 | NDCG | Is my *very best* result sitting at the top, not buried? |
+
+---
+
+**🔁 Interview Q7 (follow-up):** "Two things — since retrieval isn't random like generation, would asking the exact same query multiple times ever change the MRR? And if my average MRR across ten test queries comes out to something like 0.55, does that tell me anything about which specific query is dragging the score down?"
+
+**✅ Strong answer:** "On the first part — no, it shouldn't. Retrieval is deterministic for a fixed query against an unchanged index: same embedding model, same vector, same ANN search, same result, every time. If I actually saw a repeated query's MRR change, I'd suspect something upstream — the index got updated between calls, or there's a query-rewriting step feeding in some randomness before the embedding happens.
+
+On the second part — no, the average alone can't tell you that, and it's a real trap. An average MRR of 0.55 across ten queries could mean every single query scored right around 0.55. But it could just as easily mean five queries scored a perfect 1.0 and five scored 0.1 — both cases average out to exactly the same 0.55. Those are two very different systems: one consistently mediocre, the other great half the time and badly broken the other half. To actually find the weak query, you need the per-query reciprocal rank, not just the aggregate — sort them worst to best and look for what the worst performers have in common."
 
 ---
 
