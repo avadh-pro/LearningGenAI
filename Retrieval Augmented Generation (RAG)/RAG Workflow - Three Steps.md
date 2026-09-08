@@ -778,7 +778,7 @@ So: cross-encoder depends on ANN's *selection* (the list of candidates), but is 
 
 ---
 
-### 🟩 Q11 · Why Does Quantization Come In, and Is ANN an Implementation of HNSW? *(follow-up to the mock interview's ANN/HNSW answer)*
+### 🟩 Q11 · Why Does Quantization Come In, and Is ANN an Implementation of HNSW? *(follow-up to Interview Q4)*
 
 > **🗣️ Asked (as said):** "So you're saying that quantization shrinks each vector, but why does quantization come into the picture? And basically, ANN is an implementation of HNSW, correct?"
 >
