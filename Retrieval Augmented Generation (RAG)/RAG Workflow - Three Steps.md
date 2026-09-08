@@ -778,10 +778,103 @@ So: cross-encoder depends on ANN's *selection* (the list of candidates), but is 
 
 ---
 
+### 🎤 Step 1 Interview Prep — Mock Interview (~4 Years' AI Engineering Experience)
 
+*Everything above taught the concepts. This section rehearses them the way a real interview actually tests them — as back-and-forth dialogue, calibrated to what's expected from someone with roughly four years of AI/ML engineering experience: not just definitions, but trade-off reasoning, production awareness, and the ability to handle a follow-up push. Try answering each question out loud before reading the model answer.*
 
+**What a 4-YOE candidate is expected to show, beyond definitions:**
+- Correct terminology used naturally, not just recited on request
+- Trade-off reasoning ("X is faster but Y is more accurate, so in practice we do Z")
+- Production awareness — latency, cost, staleness, scale — not just textbook mechanics
+- Comfort saying "it depends," followed immediately by *what* it depends on
 
+---
 
+**🎙️ Interviewer:** "Walk me through how the retrieval step of a RAG system works, end to end."
+
+**✅ Strong answer:** "It splits into an offline and an online phase. Offline: documents get chunked, each chunk is run through an embedding model to produce a vector, and those vectors are stored and indexed in a vector database. Online: the user's query goes through that *same* embedding model, the database runs an approximate nearest-neighbor search — HNSW is the common choice — to find the closest stored vectors, and it returns the top-K matching chunks as plain text. Optionally, a cross-encoder reranks that shortlist for extra precision before the text gets handed to the generation step."
+
+---
+
+**🎙️ Interviewer:** "What's the difference between dense and sparse retrieval, and when would you pick one over the other?"
+
+**✅ Strong answer:** "Sparse retrieval — BM25, TF-IDF — matches on exact words; it's a huge, mostly-zero vector with one slot per vocabulary word. Dense retrieval uses embeddings — short vectors where every value is meaningful — and matches on semantic similarity, so it finds 'recover your login credentials' when someone asks to 'reset my password,' which sparse search would miss entirely. The trade-off: sparse still wins on exact identifiers — order numbers, error codes, legal citations — where a 'close' match is worthless. In practice, most production systems run both together as hybrid search rather than picking one."
+
+**🔁 Interviewer (follow-up):** "Say I'm building search for a legal case database, full of citations and case numbers. Which would you lean toward?"
+
+**✅ Strong answer:** "I'd lean hybrid, but weighted toward sparse for anything that looks like an identifier. Case numbers and citations need exact matching — dense retrieval could easily return a 'semantically similar' but wrong case. I'd probably route obviously-structured queries (a citation pattern) through keyword search directly, and free-text legal questions through dense retrieval, merging results when a query has both."
+
+---
+
+**🎙️ Interviewer:** "Why must the same embedding model be used for both the documents and the query?"
+
+**✅ Strong answer:** "Each embedding model defines its own vector space — its own private 'coordinate system' for meaning. Two different models can't be compared, the same way a rating out of 10 and a rating out of 100 aren't comparable side by side even if they represent the same enthusiasm. Practically, this means an embedding-model upgrade isn't a config change — it requires re-embedding and re-indexing the entire corpus, which is a real operational cost to plan for."
+
+---
+
+**🎙️ Interviewer:** "Why not just do exact nearest-neighbor search? What does an index like HNSW actually buy you?"
+
+**✅ Strong answer:** "Exact search means comparing the query vector against *every* stored vector — linear in the size of your corpus, which doesn't scale past a few hundred thousand vectors before latency becomes a problem. HNSW builds a layered graph — coarse 'highway' connections at the top, fine-grained links lower down — so a search hops through a handful of comparisons instead of scanning everything. That's Approximate Nearest Neighbor search: you trade a small, usually negligible amount of recall for a large speed gain. At larger scale you'd also look at product quantization or scalar quantization to shrink the memory footprint of the vectors themselves."
+
+---
+
+**🎙️ Interviewer:** "How would you decide on a chunking strategy for a new document set?"
+
+**✅ Strong answer:** "I'd start with the failure modes chunking causes: chunks too small lose surrounding context; chunks too large dilute relevance and burn through the context window budget. Common strategies, roughly in order of sophistication: fixed-size chunking as a quick baseline; recursive/character-aware splitting that respects paragraph and sentence boundaries instead of cutting mid-sentence; semantic chunking, which splits where the *topic* actually shifts; and hierarchical parent-child chunking — retrieve on small, precise child chunks, but return the larger parent chunk to the LLM so it has full context. I'd also add a small overlap between consecutive chunks so relevant information sitting right at a chunk boundary doesn't get orphaned."
+
+---
+
+**🎙️ Interviewer:** "How do you choose top-K, and where does reranking fit in?"
+
+**✅ Strong answer:** "Too small a K risks missing the right chunk entirely; too large wastes context window budget and can dilute the model's attention across irrelevant text. The common production pattern is to decouple the two: retrieve a wider net cheaply — say the top 50 — with the bi-encoder and ANN search, then use a cross-encoder to rerank that shortlist down to a much smaller K, maybe 5, before it goes to the LLM. That gets you both the speed of ANN and the precision of a slower, pairwise model, without ever running the expensive model over the whole corpus."
+
+---
+
+**🎙️ Interviewer:** "How would you evaluate whether your retrieval step is actually working well?"
+
+**✅ Strong answer:** "Treat retrieval as its own testable component, separate from generation quality — build a labeled evaluation set of queries with known relevant chunks, and track standard ranking metrics whenever you change the embedding model, chunking, or top-K."
+
+| Metric | What it measures |
+|---|---|
+| Precision@K | Of the K chunks retrieved, how many are actually relevant |
+| Recall@K | Of all truly relevant chunks, how many made it into the top K |
+| MRR (Mean Reciprocal Rank) | How high up the *first* relevant result lands |
+| NDCG | Rewards relevant results ranked higher, and can weight by *degree* of relevance |
+
+---
+
+**🎙️ Interviewer:** "How would you scale this to a billion vectors, and what breaks first?"
+
+**✅ Strong answer:** "Memory usually breaks first — HNSW graphs are memory-hungry, so at that scale you'd look at quantization to shrink each vector's footprint, or a disk-backed ANN index accepting some latency for lower cost. You'd also shard across multiple nodes and query them in parallel. The other thing that breaks is index freshness: rebuilding a billion-vector index from scratch isn't instant, so you need an incremental upsert strategy for new or changed documents, and a re-embedding plan for whenever the embedding model itself changes."
+
+---
+
+**🎙️ Interviewer:** "Your RAG system is giving wrong answers. How do you figure out whether it's a retrieval problem or a generation problem?"
+
+**✅ Strong answer:** "Split the pipeline apart and inspect it at the seam. Log exactly which chunks were retrieved for the failing query, and check by hand: is the correct information even in the top-K? If it's *not* in there, that's a retrieval problem — look at chunking, the embedding model, or top-K. If the right chunk *is* in there and the model still got it wrong, that's a generation problem — check prompt construction, whether the context window overflowed, or the model's own reasoning. Debugging RAG without separating these two steps just leads to guessing."
+
+---
+
+**🎙️ Interviewer:** "If I told you to make retrieval more accurate without touching the embedding model at all, what would you try?"
+
+**✅ Strong answer:** "Several levers don't touch the embedding model: improve the chunking strategy and add overlap; add a cross-encoder reranking stage on top of the existing retrieval; add hybrid search so exact-match cases dense retrieval misses still get caught by keyword search; widen top-K before reranking to reduce the chance of missing the right chunk in the first pass; add metadata filtering — like filtering by date or category before the vector search — to shrink the search space; and query rewriting, where you use the LLM itself to expand or clarify a vague user query into a better search query before it's ever embedded."
+
+---
+
+**What interviewers are really scoring for, across all of the above:**
+- Whether you reach for the right *term* naturally (ANN, HNSW, bi-encoder, cross-encoder, top-K) instead of describing around it
+- Whether you can articulate a trade-off instead of declaring one option universally "better"
+- Whether "how would you evaluate this" gets a concrete answer (metrics, a labeled eval set) instead of "check if it looks right"
+- Whether a debugging question gets a *method* (isolate retrieval from generation) rather than a guess
+- Whether a constrained/curveball question ("without touching X") produces multiple concrete levers, not a shrug
+
+**Sources consulted while calibrating this section:**
+- [Top 30 RAG Interview Questions and Answers for 2026 — DataCamp](https://www.datacamp.com/blog/rag-interview-questions)
+- [RAG Interview System — 548 questions & system design scenarios (GitHub)](https://github.com/ather-techie/rag-interview-system)
+- [Top Interview Questions on RAG for Data Science and AI Engineer Roles](https://buildml.substack.com/p/top-interview-questions-on-rag-for)
+- [RAG & Vector Database Interview Questions for 2026 — TopGenAIJobs](https://www.topgenaijobs.com/blog/rag-interview-questions)
+
+---
 
 ### Step 2: Fuse the Data
 
