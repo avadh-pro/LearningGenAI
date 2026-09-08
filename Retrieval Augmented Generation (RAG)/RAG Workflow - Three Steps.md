@@ -931,11 +931,36 @@ F, the one truly relevant doc that never showed up at all, is exactly what Recal
 
 ---
 
-**🔁 Interview Q7 (follow-up):** "Two things — since retrieval isn't random like generation, would asking the exact same query multiple times ever change the MRR? And if my average MRR across ten test queries comes out to something like 0.55, does that tell me anything about which specific query is dragging the score down?"
+**🔁 Interview Q7 (follow-up 1):** "Two things — since retrieval isn't random like generation, would asking the exact same query multiple times ever change the MRR? And if my average MRR across ten test queries comes out to something like 0.55, does that tell me anything about which specific query is dragging the score down?"
 
 **✅ Strong answer:** "On the first part — no, it shouldn't. Retrieval is deterministic for a fixed query against an unchanged index: same embedding model, same vector, same ANN search, same result, every time. If I actually saw a repeated query's MRR change, I'd suspect something upstream — the index got updated between calls, or there's a query-rewriting step feeding in some randomness before the embedding happens.
 
 On the second part — no, the average alone can't tell you that, and it's a real trap. An average MRR of 0.55 across ten queries could mean every single query scored right around 0.55. But it could just as easily mean five queries scored a perfect 1.0 and five scored 0.1 — both cases average out to exactly the same 0.55. Those are two very different systems: one consistently mediocre, the other great half the time and badly broken the other half. To actually find the weak query, you need the per-query reciprocal rank, not just the aggregate — sort them worst to best and look for what the worst performers have in common."
+
+---
+
+**🔁 Interview Q7 (follow-up 2):** "Correct me if I'm wrong — if MRR for a particular query is 1, that means NDCG is good too, right? And maybe vice versa?"
+
+**✅ Strong answer:** "That's a really natural assumption, but it's not guaranteed in either direction — they're measuring genuinely different things. MRR only checks *whether something relevant showed up at position 1* — it doesn't care whether that something was your *best* content or just barely relevant, and it completely ignores everything below position 1. NDCG cares about the whole list, weighted by *degree* of relevance, so it can absolutely catch a problem that MRR is blind to.
+
+Here's a concrete case where MRR is perfect but NDCG isn't. Say for one query there are two genuinely relevant documents: X, a perfect answer, and Y, only barely relevant. Compare two possible rankings:
+
+```
+Ranking A:  [ Y (barely relevant), X (perfect), Z (irrelevant) ]
+  → MRR: first relevant doc is Y, at position 1  → MRR = 1/1 = 1  (perfect)
+  → NDCG: the BEST doc, X, is buried at position 2 instead of 1
+          → this isn't the ideal order → NDCG < 1  (imperfect)
+
+Ranking B:  [ X (perfect), Y (barely relevant), Z (irrelevant) ]
+  → MRR: first relevant doc is X, at position 1  → MRR = 1/1 = 1  (perfect)
+  → NDCG: this IS the ideal order → NDCG = 1  (perfect)
+```
+
+Ranking A and Ranking B score an **identical, perfect MRR of 1** — MRR genuinely cannot tell them apart. But Ranking B is clearly the better system: it put its strongest answer first. NDCG correctly scores B higher than A, because NDCG asks 'is my *best* content at the top,' not just 'is *something* relevant at the top.'
+
+For the 'vice versa' half — a genuinely high NDCG usually does correlate with a decent MRR, since a near-ideal overall ordering tends to have a good item at the top too. But it's not a strict guarantee, especially in a longer results list: NDCG gives credit for relevant content anywhere in the list, discounted by position, so it's possible to have a reasonably good NDCG even when the very top slot isn't perfectly optimal, as long as the rest of the ranking is strong. MRR, by contrast, only ever looks at that first position and nothing else.
+
+So the honest summary: they usually move together in the simple case — one relevant document, or all relevant documents roughly equally good — but they diverge exactly when there are multiple relevant documents of *different* quality and the best one isn't sitting exactly on top. That's precisely the situation MRR is blind to and NDCG is built to catch."
 
 ---
 
