@@ -724,6 +724,59 @@ This is the real reason cross-encoder is stuck doing reranking on a small shortl
 
 ---
 
+### 🟩 Q10 · Exactly Where Does Cross-Encoder Plug In — Does It Depend on ANN's Output or the Bi-Encoder's? *(follow-up to Q9)*
+
+> **🗣️ Asked (as said):** "Clarifying question: bi-encoder only produces a vector, and once a vector is produced, we use whatever search mechanism the vector database supports, and we produce a text output that goes into the LLM, right? But where does the cross-encoder come into the picture? A cross-encoder is nothing but the reranking we're doing, right? So does it rerank what's produced by the bi-encoder? But the bi-encoder hasn't searched anything to compare against yet, right? So how does this all fit into one picture — does the cross-encoder depend on the output of the ANN search done by the vector database, or does it depend on the output of the bi-encoder itself?"
+>
+> **✍️ Refreshed:** In the pipeline, does the cross-encoder rerank the ANN search's output (the vector database's shortlist), or does it operate directly on the bi-encoder's output (the vectors)? Since the bi-encoder itself doesn't do any searching, where exactly does the cross-encoder plug in?
+
+**💡 Answer**
+
+**First — you're completely right about the bi-encoder, and this catches a real ambiguity in how the earlier mind map was drawn.** Placing bi-encoder and cross-encoder as siblings under "embedding model" showed they're both *transformer-based encoding strategies* — it wasn't meant to show one feeding data into the other, but it's a fair reading if it looked that way. Let's fix that with the actual data flow.
+
+**You're correct: the bi-encoder never searches or compares anything.** It only turns text into a vector, full stop. All comparing/searching is the vector database's job (ANN or brute-force) — this is exactly Q9's "two independent axes" point.
+
+**So the real pipeline is three sequential stages, not two:**
+
+```
+STAGE 1 — ENCODE (bi-encoder)
+  Query text → bi-encoder → query vector
+  (documents were already turned into vectors this same way, offline)
+
+STAGE 2 — SEARCH (the vector database, ANN or brute-force)
+  query vector compared against ALL stored document vectors
+  → shortlist of top-K candidates
+  → returned as TEXT, not vectors (per Q5 — nothing is ever "decoded")
+
+STAGE 3 — RERANK (cross-encoder) — OPTIONAL
+  INPUT: the original QUERY TEXT + EACH shortlisted document's TEXT
+         (plain text — the cross-encoder never touches any vector
+          from Stage 1 or any internal ANN score from Stage 2)
+  → cross-encoder re-reads query+document TOGETHER, from scratch,
+    for each shortlisted pair, and outputs a fresh relevance score
+  → shortlist gets reordered / narrowed (e.g. top-50 → top-5)
+                        │
+                        ▼
+              Final TEXT chunks → Step 2 (the LLM)
+```
+
+**Now the precise answer to your question — and it's genuinely "both, but not in the way that sounds":**
+
+- **Cross-encoder depends on ANN search's output for *which* documents to even look at.** It only ever reranks the shortlist that made the cut — it never sees the millions of documents that didn't.
+- **Cross-encoder does *not* depend on the bi-encoder's output at all.** It never receives, reads, or reuses a single vector number from Stage 1. It goes back to the *raw text* of the query and each shortlisted document and starts completely fresh.
+
+So: cross-encoder depends on ANN's *selection* (the list of candidates), but is entirely independent of the bi-encoder's actual *computation* (the vectors) — it re-does its own understanding of the text from zero, for just that small shortlist.
+
+**Simple analogy 📋:** the bi-encoder + ANN search stage is like a fast first-round judge who skims 10,000 entries and picks the 50 that seem promising, handing over a **list of names**, not their notes. The cross-encoder is a second, slower judge who receives that list of 50 names, then goes and **re-reads each entry from scratch** to rank them properly — they never see the first judge's scribbled notes (the vectors), only which 50 entries got forwarded to them.
+
+**One line:** The cross-encoder depends on the ANN search's output only for *which* candidates make the shortlist, not on the bi-encoder's actual vector output at all — it discards all of that vector math and re-reads the plain text of the query and each shortlisted document from scratch to produce its own relevance score, slotting in as a third, optional stage after encoding and searching, right before the final text is handed to the LLM.
+
+*(End of Q10)*
+
+---
+
+
+
 
 
 
