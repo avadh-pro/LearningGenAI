@@ -861,7 +861,20 @@ HNSW solves it by pre-building a kind of shortcut map, ahead of time, so you nev
 
 This is called **Approximate Nearest Neighbor search, or ANN** — 'approximate' because you might, very occasionally, miss the single best match by a tiny margin. In exchange, you get a massive speed boost, which is a trade that's almost always worth making.
 
-At an even bigger scale — hundreds of millions of vectors — you'd also shrink each vector itself using a technique called **quantization**. It compresses the numbers inside each vector so they take up less memory, similar to how compressing a photo shrinks the file size while it still looks almost identical."
+At an even bigger scale — hundreds of millions of vectors — you'd also shrink each vector itself using a technique called **quantization**. Here's what that means concretely, with an example:
+
+```
+BEFORE quantization — full precision, 4 bytes per number:
+  [0.82719348, -0.31402213, 0.55098721, 0.12345678, ...]
+  → 768 numbers × 4 bytes ≈ 3,072 bytes (~3 KB) for ONE vector
+
+AFTER quantization — compressed, ~1 byte per number:
+  [0.83, -0.31, 0.55, 0.12, ...]
+  → 768 numbers × 1 byte ≈ 768 bytes (~0.75 KB) for the SAME vector
+  → roughly 75% less memory, for that one vector
+```
+
+Each individual number gets rounded to something coarser — '0.83' instead of '0.82719348' — so it needs far fewer bits to store. Multiply that saving across 100 million vectors and the difference is enormous: roughly 300 GB of raw vectors shrinks to well under 100 GB. You do lose a tiny bit of precision on every number, but the vector still lands almost exactly where it did before in 'meaning space,' so the search still finds essentially the same closest matches — which is exactly the photo-compression analogy: compressing a photo throws away detail too fine to notice, while the picture still looks basically identical."
 
 ---
 
