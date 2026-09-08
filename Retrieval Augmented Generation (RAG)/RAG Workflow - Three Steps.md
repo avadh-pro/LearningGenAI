@@ -693,6 +693,47 @@ The key line is the arrow: **only the retrieved text crosses from Step 1 into St
 
 *(End of Q2)*
 
+---
+
+### 🟩 Q3 · "Redone at Every Step" and the KV Cache, in the Simplest Way *(follow-up to Q1)*
+
+> **🗣️ Asked (as said):** Explain the "redone at every step" / KV cache part of the Q1 answer in a simpler way, with an example, please.
+>
+> **✍️ Refreshed:** Can you re-explain why attention scores are recalculated at every generation step, and what a KV cache actually saves, using a plain example?
+
+**💡 Answer**
+
+**Two totally different things happen at every step, and only one of them is "redone."**
+
+1. **Reading old words** — this part is **saved and reused**, never redone.
+2. **Deciding what matters right now, for the new word** — this part **is** redone, every single time.
+
+**The example.** The model is writing, one word at a time: *"The trophy didn't fit in the suitcase because it was too ___"*
+
+```
+Step 1: model has written "The trophy didn't fit in the suitcase because it was too"
+        → must pick the next word
+
+Step 2: to decide, it needs to know which earlier words matter
+        → "trophy" matters a lot, "suitcase" matters a lot, "didn't" matters a little
+
+Step 3: it picks "big"
+
+Step 4: "big" is now added to the sentence — and it instantly gets its OWN
+        sticky note, ready to be reused later, never rewritten
+```
+
+**Simple analogy 📌:** every word the model has already written gets a **sticky note** — a short note-to-self about that word, written **once**, then stuck on a board. That board keeps growing as the model writes more words. This board of sticky notes is the **KV cache** — nothing on it ever needs to be rewritten.
+
+But here's the part that *does* happen fresh every time: right before writing each new word, the model asks a **brand-new question** — *"given where I am right now, which of these sticky notes actually matters?"* That question is different at every single step, because "where I am right now" keeps changing. So the model has to **glance across every sticky note on the board and re-decide the important ones, every time** — that glance-and-decide step is the part that's genuinely redone.
+
+**Why this matters:** writing the sticky notes (understanding each word) is expensive, and the model is smart enough to do it only **once per word, ever**. But deciding "which notes matter for *this* specific next word" can't be reused, because that decision depends on *where in the sentence you currently are* — and that's different at every step.
+
+**One line:** The model saves a one-time "note" for every word it has already processed (the KV cache) and never rewrites those, but every time it's about to pick a new word it asks a fresh question — "which notes matter right now?" — and answering that question, the actual attention scores, has to be recalculated at every single step because the question itself changes every time.
+
+*(End of Q3)*
+
+
 ### Step 3: Generate a Response
 
 *(no questions yet)*
