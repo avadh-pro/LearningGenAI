@@ -964,6 +964,24 @@ So the honest summary: they usually move together in the simple case — one rel
 
 ---
 
+**🔁 Interview Q7 (follow-up 3):** "So for Ranking A and Ranking B, you gave MRR = 1 for both. But shouldn't we instead measure MRR against the already-known perfect document specifically? In Ranking A, the perfect document X is at position 2, so shouldn't MRR be 1/2 = 0.5, not 1?"
+
+**✅ Strong answer:** "Your math is exactly right for what you're describing — X sitting at position 2 does give 1/2 = 0.5 under that definition. But here's the important part: what you just described isn't how *standard* MRR is defined — and this is actually the exact reasoning that led to NDCG being invented as a separate metric.
+
+Classic MRR uses **binary relevance**: a document is either 'relevant' or 'not relevant,' full stop — there's no built-in concept of *which relevant document is the best one*. The reciprocal rank is 1 / (position of the *first* document marked relevant, at any grade). That's precisely why Ranking A scored MRR = 1 in the earlier example: Y (barely relevant) and X (perfect) were both simply 'relevant' as far as MRR's binary check is concerned — MRR has no way to say 'relevant, but not the *best* one.'
+
+If instead you specifically tracked 'where does the single known-best document rank' — which is what you're proposing — that's a real, meaningful thing to measure, and your calculation of 0.5 for it is correct. But that specific idea, 'don't just check if something relevant is on top, check if the *best known* thing is on top,' is exactly the philosophy NDCG was built around — except NDCG does it more completely, checking the position of *every* relevant document, weighted by its grade, across the *whole* list, not just the single best one.
+
+| | What it checks | Ranking A's score |
+|---|---|---|
+| Standard MRR | Position of the *first* item marked relevant, any grade | 1/1 = 1 |
+| Your proposed version | Position of the single *known-best* document | 1/2 = 0.5 |
+| NDCG | Position of *every* relevant document, weighted by grade, across the whole list | less than 1 |
+
+Your version and NDCG are catching the exact same problem — X isn't where it should be — NDCG is just the fuller, standardized version of that same instinct, extended to the entire ranked list."
+
+---
+
 **🎙️ Interview Q8:** "How would you scale this to a billion vectors, and what breaks first?"
 
 **✅ Strong answer:** "Memory usually breaks first — HNSW graphs are memory-hungry, so at that scale you'd look at quantization to shrink each vector's footprint, or a disk-backed ANN index accepting some latency for lower cost. You'd also shard across multiple nodes and query them in parallel. The other thing that breaks is index freshness: rebuilding a billion-vector index from scratch isn't instant, so you need an incremental upsert strategy for new or changed documents, and a re-embedding plan for whenever the embedding model itself changes."
