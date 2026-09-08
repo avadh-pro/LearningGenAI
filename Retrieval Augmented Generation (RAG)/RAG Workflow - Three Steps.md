@@ -651,8 +651,47 @@ So at generation time you do still have real levers: how you write the prompt di
 
 *(End of Q1)*
 
+---
 
-*(no questions yet)*
+### 🟩 Q2 · Are Retrieval Embeddings the Same Thing as Attention, or Related to It? *(bridges Step 1 Q1 and the Attention Mechanism deep dive)*
+
+> **🗣️ Asked (as said):** "I have a little confusion here. In order to retrieve a thing, what we do is a semantic search — and for doing the semantic search, we basically compute the embedding of the query and the already-stored embeddings, right? Is this completely different from the attention mechanism, or is it related to the attention mechanism?"
+>
+> **✍️ Refreshed:** Is the embedding computation used for semantic search in Step 1 the same thing as, or connected to, the attention mechanism used in Step 2 — or are they entirely unrelated?
+
+**💡 Answer**
+
+**Genuinely both, depending on which part of the question you mean.** Worth splitting into two very different sub-questions.
+
+**❌ Are the *actual numbers* — Step 1's embeddings — the same as, or fed into, Step 2's attention computation? No.** These are two separate models doing two separate jobs, and no numbers cross between them. You already established this a few questions ago: the vector database hands back the retrieved *text*, never the vector. So by the time Step 2 begins, Step 1's embeddings are already gone — thrown away the moment the matching chunks were found. The generative model in Step 2 never sees them.
+
+**✅ Is the *underlying technique* used to build those Step 1 embeddings often attention? Usually, yes.** Most modern embedding models (the ones actually used for dense vector retrieval today — BERT-based, Sentence-BERT, the embedding models behind OpenAI/Cohere-style APIs) are themselves transformers, and transformers use attention *internally* to build understanding before producing their output. So attention is working "under the hood" in Step 1 too — it's just a **separate use of the same technique**, inside a **different, dedicated model**, for a **different purpose**.
+
+```
+STEP 1 (embedding model)                    STEP 2 (generative model)
+─────────────────────────                   ──────────────────────────
+Text → transformer layers                   Retrieved TEXT + query
+       (attention used INTERNALLY            → transformer layers
+        to build understanding)               (attention used INTERNALLY
+       → pooled into ONE vector                to relate every word
+         (the embedding)                       to every other word)
+                                              → next word, next word, ...
+
+  vector compared via cosine similarity,     the model NEVER sees Step 1's
+  then THROWN AWAY — only the                embeddings — it does its own,
+  matched TEXT crosses over  ────────────►   completely fresh attention pass
+                                              over the raw retrieved text
+```
+
+The key line is the arrow: **only the retrieved text crosses from Step 1 into Step 2 — never the embedding numbers, and never Step 1's attention computation.** Step 2's model reads the plain words and builds its own understanding of them from scratch, using its own attention layers, entirely independent of whichever model did the searching.
+
+**One more precision:** not *every* embedding method uses attention — older techniques like Word2Vec or GloVe don't (they predate transformers entirely). But the dense vector retrieval you've been learning about in Step 1 — the kind that actually powers modern RAG systems — is built on transformer-based embedding models, so attention genuinely is involved on both sides of the pipeline, just twice, separately, by two different models.
+
+**Simple analogy 📚:** think of two students independently reading the same book. Student A (the embedding model) reads it carefully and writes one summary card for a librarian to file away — once that card exists, the deep reading that produced it is discarded. Student B (the generative model), later, reads the *actual book pages* themselves — not student A's mental notes — to answer a specific question. Both students used the same underlying skill (careful, "attend to what matters" reading), but they never share notes — only the physical pages (the text) pass between them.
+
+**One line:** They're related through a shared technique but not connected through shared data — Step 1's embedding model often uses attention internally to build the vector it searches with, and Step 2's generative model separately uses its own attention to read the retrieved text and write an answer, but the two never touch: only the plain retrieved text crosses the boundary between them, never any embedding numbers or attention computations.
+
+*(End of Q2)*
 
 ### Step 3: Generate a Response
 
