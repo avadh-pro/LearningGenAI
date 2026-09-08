@@ -892,38 +892,43 @@ Each individual number gets rounded to something coarser — '0.83' instead of '
 
 **🎙️ Interview Q7:** "How would you evaluate whether your retrieval step is actually working well?"
 
-**✅ Strong answer, broken down with one running example:** "Treat retrieval as its own testable component, separate from generation quality — build a labeled evaluation set of queries with known relevant chunks, and track standard ranking metrics whenever you change the embedding model, chunking, or top-K. Here's exactly what those metrics mean — and to clear up one likely mishearing, it's **MRR**, not MRI — walked through with one running example.
+**✅ Strong answer, rebuilt at the simplest level, with a plain analogy for each metric:**
 
-**The setup:** someone searches *'How do I reset my password?'* We know ahead of time that only **3 documents** in the whole knowledge base are truly relevant — call them **A, D, and F**. The system searches and returns its top 5 results, in this order:
+**Step 0 — the thing all four metrics quietly assume:** none of these four numbers can be computed unless you *already know the correct answer ahead of time*. That known answer key is called **ground truth** (or a **labeled evaluation set**) — a prepared list of (query → which documents are actually correct for it), usually built by a human expert judging relevance, or from historical data like which document users actually clicked on. This is exactly right to flag: you cannot compute Precision, Recall, MRR, or NDCG for a brand-new live query where nobody knows the right answer — these are **offline tests**, run against a prepared answer key you built in advance, specifically so you can measure quality before real users ever see the system.
+
+**One simple analogy underneath all four — fishing in a lake where you already know exactly which fish you want:**
+
+Say you already know (ground truth) there are **3 target fish** hiding somewhere in the lake. You cast a net and pull up **5 fish total**, and **2 of the 5** happen to be target fish.
+
+- **Precision — 'Of what I pulled up, how much was actually what I wanted?'**
+  You pulled up 5 fish, 2 were targets → **Precision = 2/5 = 40%**. This is about the *purity of your catch* — it doesn't care how many target fish exist, only how much of what's in your net is actually good.
+
+- **Recall — 'Of everything I was hoping to catch, how much did I actually get?'** *(you had this exactly right)*
+  There were 3 target fish total in the lake, you caught 2 of them → **Recall = 2/3 ≈ 67%**. This is about *completeness* — it doesn't care how much junk is also in your net, only how much of the good stuff you didn't miss.
+
+- **MRR — 'How many empty nets did I pull up before I got my FIRST target fish?'**
+  Forget the rest of the catch entirely — MRR only asks: was your very first fish a target? If yes, perfect score. If your first 2 pulls were junk and the 3rd was finally a target fish, that's a worse score, even if your final net eventually had plenty of good fish in it. It's purely about **how fast you hit something good**, averaged across many separate fishing trips (queries).
+
+- **NDCG — 'Not just did I catch good fish — did I catch the BEST fish first?'**
+  Say one of your target fish is a huge prize catch, and the other is a small, so-so one. NDCG checks whether the prize fish came up *before* the so-so one. If your net order was [prize fish, junk, junk, so-so fish], that scores well. If it was [so-so fish, junk, junk, prize fish] — same 2 fish caught, same precision and recall — NDCG scores it *worse*, because your best catch was buried near the bottom instead of sitting at the top.
+
+**Mapped onto the actual example (query: 'reset password,' ground truth: A, D, F are correct; system returned A, B, C, D, E in that order):**
 
 ```
-1st: A   → relevant ✅
-2nd: B   → not relevant ❌
-3rd: C   → not relevant ❌
-4th: D   → relevant ✅
-5th: E   → not relevant ❌
-
-(F, the third truly relevant doc, didn't make the top 5 at all.)
+Precision@5 = 2/5  = 40%   (A and D, out of the 5 shown, are correct)
+Recall@5    = 2/3  ≈ 67%  (A and D, out of the 3 that truly exist, were found)
+MRR         = 1/1  = 1     (the very first result, A, was already correct)
+NDCG        = high         (assuming A is the strongest answer, it's sitting at #1 — exactly where it should be)
 ```
 
-**Precision@5 — 'Of what I showed the user, how much was actually useful?'**
-2 of the 5 results shown (A and D) are relevant → **Precision@5 = 2/5 = 40%**
-
-**Recall@5 — 'Of everything that truly mattered, how much did I manage to find?'**
-2 of the 3 truly relevant docs (A and D) made it into the top 5; F was missed → **Recall@5 = 2/3 ≈ 67%**
-
-**MRR (Mean Reciprocal Rank) — 'How quickly does the user hit something useful?'**
-The *first* relevant result was A, sitting at position 1 → reciprocal rank = 1/1 = **1** (a perfect score for this query). If the first relevant result had instead been 3rd in line, that query's score would only be 1/3. MRR is this number averaged across many test queries — a high MRR means users rarely have to scroll past junk before finding something good.
-
-**NDCG — 'Is the BEST content at the top, not just present somewhere?'**
-This one adds a twist: not all relevant results are equally good. Say A is a perfect answer and D is only somewhat helpful — NDCG rewards A sitting at position 1 more than it would if D had somehow outranked A. It's the stricter cousin of Precision/Recall: it doesn't just ask 'is the good stuff in there,' it asks 'is my *best* stuff at the *top*.'"
+F, the one truly relevant doc that never showed up at all, is exactly what Recall is built to catch — Precision and MRR wouldn't even notice it's missing."
 
 | Metric | The one-line question it answers |
 |---|---|
-| Precision@K | Of what I showed, how much was useful? |
-| Recall@K | Of what mattered, how much did I find? |
-| MRR | How fast did I hit something useful? |
-| NDCG | Is my *best* result actually on top? |
+| Precision@K | Of what I showed, how much was actually good? |
+| Recall@K | Of everything good that exists, how much did I find? |
+| MRR | How fast did I hit the first good one? |
+| NDCG | Is my *very best* result sitting at the top, not buried? |
 
 ---
 
