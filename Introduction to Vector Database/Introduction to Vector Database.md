@@ -327,3 +327,39 @@ Fast similarity search
 - [Understanding Distance Metrics in Vector Embeddings — LinkedIn](https://www.linkedin.com/pulse/understanding-distance-metrics-vector-embeddings-cosine-bilal-shaikh-qunwf)
 - [Vector Databases: 20 Scenario-Based Questions & Solutions — Towards AI](https://towardsai.net/p/machine-learning/vector-databases-20-scenario-based-questions-solutions-part-1-of-2)
 - [Pre-filtering vs Post-filtering in Vector Search — apxml](https://apxml.com/courses/advanced-vector-search-llms/chapter-2-optimizing-vector-search-performance/advanced-filtering-strategies)
+
+---
+
+## 💬 Spontaneous Questions (Asked While Reviewing)
+
+*Separate from the prepared Interview Q1–Q11 above. Questions that come up spontaneously while going through the material get documented here by default — they only move into the prepared interview set if explicitly asked for.*
+
+---
+
+### 🟩 SQ1 · Is a Vector Database SQL, NoSQL, or Something Else Entirely?
+
+> **🗣️ Asked (as said):** "Is the vector database a NoSQL database or a SQL database, or is it a separate database altogether? Correct?"
+>
+> **✍️ Refreshed:** Does a vector database fall under SQL, under NoSQL, or is it its own separate category?
+
+**💡 Answer**
+
+**Neither, cleanly — it's its own category, with one real-world nuance worth knowing.**
+
+**Not SQL:** vector databases don't organize data into fixed-schema tables with rows, columns, and joins, and most don't speak SQL natively as their core query language. That relational model isn't what they're built around.
+
+**Not quite "just NoSQL" either, even though it's the closer relative:** vector databases *do* share NoSQL's general philosophy — flexible schema (metadata is usually stored like a loose JSON document), horizontal scalability, non-relational access. If you had to place it on a simple SQL-vs-NoSQL diagram, it would land on the NoSQL side. But calling it "a type of NoSQL database" undersells what's actually new about it: none of the traditional NoSQL categories — document stores, key-value stores, column-family stores, graph databases — do the one thing a vector database exists for: indexing and searching by **approximate similarity** across hundreds of dimensions (HNSW, IVF, ANN — all the machinery from Q1–Q4 above). That capability isn't a variation on an existing NoSQL pattern; it's a genuinely different core function, which is why "vector database" gets treated as its own category rather than a NoSQL subtype.
+
+**The nuance worth knowing for an interview:** the line blurs in practice, because vector search increasingly gets bolted onto *existing* databases rather than requiring a dedicated system:
+
+| | Example | What it is |
+|---|---|---|
+| Dedicated vector database | Pinecone, Milvus, Qdrant, Weaviate, ChromaDB | Built from the ground up around vector indexing as the primary function |
+| Vector search added to a SQL database | PostgreSQL + `pgvector` extension | A relational database with vector similarity search bolted on |
+| Vector search added to a NoSQL database | MongoDB Atlas Vector Search, Redis | A document/key-value store with vector search bolted on |
+
+So the same underlying capability — ANN similarity search — can live inside a SQL database, inside a NoSQL database, *or* inside a dedicated, purpose-built vector database. Which one you pick in practice usually comes down to whether you already have data in an existing SQL/NoSQL system and just need to add semantic search to it, versus building a search-first system where vector search is the main workload.
+
+**One line:** A vector database is best treated as its own separate category — not SQL, and not quite a clean fit under NoSQL either, since its core capability (approximate similarity search over high-dimensional vectors) doesn't match any traditional NoSQL pattern — though in practice that same capability can also be added directly into an existing SQL database (like PostgreSQL via `pgvector`) or NoSQL database (like MongoDB or Redis), so "SQL vs. NoSQL vs. vector database" isn't always a mutually exclusive choice.
+
+*(End of SQ1)*
