@@ -280,6 +280,14 @@ In practice, most modern embedding models — OpenAI's included — already scal
 
 **The honest, simple truth:** for almost all everyday semantic search — the kind you'll actually build — you just use cosine similarity, or dot product, which behaves the same way once vectors are normalized. Euclidean distance mostly shows up in *other* tasks like clustering, not in day-to-day search. So the "choice" in practice is smaller than it sounds: it's really "cosine/dot product for search" versus "Euclidean for the rare case where raw distance itself is what you're measuring."
 
+**One concrete real-world example for each side, so it's not just abstract:**
+
+**Where you'd actually use Euclidean distance — customer segmentation.** Say an e-commerce company groups customers by (total money spent, number of items bought), to decide who gets a loyalty discount. Customer A spent $50 on 2 items. Customer B spent $5,000 on 200 items — a similar spending *pattern*, just at a much bigger scale. Here, the business genuinely *wants* raw size to matter: a $5,000 customer should be treated differently from a $50 one. This is exactly why clustering tools like K-means default to Euclidean distance — the magnitude itself is the whole point.
+
+**Where you'd use cosine similarity instead — a support chatbot searching help articles.** A user types "how do I reset my password" — six words. The best matching article is "Complete Account Security Guide" — two thousand words, covering passwords along with a dozen other topics. Euclidean distance would call these "far apart," purely because one produces a much bigger set of numbers than the other. Cosine similarity ignores that size difference entirely and correctly says: same topic, same direction — this is the match.
+
+**The takeaway:** use Euclidean when the *size* of the numbers is part of what you're actually trying to measure (spending, distance, intensity). Use cosine (or dot product) when you only care about *what something is about*, regardless of how long, detailed, or "big" it happens to be — which is why search and recommendation systems almost always reach for cosine.
+
 **🎯 Standard Interview Answer:** "Cosine similarity measures the angle between two vectors, independent of magnitude, and is the standard choice for semantic similarity. Dot product incorporates magnitude and is computationally cheaper. Euclidean, or L2, distance measures straight-line distance and is magnitude-sensitive. For L2-normalized vectors, cosine similarity and dot product are mathematically equivalent, which is why many vector databases default to dot product as the distance metric purely for performance."
 
 **🔁 Interview Q2 (follow-up):** "If they're mathematically identical for normalized vectors, why would a vector database still expose all three as separate options?"
