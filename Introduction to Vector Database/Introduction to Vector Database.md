@@ -401,6 +401,41 @@ Best matches, all in budget             Maybe only 1–2 left!
 
 **🎯 Standard Interview Answer:** "Pre-filtering applies metadata constraints before the ANN traversal, reducing the candidate search space — efficient when the filter is highly selective, but it requires the index to support filtered graph traversal natively. Post-filtering executes the ANN search first, then filters the top-K results by metadata afterward — simpler to implement and index-agnostic, but it risks under-returning results when the filter is restrictive relative to the initial top-K size."
 
+**What "metadata" actually means here:** every stored item has two separate parts — the **vector** (the numbers capturing meaning, used for similarity search) and the **metadata** (plain structured fields, just like columns in a normal database row) attached alongside it. For a headphone listing, it looks roughly like this:
+
+```
+vector:   [0.21, -0.55, 0.83, ...]     ← captures meaning, used for similarity search
+metadata: { price: 45, in_stock: true, category: "electronics", added: "2026-08-20" }
+                                          ← plain structured fields, used for filtering
+```
+
+The vector and the metadata are stored side by side, but they get used in completely different ways.
+
+**Now the real question — if a vector database only knows how to do similarity search or keyword search, how does pre-filtering narrow anything down at all?** You're right to push on this: metadata filtering is *neither* of those. It's a third, separate mechanism — plain exact-match / range filtering, the same basic operation a normal database's `WHERE` clause does (`WHERE price < 50 AND in_stock = true`). It has nothing to do with meaning or keywords; it's just comparing plain values.
+
+**Concretely, pre-filtering happens one of two ways under the hood:**
+
+```
+METHOD 1 — filter first, then search only the survivors
+  All items → check metadata (price<50, in_stock) → smaller allowed list
+                                                          │
+                                            ANN search runs ONLY on this list
+                                            (or, if the list is small enough,
+                                             it just directly compares the
+                                             query to each one — no need for
+                                             the ANN shortcuts at all)
+
+METHOD 2 — filter WHILE walking the search graph
+  ANN search walks its normal graph, hopping node to node —
+  but at EVERY node it visits, it also checks that node's metadata,
+  and instantly skips it if the filter fails,
+  before ever counting it as a candidate
+```
+
+Method 1 needs a separate, ordinary index on the metadata fields — much like an index in a regular database — so it can quickly answer "which IDs pass this filter" before vector search even starts. Method 2 is what newer databases like Qdrant do more often: the filter check gets baked directly into the graph traversal itself, so there's no separate first pass at all — the search simply refuses to step onto disqualified nodes as it walks the graph.
+
+**Tying it back to the headphones example:** "in stock, under $50" is checked purely against the plain metadata fields — a simple yes/no comparison, nothing to do with vectors at all. Only the headphones that pass that check ever get compared to the query by similarity in the first place.
+
 **🔁 Interview Q6 (follow-up):** "Concretely, when would post-filtering actually break down in production?"
 
 **✅ Strong answer:** "Picture asking for 'the 10 best headphones' and only 1 of them happens to still be in stock — the customer sees just that 1 result, even though 50 other great in-stock options exist further down the list that never got checked in the first place."
