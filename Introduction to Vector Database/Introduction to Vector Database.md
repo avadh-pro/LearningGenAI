@@ -272,6 +272,14 @@ Euclidean distance → looks at the GAP between tips → "very different"
 
 In practice, most modern embedding models — OpenAI's included — already scale every vector to the same length before you ever see it. Once that's done, cosine similarity and dot product give identical answers, and many vector databases quietly default to dot product simply because it's the cheaper calculation."
 
+**So here's the simple decision rule, since that's the part that actually matters day to day:**
+
+- **Comparing text embeddings for meaning?** (the most common case, by far) → use **cosine similarity**. This is the default almost everywhere.
+- **Know your vectors are already the same length (normalized)?** → **dot product** gives the *identical* ranking to cosine, just cheaper to compute — which is exactly why databases quietly pick it for you behind the scenes.
+- **Actually need real geometric distance to matter** — like grouping similar items together (clustering), where "how far apart" is the point, not just "same direction"? → use **Euclidean distance**.
+
+**The honest, simple truth:** for almost all everyday semantic search — the kind you'll actually build — you just use cosine similarity, or dot product, which behaves the same way once vectors are normalized. Euclidean distance mostly shows up in *other* tasks like clustering, not in day-to-day search. So the "choice" in practice is smaller than it sounds: it's really "cosine/dot product for search" versus "Euclidean for the rare case where raw distance itself is what you're measuring."
+
 **🎯 Standard Interview Answer:** "Cosine similarity measures the angle between two vectors, independent of magnitude, and is the standard choice for semantic similarity. Dot product incorporates magnitude and is computationally cheaper. Euclidean, or L2, distance measures straight-line distance and is magnitude-sensitive. For L2-normalized vectors, cosine similarity and dot product are mathematically equivalent, which is why many vector databases default to dot product as the distance metric purely for performance."
 
 **🔁 Interview Q2 (follow-up):** "If they're mathematically identical for normalized vectors, why would a vector database still expose all three as separate options?"
