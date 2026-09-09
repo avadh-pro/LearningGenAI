@@ -330,6 +330,13 @@ The part that catches people out: set `ef` too low and the app doesn't crash or 
 
 Short version: HNSW when the memory budget allows it and top accuracy matters most; IVF once the collection is too large for that to be realistic."
 
+**Even simpler, in case that's still a lot to hold in your head:**
+
+- **HNSW** = draw a map connecting similar items to each other, ahead of time — like a network of "friends of friends." To find something, you hop through a few connections instead of checking everyone. The catch: you have to keep that whole map in your head (in memory) for it to stay fast, so it works great for smaller collections but gets expensive once there are billions of items.
+- **IVF** = sort everything into labeled boxes first — like sorting mail by zip code before delivery. When you search, you only open the one or two boxes your answer is likely to be in, and skip every other box completely. This uses far less memory, since you never have to hold a giant connected map — but it's a little less precise, since the item you actually wanted might occasionally sit in the box right next door to the one you checked.
+
+**One-line rule to remember:** HNSW = a detailed map you keep in your head. IVF = sorted boxes you only open a couple of.
+
 **🎯 Standard Interview Answer:** "HNSW is a graph-based ANN index offering high recall and low latency, but with a large memory footprint since the entire graph has to reside in RAM. IVF, an Inverted File index, partitions the vector space into clusters via a k-means-style quantizer and searches only the nearest `nprobe` clusters at query time, trading some recall for significantly better memory efficiency at billion-scale datasets."
 
 ---
