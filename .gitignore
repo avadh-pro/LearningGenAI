@@ -1,2 +1,7 @@
 .idea/
 .DS_Store
+
+# Notebook run artifacts (downloaded PDFs + persisted vector stores)
+data/
+chroma_db_openai/
+chroma_db/
