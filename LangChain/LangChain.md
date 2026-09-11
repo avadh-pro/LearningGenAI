@@ -393,6 +393,14 @@ For stopping: the race track has a special finish line, called **END** in LangGr
 
 **🎯 Standard Interview Answer:** "A checkpointer is a persistence layer, backed by something like SQLite, Postgres, or Redis, attached to the graph at compile time. It saves a snapshot of the graph's state after every step (a 'superstep'), keyed by a thread ID. This enables resuming execution after a crash, running multiple conversations concurrently without state bleeding between them, and is the mechanism that underlies human-in-the-loop interrupts."
 
+**🔁 Interview Q11 (follow-up):** "Is the checkpointer defined per node, or once for the whole graph? Concretely: in a 5-node graph where node 4 needs human-in-the-loop approval, once node 3 finishes, is there one snapshot of the whole 5-node graph, currently pointing at node 4 waiting for approval?"
+
+**✅ Strong answer:** "Once for the whole graph — you attach it a single time at compile time (`graph.compile(checkpointer=...)`), and it then applies automatically to every node with no per-node setup at all.
+
+On the scenario: close, but it's not one snapshot 'of the whole graph.' Back to the video-game autosave — the game quietly writes a *new* save file after every level you clear, it doesn't keep one save file describing the entire game. By the time node 3 finishes, three separate snapshots already exist, one written after each of nodes 1, 2, and 3. The *latest* of those is the one that matters: it carries all the state accumulated through node 3, tagged with 'next up: node 4,' and that's exactly the save file execution resumes from once a human approves."
+
+**🎯 Standard Interview Answer:** "The checkpointer is registered once, at graph compilation, not per node — it then transparently persists a state snapshot after every superstep for the lifetime of that thread. In a 5-node graph with node 4 as an interrupt point, three checkpoints already exist by the time node 3 completes, one per completed superstep, all tied to the same thread ID. The most recent checkpoint reflects the state after node 3 plus the graph's current position (node 4, paused) — resuming loads exactly that checkpoint rather than restarting the run."
+
 ---
 
 **🎙️ Interview Q12:** "How would you build a human-in-the-loop approval step into an agent workflow?"
