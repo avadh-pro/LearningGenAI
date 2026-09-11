@@ -369,3 +369,45 @@ Not all of it is required. Routing is a module you attach when you have multiple
 ---
 
 ## Q&A
+
+### Q1: Is RRF the same thing as re-ranking? Does it happen before or after re-ranking, where does it fit in the pipeline, and what's the technical interview definition?
+
+**You're right — they're genuinely different mechanisms, and RRF normally runs *before* re-ranking, not after it and not instead of it.**
+
+#### RRF, in the simplest possible terms
+
+RRF is a **math trick for combining several separate "top lists" into one fair combined list** — it never reads or understands anything; it just looks at *where* each item landed on each list.
+
+> **Analogy 🍽️:** three friends each independently rank their own top-10 restaurants. RRF is the referee who combines all three lists into one fair combined ranking — using *only* each restaurant's position on each list. A restaurant that's #1 on all three friends' lists scores far higher than one that's #1 for a single friend and never mentioned by the other two. The referee never actually tastes any food — it's pure arithmetic on rank numbers.
+
+**Re-ranking (a cross-encoder, or RankGPT) is a completely different job.** It's a food critic who actually sits down and reads the query and one document *together*, judging real relevance — much slower, but far more accurate than just counting rank positions.
+
+| | RRF | Re-ranking |
+|---|---|---|
+| Input | *Multiple* separate ranked lists | *One* list of candidates |
+| How it decides | Only rank *position* in each list — pure math | Reads query + document together — real judgment |
+| Needs a model? | No | Yes (a cross-encoder, or an LLM like RankGPT) |
+| Job | Merge + de-duplicate | Refine the ordering of what's already there |
+
+#### Where it fits in the pipeline
+
+RRF needs multiple lists to exist *before* it can do anything — merging is its entire job. So it naturally happens right after something has produced more than one ranked list (multiple rephrased queries in RAG-Fusion, or a keyword search list plus a vector search list in hybrid search), and *before* any optional re-ranking step, since re-ranking works on a single list, not several:
+
+```
+Query → fanned out into multiple queries, or multiple retrieval methods
+       → EACH produces its OWN separate ranked list
+       → RRF merges all of them into ONE combined, de-duplicated list
+       → (optional) Re-ranking (cross-encoder / RankGPT) takes THAT one list
+         and refines its order using real semantic judgment
+       → Top-K passed to the LLM
+```
+
+#### Technical interview definition
+
+"**Reciprocal Rank Fusion (RRF)** is a rank aggregation algorithm that combines multiple ranked result lists into a single ranking without requiring the underlying relevance scores to be comparable, normalized, or even present — it uses only each document's rank *position* in each list. For a document *d*, its RRF score is:
+
+**RRF_score(d) = Σ, over every list *L* containing *d*, of 1 / (k + rank_L(d))**
+
+where `rank_L(d)` is *d*'s 1-indexed position in list *L*, and *k* is a smoothing constant — commonly 60, from the original Cormack et al. (2009) paper — that dampens the impact of very high individual ranks so no single list dominates the fused result. Documents are sorted by this combined score. RRF is popular for combining heterogeneous retrieval signals — merging BM25 keyword results with dense vector results, or merging results from several reformulated queries in RAG-Fusion — because it needs no score normalization across differently-scaled retrievers, and it naturally de-duplicates any document appearing on multiple lists by accumulating its score across all of them."
+
+**One line:** RRF and re-ranking are not the same thing — RRF is a cheap, score-free way to merge *multiple* ranked lists into one by rank position alone, and it runs *before* any re-ranking step, which instead takes that single merged list and refines it using a model that actually judges relevance.
