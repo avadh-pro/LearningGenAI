@@ -183,4 +183,59 @@ Every question asked while working through this file gets logged here, numbered 
 - Earlier answers are referred back to ("from Q1") so the picture stays connected.
 - A bolded **One line:** summary closes the answer, restating the whole thing in a single sentence.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: In sentence windowing, are you sliding the input query, or the retrieved chunk?
+
+**❌ Neither — you slide the window over your *documents*, at indexing time, long before any query exists.**
+
+This is the single most common mix-up with sentence windowing, and it comes from the word "sliding" sounding like something that happens live, during a search. It doesn't.
+
+#### 🗄️ The filing-cabinet analogy
+
+Think of two completely separate moments in a RAG system's life:
+
+1. **Filing day (indexing).** You take every document you own, cut each one into small overlapping pieces, and file them away. The window slides across the *text* here. This happens once, up front, with no user and no question anywhere in sight.
+2. **Question day (retrieval).** Someone asks something. You search the already-filed pieces and pull out the closest matches. Nothing is being cut or slid at this point — the pieces were shaped long ago.
+
+Sentence windowing lives entirely in step 1.
+
+| | Slid over documents | Slid over the query | Slid over retrieved chunks |
+|---|---|---|---|
+| Is this sentence windowing? | ✅ Yes | ❌ No | ❌ No |
+| When it happens | Indexing, once | — | — |
+
+The query does get modified in this pipeline — but by **query expansion** and **query rewriting**, which are separate pre-retrieval techniques covered above. And retrieved chunks do get reworked afterwards — but by **reranking**, in post-retrieval. Three different stages, three different targets. Sentence windowing touches only the documents.
+
+**One line:** The window slides across your documents while you are indexing them, not across the question and not across the results — chunking is a preparation step that finishes before the first query is ever asked.
+
+---
+
+### Q2: So this is the sliding window chunking methodology — a type of chunking strategy, correct?
+
+**✅ Correct — sentence windowing is a chunking strategy, and it belongs to the sliding-window (overlapping) family.**
+
+This follows directly from Q1: because the window is applied to documents at indexing time, it *is* by definition a chunking decision — chunking is simply the act of deciding how to cut documents up before storing them.
+
+#### Where it sits among the chunking strategies
+
+| Strategy | How it cuts | Weakness |
+|---|---|---|
+| **Fixed-size** | Every N characters or tokens | Slices mid-sentence, mid-word |
+| **Sliding window** | N sentences, with overlap between neighbours | Some content stored twice |
+| **Recursive** | Follows structure — paragraphs, then sentences | Needs clean formatting to work |
+| **Semantic** | Cuts where the meaning shifts | Slowest; needs a model to decide |
+
+Sliding window is the step up from fixed-size: same simplicity, but the overlap stops a thought from being cut in half.
+
+#### ⚠️ One nuance worth knowing for interviews
+
+Two related things share this name:
+
+| | Sliding-window chunking | Sentence-window **retrieval** |
+|---|---|---|
+| What gets stored | Overlapping chunks of several sentences | Each **single sentence**, embedded on its own |
+| What gets returned | That same chunk | The matched sentence **plus its neighbours** |
+| The point | Don't cut a thought in half | Match precisely, but still hand the LLM full context |
+
+The second is the sharper idea, and it's what LlamaIndex means by the term specifically. It **decouples what you match on from what you return** — so you get the pinpoint accuracy of a tiny chunk *and* the surrounding context of a large one. That sidesteps the size trade-off described above rather than merely balancing it. The course PDF describes the general first form.
+
+**One line:** Yes — sentence windowing is sliding-window chunking, an overlap-based chunking strategy applied at indexing time; just be ready to distinguish it from "sentence-window retrieval," which embeds one sentence but returns several.
