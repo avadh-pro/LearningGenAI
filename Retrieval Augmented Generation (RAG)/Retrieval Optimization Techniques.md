@@ -22,13 +22,65 @@ Pre-retrieval optimization focuses on refining the input to maximize the efficie
 
 ### 1. Sentence Window
 
-A sentence window approach segments larger documents into manageable windows or chunks, typically one or more sentences long. By creating a sliding window of sentences, search engines can:
+**In plain words:** don't store a whole document as one searchable item. Cut it into small pieces of a few sentences each, and search the *pieces*.
+
+#### 📚 The textbook analogy
+
+Someone asks you, "what causes rust?"
+
+- **Without windowing**, you hand them a 400-page chemistry textbook and say *"it's in there."* Technically true. Completely useless.
+- **With windowing**, you hand them the one paragraph about iron reacting with oxygen and water.
+
+Same book, same knowledge. The difference is the *size of the thing you hand over*. A RAG system has exactly this choice to make about every document you give it.
+
+#### Why big chunks fail — the averaging problem
+
+When a document is stored for searching, it gets converted into a single list of numbers (a vector) that represents "what this text is about."
+
+Now think about what that means for a long article covering twelve different topics. The system has to squeeze all twelve into *one* summary of meaning. The result is a blurry average — a vector that is slightly about realism, slightly about perspective, slightly about oil paints, and not strongly about any of them.
+
+So when you ask a sharp question, that article is a weak match for everything and a strong match for nothing. **Small windows fix this because each window only has one thing to be about.**
+
+#### A worked example
+
+Take this short passage:
+
+> The early Renaissance was a transformative period in art history, characterized by a revival of classical techniques and a focus on realism. Artists began using linear perspective to create depth. Chiaroscuro, the use of light and shadow, also gained prominence. Innovations like oil paints enhanced fine details.
+
+**Stored as one chunk**, its single vector means roughly *"general overview of the Renaissance."* Ask "how did artists show light and shadow?" and it matches — but only weakly, because three-quarters of the chunk is about something else.
+
+**Split into sentence windows**, you instead get four separately searchable pieces:
+
+| Window | What it is about |
+|---|---|
+| 1. "The early Renaissance was a transformative period… focus on realism." | Period overview |
+| 2. "Artists began using linear perspective to create depth." | **Perspective** |
+| 3. "Chiaroscuro, the use of light and shadow, also gained prominence." | **Light and shadow** |
+| 4. "Innovations like oil paints enhanced fine details." | **Materials** |
+
+Now the same question lands on Window 3 — a near-perfect match, because that window is about nothing else.
+
+#### What the "sliding" part means
+
+The windows deliberately **overlap**, which is where the word *sliding* comes from. Rather than cutting cleanly at sentences 1-2, then 3-4, a sliding window takes sentences 1-2, then 2-3, then 3-4 — each new window re-includes the tail of the previous one.
+
+Why bother? Because sentences lean on their neighbours. Imagine a window that contains only:
+
+> "It was invented in Florence."
+
+Useless on its own — *what* was invented? Overlap keeps the previous sentence attached, so the pronoun still has something to point at. **Overlap is insurance against cutting a thought in half.**
+
+#### The trade-off to remember
+
+Smaller is not automatically better. Cut too small and you shred the context — a single sentence may match your query while lacking the surrounding detail needed to actually answer it. Cut too large and you are back to the blurry average. The goal is *one idea per window*, not *the smallest possible window*.
+
+---
+
+**The formal version**, as your course notes put it: a sentence window approach segments larger documents into manageable windows or chunks, typically one or more sentences long. By creating a sliding window of sentences, search engines can:
 
 - Enhance focus on smaller, contextually rich segments.
 - Improve recall rates by preventing over-reliance on large, broad documents.
 - Enable more precise matching for nuanced queries.
-
-**Why it matters:** embedding an entire article averages its meaning into a single vector, so a document about twelve topics matches every one of them weakly. Narrow windows keep each vector about *one* thing.
 
 ```mermaid
 flowchart TD
