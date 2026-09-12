@@ -239,3 +239,43 @@ Two related things share this name:
 The second is the sharper idea, and it's what LlamaIndex means by the term specifically. It **decouples what you match on from what you return** — so you get the pinpoint accuracy of a tiny chunk *and* the surrounding context of a large one. That sidesteps the size trade-off described above rather than merely balancing it. The course PDF describes the general first form.
 
 **One line:** Yes — sentence windowing is sliding-window chunking, an overlap-based chunking strategy applied at indexing time; just be ready to distinguish it from "sentence-window retrieval," which embeds one sentence but returns several.
+
+---
+
+### Q3: So then it would *not* fall under Pre-retrieval Optimization, correct?
+
+**❌ No — it does still fall under Pre-retrieval Optimization. Being a chunking strategy doesn't remove it from that category.**
+
+This is the natural trap after Q2. Having established that Sentence Window is a chunking strategy, it feels like it must therefore belong somewhere *other* than pre-retrieval — as if the two labels were competing for the same slot. They aren't. They answer completely different questions:
+
+| Label | The question it answers | Sentence Window's answer |
+|---|---|---|
+| **Pre-retrieval** | *When* does this run? | Before the search executes ✅ |
+| **Chunking strategy** | *What kind* of technique is this? | A rule for cutting up documents ✅ |
+
+Both are true simultaneously. A technique always has a *when* and a *what* — naming one never cancels the other.
+
+#### 🍳 The mise en place analogy
+
+"Pre-retrieval" is simply everything a chef does **before the order comes in**. That prep covers two different kinds of work:
+
+- **Prepping the ingredients** — dicing the onions, portioning the stock. This is your *documents* being chunked. → **Sentence Window**
+- **Clarifying the order** — reading the ticket, resolving "the usual" into an actual dish. This is your *query* being cleaned up. → **Query Expansion**, **Query Rewriting**
+
+Both are prep. Both happen before service. They just act on opposite ends of the kitchen.
+
+#### The two axes, side by side
+
+The cleanest way to hold all of this is to stop thinking in one list and start thinking in a grid — *when* it runs, against *what it touches*:
+
+| Technique | Stage (when) | Acts on (what) |
+|---|---|---|
+| **Sentence Window** | Pre-retrieval | The **documents** |
+| **Query Expansion** | Pre-retrieval | The **query** |
+| **Query Rewriting** | Pre-retrieval | The **query** |
+| **Hybrid Search** | Retrieval | The **search itself** |
+| **Reranking** | Post-retrieval | The **results** |
+
+Read down the *Stage* column and Sentence Window sits comfortably with the other two pre-retrieval techniques. Read across to *Acts on* and it stands apart from them. That combination — same timing, different target — is the whole source of the confusion, and the course PDF has it filed correctly.
+
+**One line:** It's both at once — "chunking strategy" says what the technique *is*, "pre-retrieval" says when it *runs*, so Sentence Window is correctly classified as a pre-retrieval technique that happens to work on your documents rather than on your question.
