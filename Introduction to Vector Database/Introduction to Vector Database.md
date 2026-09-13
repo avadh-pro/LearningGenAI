@@ -556,3 +556,62 @@ So the same underlying capability — ANN similarity search — can live inside 
 **One line:** A vector database is best treated as its own separate category — not SQL, and not quite a clean fit under NoSQL either, since its core capability (approximate similarity search over high-dimensional vectors) doesn't match any traditional NoSQL pattern — though in practice that same capability can also be added directly into an existing SQL database (like PostgreSQL via `pgvector`) or NoSQL database (like MongoDB or Redis), so "SQL vs. NoSQL vs. vector database" isn't always a mutually exclusive choice.
 
 *(End of SQ1)*
+
+---
+
+### 🟩 SQ2 · How Do Cosine/Dot Product/Euclidean, ANN, and HNSW/IVF Actually Relate to Each Other?
+
+> **🗣️ Asked (as said):** "There are three things, cosine similarity, Euclidean distance, and the dot product. And there is something called approximate nearest neighbor, and the indexing method like HNSW and IVF. So how are all these pointers related to each other?"
+>
+> **✍️ Refreshed:** Are distance metrics (cosine/dot product/Euclidean) and ANN indexing methods (HNSW/IVF) part of the same spectrum of options, or are they solving two different problems?
+
+**💡 Answer**
+
+**Two different problems, on two independent layers — not one spectrum.**
+
+**Layer 1 — the ruler:** the distance metric (cosine similarity, dot product, or Euclidean distance) answers *"what does similar mean?"* This is the question from Q2/Q3 above.
+
+**Layer 2 — the strategy:** ANN, implemented via an index like HNSW or IVF, answers a completely different question — *"how do I find the nearest vectors fast, without checking every single one?"*
+
+**The key relationship:** ANN is not an alternative to a distance metric — it's a shortcut for applying one. Even brute-force nearest-neighbor search (checking every vector, one by one) still uses cosine/dot/Euclidean to decide closeness; it's just slow at scale (millions to billions of vectors). HNSW and IVF don't replace the ruler — they only decide *which small subset* of vectors is worth measuring against, using whichever ruler you configured.
+
+```mermaid
+flowchart TB
+    Q["Query vector"]
+
+    subgraph L1 [" LAYER 1 — THE RULER: what counts as 'similar'? "]
+        direction LR
+        C["Cosine Similarity<br/>angle only"]
+        D["Dot Product<br/>angle + magnitude"]
+        E["Euclidean Distance<br/>straight-line gap"]
+    end
+
+    subgraph L2 [" LAYER 2 — THE STRATEGY: how do I search fast? "]
+        direction LR
+        BF["Brute force<br/>check ALL vectors<br/>exact, but slow at scale"]
+        ANN["ANN<br/>check a SMART SUBSET<br/>fast, ~99% accurate"]
+    end
+
+    subgraph L3 [" the ANN index decides which subset to check "]
+        direction LR
+        HNSW["HNSW<br/>multi-layer graph of shortcuts"]
+        IVF["IVF<br/>pre-clustered buckets"]
+    end
+
+    Q --> L1
+    L1 -->|"pick ONE ruler,<br/>then apply it via"| L2
+    ANN --> L3
+    L3 -.->|"still uses the SAME ruler<br/>from Layer 1 to compare candidates"| L1
+```
+
+**🗄️ The library analogy:** say you have 1 million books (vectors) and your ruler is "same genre" (your chosen distance metric).
+
+- **Brute force:** walk past every single book and check its genre against your target book. Accurate, but unusably slow with a million books.
+- **IVF:** ahead of time, group books into ~100 genre bins (this grouping step is literally k-means clustering). A query only walks into the 2-3 most promising bins (`nprobe`), skipping the rest entirely.
+- **HNSW:** build a multi-level highway system between books — the top level has a few long-jump connections that skip across huge sections of the library in one hop; each lower level has shorter, local jumps that refine the position. You start at the highway and zoom in level by level.
+
+Either way, once IVF or HNSW hands back a short candidate list, the actual "is this close enough?" check still runs on whichever ruler you configured from Layer 1. The index only narrows *which* books get measured — it never changes *how* they get measured.
+
+**One line:** the distance metric decides what "close" means; ANN indexes like HNSW and IVF decide how to find the close ones without measuring against every vector — the index is built *around* your chosen metric, not instead of it.
+
+*(End of SQ2)*
