@@ -4,7 +4,7 @@ Condensed, slide-and-transcript-based notes from a TMLC Academy session on produ
 
 **The core idea, in one picture:**
 
-![The Anatomy of a RAG Pipeline](Current%20state%20of%20RAG/1.png)
+![The Anatomy of a RAG Pipeline](1.png)
 
 A RAG pipeline has two halves: a **knowledge ingestion pipeline** (ingestion → chunking → embedding → index) that runs once per document, and a **retrieval & generation pipeline** (retrieval → re-ranking → generation) that runs per user query. Each of those six stages can fail independently — and failures don't average, they **multiply**.
 
@@ -16,7 +16,7 @@ The rest of this document walks through each stage's real failure modes, using t
 
 ## 1. Ingestion & Index Quality Failures
 
-![Ingestion & Index Quality Failures](Current%20state%20of%20RAG/2.png)
+![Ingestion & Index Quality Failures](2.png)
 
 Everything starts with source data — get this stage wrong and every later stage inherits the damage.
 
@@ -45,7 +45,7 @@ Everything starts with source data — get this stage wrong and every later stag
 
 ## 2. Chunking Strategy Failures
 
-![Chunking Strategy Failures](Current%20state%20of%20RAG/3.png)
+![Chunking Strategy Failures](3.png)
 
 Chunking sounds trivial — "split the document up" — but a bad chunk means nothing good can ever be retrieved from it, no matter how good everything downstream is.
 
@@ -80,7 +80,7 @@ Chunking sounds trivial — "split the document up" — but a bad chunk means no
 
 ## 3. Query Understanding Failures
 
-![Query Understanding Failures](Current%20state%20of%20RAG/4.png)
+![Query Understanding Failures](4.png)
 
 Even with perfect ingestion and chunking, retrieval can still fail if the system misreads what the user is actually asking.
 
@@ -112,7 +112,7 @@ Even with perfect ingestion and chunking, retrieval can still fail if the system
 
 ## 4. Retrieval Mechanism Failures
 
-![Retrieval Mechanism Failures](Current%20state%20of%20RAG/5.png)
+![Retrieval Mechanism Failures](5.png)
 
 This is what breaks once the query is already understood correctly, but the actual *search mechanics* still go wrong.
 
@@ -143,7 +143,7 @@ This is what breaks once the query is already understood correctly, but the actu
 
 ## 5. Context Assembly & Prompt Construction Failures
 
-![Context Assembly & Prompt Construction Failures](Current%20state%20of%20RAG/6.png)
+![Context Assembly & Prompt Construction Failures](6.png)
 
 Retrieval succeeded — now the problem is how that retrieved information actually gets packaged into the prompt.
 
@@ -172,7 +172,7 @@ Retrieval succeeded — now the problem is how that retrieved information actual
 
 ## 6. Generation-Side Failures
 
-![Generation-Side Failures](Current%20state%20of%20RAG/7.png)
+![Generation-Side Failures](7.png)
 
 The right context finally reaches the model — and the model itself can still get it wrong.
 
@@ -197,7 +197,7 @@ The right context finally reaches the model — and the model itself can still g
 
 ## 7. Latency & The Optimization Trade-off
 
-![Latency & The Optimization](Current%20state%20of%20RAG/8.png)
+![Latency & The Optimization](8.png)
 
 The thread connecting every fix above: nearly all of them cost latency somewhere. This section is about managing that trade-off on purpose, not by accident.
 
@@ -222,7 +222,7 @@ The thread connecting every fix above: nearly all of them cost latency somewhere
 
 ## 8. Evaluation & Observability Failures
 
-![Evaluation & Observability Failures](Current%20state%20of%20RAG/9.png)
+![Evaluation & Observability Failures](9.png)
 
 You can't fix what you never measured — and measuring a RAG system correctly is its own frequently-skipped step.
 
@@ -251,7 +251,7 @@ You can't fix what you never measured — and measuring a RAG system correctly i
 
 ## 9. Systemic & Architectural Failures
 
-![Systemic & Architectural Failures](Current%20state%20of%20RAG/10.png)
+![Systemic & Architectural Failures](10.png)
 
 Zooming out from any one component to how the whole system is designed.
 
@@ -280,7 +280,7 @@ Zooming out from any one component to how the whole system is designed.
 
 ## What Actually Works Today, and What's Still Unsolved
 
-![What Works Today / What Remains Unsolved](Current%20state%20of%20RAG/11.png)
+![What Works Today / What Remains Unsolved](11.png)
 
 **Three things a production RAG system should never skip:**
 
@@ -299,7 +299,7 @@ Zooming out from any one component to how the whole system is designed.
 
 ## Key Takeaways
 
-![Key Takeaways](Current%20state%20of%20RAG/12.png)
+![Key Takeaways](12.png)
 
 1. **RAG reliability depends on the full pipeline, not just retrieval** — ingestion, chunking, indexing, retrieval, prompt assembly, generation, and evaluation can each quietly introduce errors.
 2. **Strong retrieval begins with clean, well-structured knowledge** — good preprocessing, metadata-rich chunks, hierarchical indexing, hybrid retrieval, and re-ranking are the real foundation.
