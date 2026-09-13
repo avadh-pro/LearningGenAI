@@ -982,6 +982,25 @@ Your version and NDCG are catching the exact same problem — X isn't where it s
 
 ---
 
+**🔁 Interview Q7 (follow-up 4):** "Walk me through Precision, Recall, MRR, and NDCG on one worked example — I want to see how they relate. And two follow-ons: if I swap which of two relevant chunks sits at the top spot, does MRR change? And if none of the top-K chunks are relevant at all, what happens to MRR?"
+
+**✅ Strong answer:** "Take one query. Ground truth says 3 relevant chunks exist — A (highly relevant), B (somewhat relevant), C (marginally relevant). Top-5 retrieved, in this order: D (irrelevant), A, E (irrelevant), B, C.
+
+| Metric | Calculation | Result |
+|---|---|---|
+| Precision@5 | 3 relevant found ÷ 5 retrieved | 0.60 |
+| Recall@5 | 3 relevant found ÷ 3 relevant that exist | 1.00 |
+| MRR | 1 ÷ (rank of first relevant hit = A at position 2) | 0.50 |
+| NDCG@5 | DCG (≈3.14) ÷ IDCG of the ideal A→B→C order (≈4.76) | ≈0.66 |
+
+Four different stories from the same ranking: Recall says perfect, Precision says decent, MRR says 'took two tries,' NDCG says 'good but not ideally ordered' — because A, the best chunk, wasn't at position 1, and two irrelevant chunks were mixed in around it.
+
+**On the swap:** if A and B traded places — order becomes D, B, E, A, C — MRR stays exactly 0.5. MRR only cares about the *position* of the first relevant hit, not *which* relevant chunk occupies it. Position 2 is relevant either way, so the score doesn't move. (NDCG, by contrast, *would* shift slightly, since it weighs each chunk by its own relevance grade, not just 'relevant or not.')
+
+**On zero relevant hits:** if none of the top-5 chunks were relevant at all, MRR for that query is **0** — not undefined, not skipped. There's no rank to take the reciprocal of, so it scores the worst possible value by convention. Averaged into a multi-query MRR, a query like this drags the mean down hard rather than being excluded from it."
+
+---
+
 **🎙️ Interview Q8:** "How would you scale this to a billion vectors, and what breaks first?"
 
 **✅ Strong answer:** "Memory usually breaks first — HNSW graphs are memory-hungry, so at that scale you'd look at quantization to shrink each vector's footprint, or a disk-backed ANN index accepting some latency for lower cost. You'd also shard across multiple nodes and query them in parallel. The other thing that breaks is index freshness: rebuilding a billion-vector index from scratch isn't instant, so you need an incremental upsert strategy for new or changed documents, and a re-embedding plan for whenever the embedding model itself changes."
