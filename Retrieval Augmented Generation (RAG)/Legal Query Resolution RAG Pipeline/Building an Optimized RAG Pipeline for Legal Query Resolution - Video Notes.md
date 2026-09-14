@@ -358,6 +358,98 @@ Worth being precise about, especially for an interview: this system is honestly 
 
 ---
 
+## 🎤 Interview Prep — Mock Interview (Production Legal/Domain-Specific RAG Architecture, ~4 Years' AI Engineering Experience)
+
+*This session's real focus was wiring every retrieval-optimization technique into one coherent, production-shaped pipeline over a genuinely hard domain — so this interview set is deliberately different from the ones in* LangChain.md*,* Introduction to Vector Database.md*, and* Current State of RAG - Video Notes.md*: it's about the specific architectural decisions this pipeline makes (composite keys, parent-child chunking, RRF, confidence gating, decomposition, rewriting, agentic classification, evaluation) and *why* each one exists. Same two-layer format as those sections: a plain-language answer with an example, then a crisp, technically precise version. Try answering out loud first.*
+
+---
+
+**🎙️ Interview Q1:** "Why can't 'Section 6' alone be used as a unique identifier when you're building a RAG system over a large collection of legal Acts?"
+
+**✅ Strong answer:** "Because section numbers repeat across completely unrelated documents — dozens of different Acts each have their own 'Section 6,' saying completely different things. It's like a filing cabinet where every drawer has a folder labeled 'Page 6': useless unless every folder also says which book that page came from. The fix is to treat the *pair* — (which Act, which Section) — as the real primary key, not the section number by itself, and to carry both fields in the metadata payload stored alongside every chunk so retrieval, filtering, and citation can all key off the composite identifier."
+
+**🎯 Standard Interview Answer:** "This is a data-modeling problem that surfaces the moment you profile the real corpus instead of assuming a naive schema: the section number is not globally unique, so `(act_title, section)` is the true composite key. Concretely, this means storing both fields as payload metadata on every vector-store point, using the composite key for citation generation, and optionally allowing metadata pre-filtering on `act_title` so a query can be scoped to one specific Act before search even begins — directly resolving the ambiguity rather than hoping semantic similarity sorts it out after the fact. This generalizes beyond law: any corpus with repeating structural labels (chapter numbers, article numbers, invoice line numbers) needs the same treatment — profile the data first, then design the key, never assume a bare label is unique."
+
+---
+
+**🎙️ Interview Q2:** "What is parent-child (small-to-big) retrieval, and why not just embed and search the full section text directly?"
+
+**✅ Strong answer:** "It's giving your search system sticky-note index tabs while leaving the actual full page of the law book untouched. You cut each section into small child chunks purely so *search* can be precise — matching a tight, focused piece of text against the query — but once a match is found, you hand the LLM the *entire* parent section, not just the matched snippet, so no clause is ever interpreted missing the sub-clause that defines its exception. Every child chunk carries a `parent_doc_id` pointing back to its full parent, which is how the system knows what to actually retrieve for generation once search has done its job on the small pieces."
+
+**🎯 Standard Interview Answer:** "This resolves the same trade-off the Sentence Window technique addresses, but head-on instead of by picking a single chunk size: small chunks (roughly 100-200 tokens) give precise, high-specificity embeddings and stronger retrieval precision, but discard surrounding context; large chunks (roughly 500-1500 tokens) preserve context but produce embeddings that average multiple concepts together, reducing retrieval precision. Parent-child retrieval gets both by decoupling what's *searched* from what's *generated from*: only small child chunks are indexed and matched against the query for precision, while each carries a `parent_doc_id` linking back to a larger parent chunk or full section, which is what actually gets passed to the LLM once retrieval identifies the right region — precision at search time, completeness at generation time, without compromising either."
+
+---
+
+**🎙️ Interview Q3:** "Walk me through why you'd fuse a BM25 score and a cosine-similarity score with Reciprocal Rank Fusion instead of just averaging them."
+
+**✅ Strong answer:** "Because the two numbers aren't measuring the same thing on the same scale — cosine similarity is bounded between −1 and 1, while a BM25 score is unbounded, anywhere from 0 to infinity. If you average them directly, whichever score happens to have the larger range dominates every single time, regardless of which retrieval method actually mattered more for that particular query. RRF sidesteps this entirely by throwing away the raw scores and using only *rank position* — a document that's ranked #1 on both lists scores far higher than one that's #1 on only one list and absent from the other, and 'being ranked #1' means the exact same thing no matter which scoring system produced that ranking."
+
+**🎯 Standard Interview Answer:** "RRF computes a fused score as RRF(d) = Σ 1/(k + rank_r(d)) across each retriever r, where k is a smoothing constant (commonly 60) that flattens the gap between adjacent top ranks — rank 1 contributes 1/61 ≈ 0.0164 and rank 2 contributes 1/62 ≈ 0.0161, a gentle decline rather than a cliff. Because RRF operates purely on rank position, it's scale-independent by construction and requires no score normalization or per-query tuning, unlike a weighted-sum fusion, which needs its weights calibrated and can be dominated by whichever score distribution happens to have the larger numeric range. The trade-off is that RRF discards magnitude information entirely — a document ranked #1 by a landslide and one ranked #1 by a hair both just count as 'rank 1.'"
+
+---
+
+**🎙️ Interview Q4:** "What's the difference between Recall@k and Mean Reciprocal Rank, and could two retrieval systems tie on one while differing sharply on the other?"
+
+**✅ Strong answer:** "Recall@k is a blunt yes/no check: does the correct answer appear *anywhere* in the top k results? Nothing about *where* in those k results it landed. MRR is stricter about position: it scores 1 / (rank of the correct result), so a correct answer at rank 1 scores a perfect 1.0, but the same correct answer at rank 6 only scores about 0.167. Yes, two systems can absolutely tie on Recall@6 — both technically 'found' the right answer within the top 6 — while MRR reveals that one of them buried it near the very bottom of that acceptable range and the other put it right at the top, which matters a lot in practice since users rarely read past the first couple of results."
+
+**🎯 Standard Interview Answer:** "Recall@k is a binary, threshold-based metric — 1 if the ground-truth item appears anywhere in the top-k retrieved set, 0 otherwise — so it measures coverage but is blind to rank within that window. MRR = 1/rank of the first relevant result, so it's a continuous, position-sensitive metric that directly penalizes burying the correct answer near the bottom of an otherwise-passing window. The two are complementary rather than redundant: Recall@k tells you whether your retrieval depth (k) is sufficient at all, while MRR tells you whether reranking is actually doing its job of pushing the correct result toward the top — a system can have perfect Recall@6 and still have a mediocre MRR if it's consistently landing the right answer at rank 5 or 6 instead of rank 1."
+
+---
+
+**🎙️ Interview Q5:** "Explain confidence-gated fallback in a RAG pipeline — how does the system decide whether to trust its own knowledge base or fall back to a live web search?"
+
+**✅ Strong answer:** "This is the system finally learning to say 'I don't know, let me check with someone else' instead of confidently guessing. After reranking, the top result's relevance score becomes a confidence signal: above a threshold, the system trusts its local corpus and generates the answer from those retrieved chunks. Below that threshold, it doesn't force an answer from weak evidence — it falls back to a live, scoped web search (restricted to trusted, authoritative sources, not the open web) and generates from that instead. Either way, the final answer is tagged with where it actually came from, so nothing is presented as more certain than it really is."
+
+**🎯 Standard Interview Answer:** "This is the core idea behind Corrective RAG (CRAG): a retrieval evaluator scores the top reranked result, and that score routes execution down one of two (or, in the fuller CRAG formulation, three) paths — trust the local retrieval and generate directly above a high-confidence threshold, discard it and reformulate as a fresh external query below a low-confidence threshold, and in the three-path variant, merge local and external results when the score falls in an ambiguous middle band. The engineering cost is that both thresholds require domain-specific calibration — too permissive and low-quality local matches get generated from anyway; too strict and the system offloads to (slower, less controlled) web search unnecessarily often. Attaching an explicit `SOURCE: LOCAL` / `SOURCE: WEB` tag to every answer is what actually operationalizes trust calibration for the end user, independent of how well-tuned the threshold is."
+
+---
+
+**🎙️ Interview Q6:** "A user asks a compound legal question — grounds for divorce *and* the filing procedure — in one sentence. Why does that need query decomposition instead of a single retrieval call?"
+
+**✅ Strong answer:** "Because it's really two separate questions stitched together, and retrieving for it as one blended query risks partially answering both instead of fully answering either — the embedding for the combined sentence ends up as some average of two different topics, matching okay-ish chunks for each half rather than great chunks for either. The fix is to split the compound question into its two independent sub-questions, retrieve separately for each — so each one gets its own focused search — and then merge and de-duplicate the combined results before generation."
+
+**🎯 Standard Interview Answer:** "A compound or multi-intent query dilutes the query embedding across multiple semantic targets, a failure mode sometimes called semantic dilution, which degrades retrieval precision for every intent bundled into the single query rather than for just one of them. The standard mitigation is a decomposition step — typically a binary classifier prompt that first detects whether a query is single- or multi-intent, then splits a multi-intent query into atomic sub-queries, retrieves independently per sub-query, and merges and deduplicates the combined candidate pool before reranking and generation. This directly increases faithfulness and coverage versus single-pass retrieval, at the cost of one extra classification call and, for genuinely multi-intent queries, N times the retrieval calls."
+
+---
+
+**🎙️ Interview Q7:** "Why is query rewriting often called the single highest-leverage improvement for multi-turn RAG — and also one of the most commonly skipped?"
+
+**✅ Strong answer:** "Because a natural follow-up question is almost never self-contained. Someone asks 'What are the provisions under Section 6?' and then follows up with 'For women residents only?' — that second question has no subject on its own; it only makes sense combined with the first. Query rewriting fixes this with one extra, cheap LLM call before retrieval: take the conversation history plus the new turn, and rewrite it into a standalone question — 'What are the provisions under Section 6 of the Aadhaar Act for women residents only?' — *before* it ever reaches the retriever. It's high-leverage because it's the single fix that makes an otherwise-working RAG system stop quietly falling apart the moment a real user asks a natural follow-up, and it's commonly skipped because a system built and tested only on standalone questions never surfaces the problem until real multi-turn usage exposes it."
+
+**🎯 Standard Interview Answer:** "Multi-turn user queries very commonly contain unresolved coreferences or context that depends entirely on prior turns — one production analysis found this in over 60% of follow-up messages — so retrieval performed directly on the raw follow-up text matches against the wrong (or no) topical anchor. Query rewriting inserts a decontextualization step: an LLM call that, given recent session history and the new turn, collapses the exchange into one self-contained query, resolving pronouns and implicit references before the retriever ever sees the query. It's considered the highest-leverage multi-turn fix specifically because it's a single, localized addition (one extra LLM call, no retrieval or index changes) that fixes an entire class of failure that otherwise degrades silently — a system with excellent single-turn retrieval metrics can still fail the majority of realistic multi-turn conversations without it, which is exactly why it needs to be tested for explicitly rather than assumed from single-turn evaluation numbers."
+
+---
+
+**🎙️ Interview Q8:** "This pipeline does confidence-based routing and query decomposition — does that make it a fully autonomous agent?"
+
+**✅ Strong answer:** "No, and it's worth being precise about that distinction. A fixed pipeline always runs the same steps in the same order — retrieve, rerank, generate, done. A fully autonomous agent runs an open-ended loop — perceive, plan, act, observe, and decide for itself whether to loop back around again. This system sits in between: it makes a handful of specific, bounded decisions per query — whether to trust local retrieval or fall back to the web, whether a query needs splitting into sub-questions — but it doesn't do open-ended, self-directed multi-step planning or continuously re-evaluate its own strategy. The honest description is 'a RAG system with agentic components,' not 'an autonomous agent that happens to use RAG.'"
+
+**🎯 Standard Interview Answer:** "RAG, fine-tuning, and agents solve different problems and are complementary layers, not competing choices: RAG grounds a model in external, updatable knowledge; fine-tuning changes the model's own behavior or style; agents add multi-step reasoning and dynamic tool selection on top of either. A practical rule of thumb: if the knowledge changes frequently, that's a RAG problem; if the required style, tone, or output format needs to change, that's a fine-tuning problem; if the task needs multi-step actions across tools, that's an agentic problem. This system is RAG at its core with two narrowly-scoped agentic behaviors layered on — confidence-based routing and conditional query decomposition — which qualifies it as agentic in a limited, bounded sense, but it lacks the defining trait of a fully autonomous agent: an open-ended perceive-plan-act-observe loop that can revise its own strategy and re-enter itself indefinitely, rather than following a deterministic, predefined set of branch points."
+
+---
+
+**🎙️ Interview Q9:** "Why would a dedicated 'citation correctness' metric catch a failure that a general faithfulness check would miss?"
+
+**✅ Strong answer:** "Because an answer can be completely accurate in general and still cite the *wrong* specific source for a specific claim — and a faithfulness check, which just asks 'does this answer avoid contradicting the retrieved context,' can pass that answer without ever verifying the citation actually supports that exact claim. A dedicated citation-correctness check goes one level deeper: for every factual claim in the answer, it verifies that a citation exists, that the citation is genuinely present in the retrieved context, *and* that the specific cited section actually supports that specific claim — catching the subtle case of a technically-true statement attributed to the wrong Act or Section."
+
+**🎯 Standard Interview Answer:** "Faithfulness measures whether the generated answer is grounded in the retrieved context as a whole — it fails on hallucinated or unsupported claims, but it's satisfied as long as *some* part of the retrieved context supports the claim somewhere, without checking whether the specific citation attached to that claim is the actual source of support. A custom citation-correctness metric (implemented here as a G-Eval-style custom metric in DeepEval) closes that gap by verifying the full claim → citation → supporting-passage chain per factual statement, which is what catches an answer that is faithful in aggregate but attributes an individual claim to the wrong section — a failure mode that's especially costly in a legal domain, where the specific citation *is* the deliverable, not just supporting color."
+
+---
+
+**Sources consulted while calibrating this section:**
+- [RAG Interview Questions (2026): The Complete Guide — GitGood](https://gitgood.dev/blog/complete-guide-rag-interview-questions-2026)
+- [Advanced RAG 01: Small-to-Big Retrieval — Sophia Yang, TDS Archive](https://medium.com/data-science/advanced-rag-01-small-to-big-retrieval-172181b396d4)
+- [What is Reciprocal Rank Fusion? — ParadeDB](https://www.paradedb.com/learn/search-concepts/reciprocal-rank-fusion)
+- [Retrieval Metrics Tutorial: Recall@k and MRR Explained — Medium](https://medium.com/@rajnish_khatri/retrieval-metrics-tutorial-recall-k-and-mrr-explained-d2f12afb9c89)
+- [What Is Corrective RAG (CRAG)? — FutureAGI Glossary](https://futureagi.com/glossary/corrective-rag/)
+- [RAG vs Fine-Tuning vs Agents: A Decision Framework for 2026 — BEON.tech](https://beon.tech/blog/rag-vs-fine-tuning-vs-agents/)
+- [Query Decomposition: Tackling Semantic Dilution in RAG — Data Engineer Things](https://blog.dataengineerthings.org/query-decomposition-tackling-semantic-dilution-in-rag-3fb4307126ff)
+- [RAG Query Rewriting: 4 Layers That Fix Multi-Turn Retrieval — Alhena.ai](https://alhena.ai/blog/query-rewriting-before-retrieval-multi-turn-rag/)
+- [Using the RAG Triad for RAG Evaluation — DeepEval](https://deepeval.com/guides/guides-rag-triad)
+- [LangGraph state machines explained with a code example — n4n.ai](https://n4n.ai/blog/langgraph-state-machines-explained-with-a-code-example/)
+
+---
+
 ## Q&A
 
 Every question asked while working through this file gets logged here, numbered sequentially as `### Q1:`, `### Q2:` … Each answer follows the same shape:
