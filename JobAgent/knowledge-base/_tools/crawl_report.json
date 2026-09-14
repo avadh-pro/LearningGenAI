@@ -1,0 +1,834 @@
+[
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/deploy",
+  "pkg": "langchain",
+  "file": "deploy.md",
+  "title": "Deployment",
+  "chars": 4422,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/component-architecture",
+  "pkg": "langchain",
+  "file": "component-architecture.md",
+  "title": "Component architecture",
+  "chars": 2615,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/agents",
+  "pkg": "langchain",
+  "file": "agents.md",
+  "title": "Agents",
+  "chars": 53837,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/context-engineering",
+  "pkg": "langchain",
+  "file": "context-engineering.md",
+  "title": "Context engineering in agents",
+  "chars": 37237,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/deep-agent-from-scratch",
+  "pkg": "langchain",
+  "file": "deep-agent-from-scratch.md",
+  "title": "Build a data analysis agent from scratch",
+  "chars": 30904,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/branching-chat",
+  "pkg": "langchain",
+  "file": "frontend__branching-chat.md",
+  "title": "Branching chat",
+  "chars": 8382,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/controlled-generative-ui",
+  "pkg": "langchain",
+  "file": "frontend__controlled-generative-ui.md",
+  "title": "Controlled generative UI",
+  "chars": 4185,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/event-streaming",
+  "pkg": "langchain",
+  "file": "event-streaming.md",
+  "title": "Event streaming",
+  "chars": 10679,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/generative-ui-overview",
+  "pkg": "langchain",
+  "file": "frontend__generative-ui-overview.md",
+  "title": "Generative UI overview",
+  "chars": 5228,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/declarative-generative-ui",
+  "pkg": "langchain",
+  "file": "frontend__declarative-generative-ui.md",
+  "title": "Declarative generative UI",
+  "chars": 12802,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/integrations/ai-elements",
+  "pkg": "langchain",
+  "file": "frontend__integrations__ai-elements.md",
+  "title": "AI Elements",
+  "chars": 5799,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/integrations/assistant-ui",
+  "pkg": "langchain",
+  "file": "frontend__integrations__assistant-ui.md",
+  "title": "assistant-ui",
+  "chars": 5989,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/headless-tools",
+  "pkg": "langchain",
+  "file": "frontend__headless-tools.md",
+  "title": "Headless tools",
+  "chars": 10519,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop",
+  "pkg": "langchain",
+  "file": "frontend__human-in-the-loop.md",
+  "title": "Human-in-the-Loop",
+  "chars": 19441,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit",
+  "pkg": "langchain",
+  "file": "frontend__integrations__copilotkit.md",
+  "title": "CopilotKit",
+  "chars": 23800,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/integrations/overview",
+  "pkg": "langchain",
+  "file": "frontend__integrations__overview.md",
+  "title": "Overview",
+  "chars": 3286,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/join-rejoin",
+  "pkg": "langchain",
+  "file": "frontend__join-rejoin.md",
+  "title": "Join & rejoin streams",
+  "chars": 9289,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/markdown-messages",
+  "pkg": "langchain",
+  "file": "frontend__markdown-messages.md",
+  "title": "Markdown messages",
+  "chars": 9244,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/integrations/openui",
+  "pkg": "langchain",
+  "file": "frontend__integrations__openui.md",
+  "title": "OpenUI",
+  "chars": 25062,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/message-queues",
+  "pkg": "langchain",
+  "file": "frontend__message-queues.md",
+  "title": "Message queues",
+  "chars": 11294,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/open-ended-generative-ui",
+  "pkg": "langchain",
+  "file": "frontend__open-ended-generative-ui.md",
+  "title": "Open-ended generative UI",
+  "chars": 3101,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/overview",
+  "pkg": "langchain",
+  "file": "frontend__overview.md",
+  "title": "Overview",
+  "chars": 8754,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/reasoning-tokens",
+  "pkg": "langchain",
+  "file": "frontend__reasoning-tokens.md",
+  "title": "Reasoning tokens",
+  "chars": 10254,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/structured-output",
+  "pkg": "langchain",
+  "file": "frontend__structured-output.md",
+  "title": "Structured output",
+  "chars": 10689,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/time-travel",
+  "pkg": "langchain",
+  "file": "frontend__time-travel.md",
+  "title": "Time travel",
+  "chars": 15382,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/frontend/tool-calling",
+  "pkg": "langchain",
+  "file": "frontend__tool-calling.md",
+  "title": "Tool calling",
+  "chars": 10038,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/get-help",
+  "pkg": "langchain",
+  "file": "get-help.md",
+  "title": "Get help",
+  "chars": 2007,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/guardrails",
+  "pkg": "langchain",
+  "file": "guardrails.md",
+  "title": "Guardrails",
+  "chars": 14758,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/human-in-the-loop",
+  "pkg": "langchain",
+  "file": "human-in-the-loop.md",
+  "title": "Human-in-the-loop",
+  "chars": 17060,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/install",
+  "pkg": "langchain",
+  "file": "install.md",
+  "title": "Install LangChain",
+  "chars": 1519,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/knowledge-base",
+  "pkg": "langchain",
+  "file": "knowledge-base.md",
+  "title": "Build a semantic search engine with LangChain",
+  "chars": 26616,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/long-term-memory",
+  "pkg": "langchain",
+  "file": "long-term-memory.md",
+  "title": "Long-term memory",
+  "chars": 29743,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/mcp",
+  "pkg": "langchain",
+  "file": "mcp.md",
+  "title": "Model Context Protocol (MCP)",
+  "chars": 5254,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/mcp/auth",
+  "pkg": "langchain",
+  "file": "mcp__auth.md",
+  "title": "Authentication",
+  "chars": 6356,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/mcp/connections",
+  "pkg": "langchain",
+  "file": "mcp__connections.md",
+  "title": "Connections",
+  "chars": 13298,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/mcp/tools",
+  "pkg": "langchain",
+  "file": "mcp__tools.md",
+  "title": "Tools",
+  "chars": 14567,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/middleware/overview",
+  "pkg": "langchain",
+  "file": "middleware__overview.md",
+  "title": "Overview",
+  "chars": 4059,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/messages",
+  "pkg": "langchain",
+  "file": "messages.md",
+  "title": "Messages",
+  "chars": 27329,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/middleware/custom",
+  "pkg": "langchain",
+  "file": "middleware__custom.md",
+  "title": "Custom middleware",
+  "chars": 33188,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/middleware/built-in",
+  "pkg": "langchain",
+  "file": "middleware__built-in.md",
+  "title": "Prebuilt middleware",
+  "chars": 51582,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/models",
+  "pkg": "langchain",
+  "file": "models.md",
+  "title": "Models",
+  "chars": 54414,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent",
+  "pkg": "langchain",
+  "file": "multi-agent.md",
+  "title": "Multi-agent",
+  "chars": 11231,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/custom-workflow",
+  "pkg": "langchain",
+  "file": "multi-agent__custom-workflow.md",
+  "title": "Custom workflow",
+  "chars": 3765,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs",
+  "pkg": "langchain",
+  "file": "multi-agent__handoffs.md",
+  "title": "Handoffs",
+  "chars": 9375,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/router",
+  "pkg": "langchain",
+  "file": "multi-agent__router.md",
+  "title": "Router",
+  "chars": 5834,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support",
+  "pkg": "langchain",
+  "file": "multi-agent__handoffs-customer-support.md",
+  "title": "Build customer support with handoffs",
+  "chars": 19950,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/skills",
+  "pkg": "langchain",
+  "file": "multi-agent__skills.md",
+  "title": "Skills",
+  "chars": 4563,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/router-knowledge-base",
+  "pkg": "langchain",
+  "file": "multi-agent__router-knowledge-base.md",
+  "title": "Build a multi-source knowledge base with routing",
+  "chars": 24510,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/subagents",
+  "pkg": "langchain",
+  "file": "multi-agent__subagents.md",
+  "title": "Subagents",
+  "chars": 18991,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/skills-sql-assistant",
+  "pkg": "langchain",
+  "file": "multi-agent__skills-sql-assistant.md",
+  "title": "Build a SQL assistant with on-demand skills",
+  "chars": 23791,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/observability",
+  "pkg": "langchain",
+  "file": "observability.md",
+  "title": "LangSmith Observability",
+  "chars": 4649,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant",
+  "pkg": "langchain",
+  "file": "multi-agent__subagents-personal-assistant.md",
+  "title": "Build a personal assistant with subagents",
+  "chars": 32479,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/overview",
+  "pkg": "langchain",
+  "file": "overview.md",
+  "title": "LangChain overview",
+  "chars": 8540,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/philosophy",
+  "pkg": "langchain",
+  "file": "philosophy.md",
+  "title": "Philosophy",
+  "chars": 7667,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/quickstart",
+  "pkg": "langchain",
+  "file": "quickstart.md",
+  "title": "Quickstart",
+  "chars": 22729,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/runtime",
+  "pkg": "langchain",
+  "file": "runtime.md",
+  "title": "Runtime",
+  "chars": 6989,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/short-term-memory",
+  "pkg": "langchain",
+  "file": "short-term-memory.md",
+  "title": "Short-term memory",
+  "chars": 27048,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/sql-agent",
+  "pkg": "langchain",
+  "file": "sql-agent.md",
+  "title": "Build a SQL agent",
+  "chars": 25016,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/studio",
+  "pkg": "langchain",
+  "file": "studio.md",
+  "title": "LangSmith Studio",
+  "chars": 5604,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/test",
+  "pkg": "langchain",
+  "file": "test.md",
+  "title": "Test",
+  "chars": 2036,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/structured-output",
+  "pkg": "langchain",
+  "file": "structured-output.md",
+  "title": "Structured output",
+  "chars": 24514,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/streaming",
+  "pkg": "langchain",
+  "file": "streaming.md",
+  "title": "Streaming",
+  "chars": 47420,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/test/evals",
+  "pkg": "langchain",
+  "file": "test__evals.md",
+  "title": "Agent Evals",
+  "chars": 6234,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/test/index",
+  "pkg": "langchain",
+  "file": "test__index.md",
+  "title": "Test",
+  "chars": 2036,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/test/unit-testing",
+  "pkg": "langchain",
+  "file": "test__unit-testing.md",
+  "title": "Unit testing",
+  "chars": 2684,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/test/integration-testing",
+  "pkg": "langchain",
+  "file": "test__integration-testing.md",
+  "title": "Integration testing",
+  "chars": 7107,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/tools",
+  "pkg": "langchain",
+  "file": "tools.md",
+  "title": "Tools",
+  "chars": 56956,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/ui",
+  "pkg": "langchain",
+  "file": "ui.md",
+  "title": "Agent Chat UI",
+  "chars": 2861,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langchain/voice-agent",
+  "pkg": "langchain",
+  "file": "voice-agent.md",
+  "title": "Build a voice agent with LangChain",
+  "chars": 15079,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/add-memory",
+  "pkg": "langgraph",
+  "file": "add-memory.md",
+  "title": "Memory",
+  "chars": 28093,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/agentic-rag",
+  "pkg": "langgraph",
+  "file": "agentic-rag.md",
+  "title": "Build a custom RAG agent with LangGraph",
+  "chars": 19730,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/application-structure",
+  "pkg": "langgraph",
+  "file": "application-structure.md",
+  "title": "Application structure",
+  "chars": 5049,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/backward-compatibility",
+  "pkg": "langgraph",
+  "file": "backward-compatibility.md",
+  "title": "Backward compatibility",
+  "chars": 11185,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/case-studies",
+  "pkg": "langgraph",
+  "file": "case-studies.md",
+  "title": "Case studies",
+  "chars": 8898,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/choosing-apis",
+  "pkg": "langgraph",
+  "file": "choosing-apis.md",
+  "title": "Choosing between Graph and Functional APIs",
+  "chars": 10487,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/deploy",
+  "pkg": "langgraph",
+  "file": "deploy.md",
+  "title": "Deployment",
+  "chars": 4239,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/checkpointers",
+  "pkg": "langgraph",
+  "file": "checkpointers.md",
+  "title": "Checkpointers",
+  "chars": 43025,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/event-streaming",
+  "pkg": "langgraph",
+  "file": "event-streaming.md",
+  "title": "Event streaming",
+  "chars": 21110,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/fault-tolerance",
+  "pkg": "langgraph",
+  "file": "fault-tolerance.md",
+  "title": "Fault tolerance",
+  "chars": 24123,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/frontend/custom-stream-channels",
+  "pkg": "langgraph",
+  "file": "frontend__custom-stream-channels.md",
+  "title": "Custom stream channels",
+  "chars": 11015,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/frontend/overview",
+  "pkg": "langgraph",
+  "file": "frontend__overview.md",
+  "title": "Overview",
+  "chars": 4937,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/frontend/graph-execution",
+  "pkg": "langgraph",
+  "file": "frontend__graph-execution.md",
+  "title": "Graph execution",
+  "chars": 13812,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/functional-api",
+  "pkg": "langgraph",
+  "file": "functional-api.md",
+  "title": "Functional API overview",
+  "chars": 23338,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/install",
+  "pkg": "langgraph",
+  "file": "install.md",
+  "title": "Install LangGraph",
+  "chars": 970,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/local-server",
+  "pkg": "langgraph",
+  "file": "local-server.md",
+  "title": "Run a local server",
+  "chars": 5400,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/interrupts",
+  "pkg": "langgraph",
+  "file": "interrupts.md",
+  "title": "Interrupts",
+  "chars": 30255,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/observability",
+  "pkg": "langgraph",
+  "file": "observability.md",
+  "title": "LangSmith Observability",
+  "chars": 4545,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/graph-api",
+  "pkg": "langgraph",
+  "file": "graph-api.md",
+  "title": "Graph API overview",
+  "chars": 54276,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/overview",
+  "pkg": "langgraph",
+  "file": "overview.md",
+  "title": "LangGraph overview",
+  "chars": 6719,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/persistence",
+  "pkg": "langgraph",
+  "file": "persistence.md",
+  "title": "Persistence",
+  "chars": 4440,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/pregel",
+  "pkg": "langgraph",
+  "file": "pregel.md",
+  "title": "LangGraph runtime",
+  "chars": 18034,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/sql-agent",
+  "pkg": "langgraph",
+  "file": "sql-agent.md",
+  "title": "Build a custom SQL agent",
+  "chars": 28544,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/quickstart",
+  "pkg": "langgraph",
+  "file": "quickstart.md",
+  "title": "Quickstart",
+  "chars": 12738,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/stores",
+  "pkg": "langgraph",
+  "file": "stores.md",
+  "title": "Stores",
+  "chars": 15640,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/streaming",
+  "pkg": "langgraph",
+  "file": "streaming.md",
+  "title": "Streaming",
+  "chars": 28746,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/studio",
+  "pkg": "langgraph",
+  "file": "studio.md",
+  "title": "LangSmith Studio",
+  "chars": 5720,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/test",
+  "pkg": "langgraph",
+  "file": "test.md",
+  "title": "Test",
+  "chars": 6389,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/ui",
+  "pkg": "langgraph",
+  "file": "ui.md",
+  "title": "Agent Chat UI",
+  "chars": 2887,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph",
+  "pkg": "langgraph",
+  "file": "thinking-in-langgraph.md",
+  "title": "Thinking in LangGraph",
+  "chars": 19119,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/use-functional-api",
+  "pkg": "langgraph",
+  "file": "use-functional-api.md",
+  "title": "Use the functional API",
+  "chars": 25115,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/use-time-travel",
+  "pkg": "langgraph",
+  "file": "use-time-travel.md",
+  "title": "Use time-travel",
+  "chars": 11265,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/use-subgraphs",
+  "pkg": "langgraph",
+  "file": "use-subgraphs.md",
+  "title": "Subgraphs",
+  "chars": 24041,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/workflows-agents",
+  "pkg": "langgraph",
+  "file": "workflows-agents.md",
+  "title": "Workflows and agents",
+  "chars": 34838,
+  "ok": true
+ },
+ {
+  "url": "https://docs.langchain.com/oss/python/langgraph/use-graph-api",
+  "pkg": "langgraph",
+  "file": "use-graph-api.md",
+  "title": "Use the graph API",
+  "chars": 72168,
+  "ok": true
+ }
+]
