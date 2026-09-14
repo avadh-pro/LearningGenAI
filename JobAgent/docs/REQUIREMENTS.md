@@ -3,8 +3,15 @@
 **Project:** Autonomous AI/ML Job Search & Application Agent
 **Owner:** Avadh Dobariya
 **Status:** 🟡 Draft — awaiting review
-**Version:** 0.2 · 2026-09-14
+**Version:** 0.3 · 2026-09-14
 
+> **Changes since 0.2** — Decisions logged from review: the answer sheet (§2.1), board policy,
+> runtime, schedule, notifications, budget and retention are now **decided** (§10.1). Adds the
+> daily search audit log (FR-1.8), geographic expansion to Dubai / Europe / Canada (FR-1.3),
+> a UI-visibility requirement for every functional requirement (§4.13), and a configurable
+> daily application target (FR-9.2). **§10.3 records four conflicts between decisions that must
+> be resolved before the spec.** Five questions remain open (§10.2).
+>
 > **Changes since 0.1** — Added Forward Deployed Engineering (FDE) as a first-class target job
 > family: title variants in §4.1.1, rationale and two scoring caveats in §4.1.2 (FR-1.6, FR-1.7),
 > and abbreviation search in FR-1.5.
@@ -62,6 +69,24 @@ must be supported by it.
 - Owns full solution lifecycle: requirements → architecture → integration → demos → optimisation
 - Mentors 4 engineers
 
+### 2.1 The answer sheet
+
+Values the resume does not carry but application forms demand (C-5). The agent fills these
+automatically instead of halting at HITL-3.
+
+| Field | Value | Status |
+| --- | --- | --- |
+| Current CTC | **₹19.8 LPA** | ✅ decided v0.3 |
+| Expected CTC | **₹32 LPA** | ✅ decided v0.3 |
+| Notice period | **1 month** | ✅ decided v0.3 |
+| Relocation stance | — | ⬜ open (O-2) |
+| Work authorisation | — | ⬜ open (O-2) — **now load-bearing**, see FR-1.3a |
+| Preferred start date | — | ⬜ open (O-2) |
+
+**Treat every value here as sensitive.** It is never logged to a shared surface, never sent
+anywhere but the application form it is required by, and CTC figures are never volunteered when
+a form does not ask.
+
 **Differentiators, in ranked order** — these drive opportunity ranking (§4.3):
 production GenAI · agentic AI · MCP · enterprise RAG · enterprise AI automation ·
 LLM integrations · tool/function calling · enterprise API integrations ·
@@ -83,7 +108,8 @@ tracker, a review dashboard, and a daily report.
 - Interview scheduling, interview prep, salary negotiation
 - Recruiter outreach or messaging
 - Job boards requiring paid subscriptions
-- Roles requiring relocation outside India (see FR-1.3 for the narrow exception)
+- Roles in geographies outside India, Dubai/UAE, Europe and Canada (FR-1.3)
+- Roles requiring work authorisation Avadh does not hold where no sponsorship is offered (FR-1.3a)
 
 ### 3.3 Hard external constraints
 
@@ -94,7 +120,7 @@ These are facts about the environment, not design choices. They bound what is bu
 | C-1 | LinkedIn, Naukri and Indeed prohibit automated applying in their terms of service and run bot detection. Automating submission there carries a real risk of account restriction on Avadh's personal accounts. |
 | C-2 | CAPTCHAs, OTPs, SMS/phone verification and login flows cannot be completed by the agent. They require Avadh. |
 | C-3 | Application submission is **irreversible**. There is no unsend. |
-| C-4 | The resume exists only as a PDF today. Per-application tailoring (FR-6) requires an editable master. **This blocks FR-6.** |
+| C-4 | ~~The resume exists only as a PDF.~~ **RESOLVED v0.3** — `JobAgent/resume/resume-ats.html` is the editable master; `render.py` regenerates the PDF. FR-6 is unblocked. |
 | C-5 | Most Indian application forms demand data absent from the resume — current CTC, expected CTC, notice period, relocation willingness. Under FR-9.4 every one of these would halt an application. |
 | C-6 | This repo hits the Windows 260-char `MAX_PATH` limit. Deep nested paths break git operations. |
 
@@ -108,9 +134,12 @@ These are facts about the environment, not design choices. They bound what is bu
 | --- | --- | --- |
 | FR-1.1 | Search daily for newly posted and still-active roles across LinkedIn, Indeed, Wellfound, Naukri, Greenhouse, Lever, Workday, and direct company career pages. | Must |
 | FR-1.2 | Prioritise **direct company career pages and ATS links** over aggregators — better data, and outside the C-1 risk. | Must |
-| FR-1.3 | Location priority: Remote → Pune → Bengaluru → Hyderabad → Mumbai → Delhi NCR → other major Indian tech hubs. International remote allowed only where the posting explicitly permits candidates working from India. Reject roles requiring relocation abroad unless relocation is explicitly supported **and** the opportunity is exceptional. | Must |
+| FR-1.3 | **India:** Remote → Pune → Bengaluru → Hyderabad → Mumbai → Delhi NCR → other major Indian tech hubs. **International (added v0.3):** Dubai / UAE, Europe, Canada. International remote allowed where the posting permits candidates working from India. | Must |
+| FR-1.3a | For every international role, extract and surface **visa / work-authorisation requirements and whether sponsorship is offered**. Roles requiring authorisation Avadh does not hold and that do not sponsor are ineligible and must be rejected under FR-4.2, not queued. | Must |
 | FR-1.4 | Seniority: target Senior / Staff / Lead / Senior IC / Architect. Consider mid-level only for exceptionally strong companies. Never junior, entry-level, internship, graduate or trainee. | Must |
 | FR-1.5 | Search the target titles (§4.1.1) crossed with GenAI keywords: RAG, LLM, Agentic AI, MCP, GenAI, AI Agents, LangChain, LangGraph, LLMOps, Enterprise AI. Search both `Forward Deployed` and the abbreviation `FDE` — postings use either. | Must |
+| FR-1.8 | Maintain a **daily search audit log**: for each run, record every **source** queried (LinkedIn, Naukri, Indeed, Wellfound, Greenhouse, Lever, Workday, career pages), every **query** issued, and every **job found**, with its score, its verdict, and — where not applied to — the reason. | Must |
+| FR-1.9 | The audit log is the **manual-fallback surface**. Any job the agent could not auto-apply to (C-1 discovery-only source, CAPTCHA, unsupported form, missing data) must appear in it, filterable, with a working link, so Avadh can apply by hand. Each such row carries a state Avadh can set: `pending` / `applied manually` / `skipped`. | Must |
 
 **§4.1.1 Target titles.** Senior AI Engineer · Senior Generative AI Engineer · Senior LLM Engineer ·
 Senior AI/ML Engineer · Senior Agentic AI Engineer · Senior AI Solution Engineer ·
@@ -201,7 +230,7 @@ Effort concentrates on Tier 1 and Tier 2.
 | FR-6.1 | Where a resume upload is allowed, tailor from the master resume by **reordering skills, re-emphasising existing experience, improving wording, foregrounding relevant projects, and adjusting the professional summary**. | Must |
 | FR-6.2 | The tailored resume must remain **factually accurate** and visually consistent with the master. | Must |
 | FR-6.3 | Record which resume version was used for each application. | Must |
-| FR-6.4 | ⛔ **Blocked by C-4** — requires an editable master (DOCX, or an HTML/LaTeX source rendering to a near-identical PDF). Producing that master is a prerequisite deliverable. | Must |
+| FR-6.4 | ✅ **Unblocked.** The master is `JobAgent/resume/resume-ats.html`. The agent edits the HTML, runs `render.py`, and attaches the generated PDF. Any edit must preserve the ATS properties documented in `JobAgent/resume/README.md` (single column, no emoji, nowrap on key phrases, letter-spacing under 8% of font-size) and be re-verified with the three-parser test. | Must |
 
 ### 4.7 Cover letters
 
@@ -223,7 +252,7 @@ Effort concentrates on Tier 1 and Tier 2.
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-9.1 | Before submitting, verify: correct company · correct job · job still active · sufficient score · not a duplicate · resume accurate · no fabricated information · cover letter tailored · answers accurate · contact details correct · location acceptable · no mandatory qualification falsely claimed. | Must |
-| FR-9.2 | Target **5–15 high-quality applications per day**, scaled to genuine availability. If only 2 good jobs exist, apply to 2. Never pad to hit a number. | Must |
+| FR-9.2 | Daily application target is **configurable from the UI**, never hardcoded. Default **30–40/day** per the v0.3 decision. The target is a **ceiling, not a quota**: it is scaled down to genuine availability, and if only 2 jobs clear the threshold, only 2 are applied to. **Never pad to hit a number.** See §10.3 C-A — the threshold and the supply of eligible roles are expected to bind well before this setting does. | Must |
 | FR-9.3 | Submission requires human approval — see §5. | Must |
 | FR-9.4 | Halt and ask rather than guess whenever required information is unavailable or a statement could materially misrepresent Avadh. | Must |
 
@@ -247,6 +276,14 @@ Effort concentrates on Tier 1 and Tier 2.
 | FR-12.1 | Run daily without manual initiation. | Must |
 | FR-12.2 | A run must be resumable — an application paused for approval may wait days without losing state or blocking other work. | Must |
 
+### 4.13 UI visibility
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| FR-13.1 | **Every functional requirement must have a corresponding UI component.** No requirement may be invisible — each needs a dashboard element (table, counter, toggle, log or state badge) reflecting its state and output for the day. | Must |
+| FR-13.2 | The spec must carry an explicit **FR → UI component map**, and any FR without one is treated as incomplete. | Must |
+| FR-13.3 | Minimum surfaces: daily search audit log (FR-1.8/1.9) · approval queue (§5) · application tracker (FR-10) · daily report (FR-11) · per-job score with reasoning (FR-3.4) · rejected jobs with reasons (FR-4) · **running LLM spend against the daily ceiling** (§10.1) · the configurable daily target (FR-9.2) · the answer sheet (§2.1). | Must |
+
 ---
 
 ## 5. Human-in-the-loop requirements
@@ -260,8 +297,8 @@ gates 5–6 are a posture decision (Q-2).
 | HITL-2 | **Login / OTP / CAPTCHA / phone verification** | Agent cannot perform these (C-2) |
 | HITL-3 | **Missing personal data** — salary expectation, notice period, current CTC, relocation commitment, work authorisation, sponsorship, employment-termination details, sensitive personal or demographic data | Not derivable from the resume; guessing risks misrepresentation |
 | HITL-4 | **Any claim that could misrepresent Avadh** | Truthfulness is absolute (§6) |
-| HITL-5 | **Tailored resume + cover letter approval** | Posture decision — Q-2 |
-| HITL-6 | **Borderline scores (70–79)** | Judgement call under FR-3; a human glance may be worth it |
+| HITL-5 | **Tailored resume + cover letter approval — EVERY application** | **Decided v0.3:** full review, no spot-checking. See §10.3 C-B for the time cost at the chosen daily target. |
+| HITL-6 | **Borderline scores (70–79)** | **Open** — see §10.2 O-3. Recommendation: fold into HITL-5 rather than add a second gate. |
 
 **HITL-R1** — A paused application must be reviewable and resumable from the dashboard.
 **HITL-R2** — Approval must offer at least: **approve · edit · reject**. `edit` matters — it is
@@ -333,36 +370,82 @@ These override every other requirement, including daily targets.
 
 ---
 
-## 10. Open questions — needed before the spec
+## 10. Decisions, open items and conflicts
 
-Each of these changes the design. None has been guessed at.
+### 10.1 Decided (v0.3)
+
+| # | Decision |
+| --- | --- |
+| **Q-1** | **Answer sheet** — Current CTC ₹19.8 LPA · Expected ₹32 LPA · Notice 1 month. Three fields still open (O-2). See §2.1. |
+| **Q-2** | **Review posture** — **full human review of every tailored resume and cover letter.** No spot-checking. HITL-6 still open (O-3). |
+| **Q-3** | **Board policy** — LinkedIn / Naukri / Indeed are **discovery-only**. Automated submission is restricted to **Greenhouse, Lever, Workday and direct career pages**. Accepts the safe posture under C-1. |
+| **Q-4** | **Resume master** — ✅ **CLOSED.** `JobAgent/resume/resume-ats.html` is the single master; `render.py` regenerates the PDF. No DOCX, no LaTeX. C-4 resolved. |
+| **Q-5** | **Runtime** — Avadh's **local PC**, not a server. |
+| **Q-6** | **Schedule** — daily run at **09:00**. Rollover policy still open (O-5). |
+| **Q-7** | **Notifications** — **Telegram**, for both approvals and the daily report. |
+| **Q-8** | **Budget** — **$100/day ceiling**, with running spend visible in the UI. Provider still open (O-4). |
+| **Q-9** | **Data retention** — **keep everything, indefinitely**, stored locally. JDs, generated letters and tracker history. |
+| **New** | **Daily target** — **30–40 applications/day, configurable from the UI.** See FR-9.2 and §10.3 C-A. |
+| **New** | **UI visibility** — every functional requirement needs a UI component. See §4.13. |
+| **New** | **Geography** — expand to Dubai/UAE, Europe and Canada. See FR-1.3, FR-1.3a. |
+| **New** | **Search audit log** — daily per-source, per-query, per-job log doubling as the manual-fallback surface. See FR-1.8, FR-1.9. |
+
+### 10.2 Still open
 
 | ID | Question | Why it matters |
 | --- | --- | --- |
-| **Q-1** | **The answer sheet.** Current CTC, expected CTC, notice period, relocation stance, work authorisation (Indian citizen, no sponsorship required?), preferred start date. | Without it, C-5 means nearly every application halts at HITL-3. This is the single highest-value unblock. |
-| **Q-2** | **Review posture.** Full review of every tailored resume + cover letter (HITL-5), or spot-check after the agent proves itself? And do borderline 70–79 scores (HITL-6) need a human yes/no? | Determines how much of Avadh's time the system costs, and how autonomous v1 really is. |
-| **Q-3** | **Board policy under C-1.** Should LinkedIn / Naukri / Indeed be **discovery-only** (safe), with automated submission restricted to Greenhouse / Lever / Workday / career pages? Or accept the account-restriction risk? | Directly bounds reachable volume, and risks Avadh's personal accounts. **Recommendation: discovery-only.** |
-| **Q-4** | **Resume master format** (C-4). Supply a DOCX, or have an HTML/LaTeX source generated from the current PDF? | Hard blocker on FR-6. |
-| **Q-5** | **Where does it run?** Avadh's Windows machine, or a server? | Browser automation (TR-6) needs an authenticated session; a server complicates C-2 handoffs. |
-| **Q-6** | **Daily run time**, and what happens to a run still awaiting approval when the next day starts? | Shapes scheduling and concurrency. |
-| **Q-7** | **Notification channel** for approvals and the daily report — dashboard only, email, or Telegram? | A gate nobody sees is a stalled application. |
-| **Q-8** | **LLM provider and budget ceiling** per day. | Anthropic and OpenAI keys are already available on this machine. |
-| **Q-9** | **Data retention** — how long are scraped JDs, generated letters and tracker history kept? | Privacy (NFR-7) and storage growth. |
+| **O-1** | **FR-6.1 is incomplete** — the sentence was cut off at *"you are saying that when the…"*. Needs finishing. | Cannot be specified as written. |
+| **O-2** | **Relocation stance · work authorisation · preferred start date.** For work authorisation, confirm: Indian citizen, no existing EU/Canada/UAE work permit, sponsorship required? | **Now load-bearing.** With FR-1.2 adding Europe and Canada, this is the hard filter deciding which international roles are even eligible (FR-1.3a). Without it the agent cannot tell an applicable role from an impossible one. |
+| **O-3** | **HITL-6** — is a borderline 70–79 score a separate gate before a resume is even generated, or covered by the full HITL-5 review? | **Recommendation: fold into HITL-5.** A second gate doubles the interruptions to reject work that the first gate would reject anyway. The one argument for a separate gate is cost — it avoids paying to tailor a resume that then gets rejected. At the §10.1 budget, that cost is not material. |
+| **O-4** | **LLM provider.** | Both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are already set at User scope on this machine. **Recommendation: Anthropic Claude** as the default, given the resume-tailoring and JD-reasoning workload, with the provider configurable — LangChain makes this a one-line change (`model="claude-sonnet-4-6"` vs `"openai:gpt-5.5"`). |
+| **O-5** | **Pending-approval rollover.** What happens to yesterday's unapproved applications when 09:00 hits today? | **Recommendation: carry over, never auto-submit, never auto-expire.** Queue them ahead of the new batch, and flag any posting that has since closed as `expired` so Avadh is not reviewing dead jobs. Auto-expiry silently discards work; auto-submission violates HITL-1. |
+
+### 10.3 ⚠️ Conflicts between decisions — resolve before the spec
+
+These are not new questions. They are places where two decisions already made cannot both hold.
+
+| ID | Conflict |
+| --- | --- |
+| **C-A** | **30–40/day vs. every other constraint.** §1 sets the objective as *interview probability per application, not volume*, and FR-9.2 says never pad to hit a number. FR-3 rejects anything under 70. Q-3 restricts auto-submission to Greenhouse / Lever / Workday / career pages. **Finding 30–40 genuinely matching Senior/Staff AI roles per day on ATS platforms alone is very unlikely** — realistic supply is single digits most days. The target is therefore recorded as a **ceiling, not a quota**, and the honest expectation is that actual daily volume will be far lower. If the intent is genuinely to apply to 30–40 per day, something must give: the 70 threshold, the seniority filter, or the discovery-only board policy. **Recommendation: keep it as a ceiling and let supply decide.** |
+| **C-B** | **30–40/day vs. full manual review.** Q-2 requires Avadh to review every tailored resume and cover letter. At 30–40/day that is 30–40 documents to read daily — plausibly 2–4 hours, which is more time than applying manually would take. **Recommendation: keep full review for the first week to calibrate, then move to spot-checking above a score threshold.** Alternatively accept that C-A caps real volume low enough that full review stays cheap. |
+| **C-C** | **Europe / Canada vs. work authorisation.** If Avadh needs sponsorship, the large majority of European and Canadian postings are ineligible and must be rejected under FR-4.2 — not applied to. Until O-2 is answered, FR-1.2 cannot be implemented correctly, and implementing it wrongly wastes the daily budget on applications that cannot succeed. **Dubai/UAE is the exception** — employer-sponsored work permits are the norm there, so it is the highest-value part of this expansion. |
+| **C-D** | **$100/day vs. expected usage.** The ceiling is roughly ₹8,300/day, about ₹2.5L/month. Realistic spend for 30–40 scored jobs with tailored documents is likely **one to two orders of magnitude below** that. Recorded as a generous ceiling rather than a budget. **Recommendation: add a soft alert at a far lower threshold** (say $5/day) so a runaway loop is caught by the alert rather than by the ceiling. |
+
+### 10.4 Note on the suggested resume phrasing
+
+The v0.3 review proposed this line for the resume:
+
+> *"Owned an AI-driven job application agent end-to-end at a startup — from requirements and
+> architecture through integration, demos, optimisation, and production support — as sole engineer."*
+
+⚠️ **This describes JobAgent — this project — not the Krista work.** Presenting it as Krista
+work experience would breach **T-1**. The end-to-end lifecycle claim is already on the resume,
+correctly attributed to Krista, and was strengthened in the v3 resume:
+
+> **End-to-end solution ownership** in a startup environment — requirements, architecture,
+> integration, demos, optimization and production support — across enterprise customer
+> engagements, from first scoping call to live production.
+
+Once JobAgent is actually built and running, it is a legitimate and strong **personal project**
+entry — a LangGraph multi-agent system with durable HITL. It just belongs under Projects, not
+under Krista Software.
 
 ---
 
 ## 11. Approval
 
-Review §10 first — those answers unblock the spec. Everything above §10 is a restatement of
-intent and should be corrected wherever it misses.
+**Blocking the spec:** the five open items in §10.2 and the four conflicts in §10.3.
+**O-2 (work authorisation) and C-A / C-B are the ones that change the architecture.**
 
-- [ ] §1–2 objective and profile are correct
-- [ ] §3 scope and constraints are accepted
-- [ ] §4 functional requirements are complete
-- [ ] §5 HITL gates are right
-- [ ] §6 truthfulness constraints are right
-- [ ] §7–8 technical and non-functional requirements are accepted
-- [ ] §9 success metrics are right
-- [ ] §10 open questions answered
+- [x] §1–2 objective and profile are correct
+- [x] §2.1 answer sheet — 3 of 6 fields decided, 3 open (O-2)
+- [ ] §3 scope and constraints — updated for international, needs re-read
+- [ ] §4 functional requirements — FR-6.1 incomplete (O-1)
+- [x] §5 HITL gates — HITL-5 decided, HITL-6 open (O-3)
+- [x] §6 truthfulness constraints
+- [ ] §7–8 technical and non-functional requirements
+- [x] §9 success metrics — ⚠️ see C-A, the daily target contradicts §1's stated objective
+- [ ] §10.2 five open items answered
+- [ ] §10.3 four conflicts resolved
 
 **On approval → technical specification.**
