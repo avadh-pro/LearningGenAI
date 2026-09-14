@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAPTOR vs. HNSW/IVF — Interactive Demo</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-border: #2a2e3a;
+    --text: #e6e8ee;
+    --muted: #8a8fa3;
+    --accent: #5aa6ff;
+    --accent2: #ffb454;
+    --good: #4ade80;
+    --dim: #2c313f;
+    --dim-text: #4a4f5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  button {
+    background: #232838;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  button:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); color: #06101f; border-color: var(--accent); font-weight: 600; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 0.85rem; color: var(--muted); }
+
+  .query-box {
+    background: #1d2230;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    min-height: 20px;
+    font-size: 0.9rem;
+  }
+  .query-vec {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .query-vec.show { opacity: 1; }
+  .vdot { width: 6px; height: 6px; border-radius: 2px; background: var(--accent); }
+
+  .tree { display: flex; flex-direction: column; gap: 26px; }
+  .level-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px; }
+  .level { display: flex; gap: 14px; flex-wrap: wrap; }
+
+  .node {
+    border: 1.5px solid var(--panel-border);
+    background: #1a1e29;
+    border-radius: 10px;
+    padding: 10px 12px;
+    min-width: 150px;
+    flex: 1 1 150px;
+    transition: all 0.35s ease;
+    position: relative;
+  }
+  .node .title { font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+  .node .body { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
+  .node .vec {
+    display: flex;
+    gap: 2px;
+    margin-top: 6px;
+  }
+  .node .vec .vdot { background: var(--muted); }
+  .node .score {
+    position: absolute;
+    top: -10px;
+    right: 8px;
+    background: var(--good);
+    color: #06210f;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .node.score-show .score { opacity: 1; }
+
+  .node.dim { opacity: 0.25; }
+  .node.searching { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(255,180,84,0.25); }
+  .node.matched { border-color: var(--good); box-shadow: 0 0 0 2px rgba(74,222,128,0.3); background: #16241c; }
+  .node.matched .vec .vdot { background: var(--good); }
+  .node.final { border-color: var(--good); background: #133021; box-shadow: 0 0 0 3px rgba(74,222,128,0.4); }
+  .node.final .vec .vdot { background: var(--good); }
+
+  .explain {
+    font-size: 0.85rem;
+    line-height: 1.55;
+  }
+  .explain h3 { font-size: 0.9rem; margin: 0 0 8px; }
+  .stage-note {
+    background: #1d2230;
+    border-left: 3px solid var(--accent);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    min-height: 60px;
+    font-size: 0.83rem;
+  }
+  .oneliner {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #16241c;
+    border-left: 3px solid var(--good);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    display: none;
+  }
+  .oneliner.show { display: block; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-top: 14px; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h1>RAPTOR vs. HNSW / IVF — Two Different Hierarchies</h1>
+<p class="subtitle">RAPTOR decides <em>which level</em> of content to search first. HNSW / IVF decide <em>how</em> to search fast within whatever level RAPTOR points to. Pick a query below and step through it.</p>
+
+<div class="layout">
+
+  <div class="panel">
+    <div class="controls">
+      <button id="q1" onclick="runQuery(0)">Query: "How is ATP produced in cells?"</button>
+      <button id="q2" onclick="runQuery(1)">Query: "What is the structure of the cell membrane?"</button>
+      <button id="q3" onclick="runQuery(2)">Query: "How does DNA copy itself?"</button>
+      <button onclick="reset()">Reset</button>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="flatToggle" onchange="onFlatToggle()">
+      <label for="flatToggle">Compare: search flat over all 9 raw chunks (no RAPTOR / no hierarchy)</label>
+    </div>
+
+    <div class="query-box">
+      <span id="queryText" style="color:var(--muted)">Click a query above to start&hellip;</span>
+      <span class="query-vec" id="queryVec">
+        <span class="vdot"></span><span class="vdot"></span><span class="vdot"></span><span class="vdot"></span><span class="vdot"></span>
+      </span>
+    </div>
+
+    <div class="tree" id="tree">
+      <div>
+        <div class="level-label">Summary level (built by RAPTOR — searched first)</div>
+        <div class="level" id="summaryLevel"></div>
+      </div>
+      <div>
+        <div class="level-label">Raw chunk level (the actual detail — searched second)</div>
+        <div class="level" id="rawLevel"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--muted)"></span> embedded, not yet touched</span>
+      <span><span class="swatch" style="background:var(--accent2)"></span> being searched</span>
+      <span><span class="swatch" style="background:var(--good)"></span> matched / final result</span>
+      <span><span class="swatch" style="background:var(--dim)"></span> ruled out, skipped entirely</span>
+    </div>
+  </div>
+
+  <div class="panel explain">
+    <h3>What's happening right now</h3>
+    <div class="stage-note" id="stageNote">Every box here — summary or raw chunk — was embedded up front, offline, the same way. Nothing changes at query time until you pick a query on the left.</div>
+    <div class="oneliner" id="oneliner"></div>
+  </div>
+
+</div>
+
+<script>
+const summaries = [
+  { id: 's0', title: 'Mitochondria & Energy', body: 'ATP synthesis, electron transport, cellular respiration' },
+  { id: 's1', title: 'Cell Membrane', body: 'Phospholipid bilayer, transport proteins, permeability' },
+  { id: 's2', title: 'DNA Replication', body: 'Polymerase, replication fork, Okazaki fragments' },
+];
+
+const raw = [
+  { id: 'r0', parent: 's0', title: 'Chunk: "Mitochondria are the powerhouse..."', best: false },
+  { id: 'r1', parent: 's0', title: 'Chunk: "ATP synthesis occurs via oxidative..."', best: true },
+  { id: 'r2', parent: 's0', title: 'Chunk: "Electron transport chain shuttles..."', best: false },
+  { id: 'r3', parent: 's1', title: 'Chunk: "Phospholipid bilayer forms a..."', best: true },
+  { id: 'r4', parent: 's1', title: 'Chunk: "Membrane transport proteins move..."', best: false },
+  { id: 'r5', parent: 's1', title: 'Chunk: "Selective permeability allows..."', best: false },
+  { id: 'r6', parent: 's2', title: 'Chunk: "DNA polymerase reads the template..."', best: true },
+  { id: 'r7', parent: 's2', title: 'Chunk: "The replication fork unwinds..."', best: false },
+  { id: 'r8', parent: 's2', title: 'Chunk: "Okazaki fragments are joined..."', best: false },
+];
+
+const queries = [
+  { text: 'How is ATP produced in cells?', match: 's0', score: 0.91 },
+  { text: 'What is the structure of the cell membrane?', match: 's1', score: 0.89 },
+  { text: 'How does DNA copy itself?', match: 's2', score: 0.93 },
+];
+
+function vecHtml() {
+  return '<div class="vec">' + Array(5).fill('<span class="vdot"></span>').join('') + '</div>';
+}
+
+function buildTree() {
+  const sEl = document.getElementById('summaryLevel');
+  const rEl = document.getElementById('rawLevel');
+  sEl.innerHTML = summaries.map(s => `
+    <div class="node" id="${s.id}">
+      <div class="score">match</div>
+      <div class="title">${s.title}</div>
+      <div class="body">${s.body}</div>
+      ${vecHtml()}
+    </div>`).join('');
+  rEl.innerHTML = raw.map(r => `
+    <div class="node" id="${r.id}">
+      <div class="score">best</div>
+      <div class="title">${r.title}</div>
+      <div class="body">parent: ${r.parent}</div>
+      ${vecHtml()}
+    </div>`).join('');
+}
+buildTree();
+
+function clearAllClasses() {
+  document.querySelectorAll('.node').forEach(n => {
+    n.classList.remove('dim', 'searching', 'matched', 'final', 'score-show');
+  });
+  document.getElementById('queryVec').classList.remove('show');
+  document.getElementById('oneliner').classList.remove('show');
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+}
+
+function setNote(html) {
+  document.getElementById('stageNote').innerHTML = html;
+}
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+let running = false;
+
+async function runQuery(idx) {
+  if (running) return;
+  running = true;
+  clearAllClasses();
+  const flat = document.getElementById('flatToggle').checked;
+  const q = queries[idx];
+  document.getElementById(['q1','q2','q3'][idx]).classList.add('active');
+  document.getElementById('queryText').textContent = '"' + q.text + '"';
+  document.getElementById('queryText').style.color = 'var(--text)';
+
+  setNote('<b>Step 1 — embed the query.</b> The query text is turned into a vector, exactly like every summary and every raw chunk already was, offline, ahead of time.');
+  await sleep(600);
+  document.getElementById('queryVec').classList.add('show');
+  await sleep(900);
+
+  if (flat) {
+    setNote('<b>Flat search (no RAPTOR).</b> Without a summary level to narrow things down first, the query has to be compared against all 9 raw chunks directly — no shortcut, no two-hop narrowing.');
+    raw.forEach(r => document.getElementById(r.id).classList.add('searching'));
+    await sleep(1200);
+    raw.forEach(r => {
+      const el = document.getElementById(r.id);
+      el.classList.remove('searching');
+      if (r.parent === q.match && r.best) {
+        el.classList.add('final', 'score-show');
+        el.querySelector('.score').textContent = q.score;
+      } else {
+        el.classList.add('dim');
+      }
+    });
+    summaries.forEach(s => document.getElementById(s.id).classList.add('dim'));
+    setNote('<b>Result found — but the hard way.</b> The correct chunk was still found, but every single raw chunk had to be checked (or run through an ANN index built over all 9), instead of narrowing down to 3 first.');
+    document.getElementById('oneliner').innerHTML = '<b>One line:</b> flat search still needs HNSW/IVF to be fast at scale, but it searches the entire raw-chunk collection at once — RAPTOR\'s summary hop is what shrinks the candidate pool before that search even starts.';
+    document.getElementById('oneliner').classList.add('show');
+    running = false;
+    return;
+  }
+
+  setNote('<b>Step 2 — search the summary level only.</b> RAPTOR built these 3 summary nodes ahead of time. The query vector is compared against just these 3, not all 9 raw chunks.');
+  summaries.forEach(s => document.getElementById(s.id).classList.add('searching'));
+  await sleep(1300);
+
+  summaries.forEach(s => {
+    const el = document.getElementById(s.id);
+    el.classList.remove('searching');
+    if (s.id === q.match) {
+      el.classList.add('matched', 'score-show');
+      el.querySelector('.score').textContent = q.score;
+    } else {
+      el.classList.add('dim');
+    }
+  });
+  setNote(`<b>Step 3 — best summary found: "${summaries.find(s=>s.id===q.match).title}".</b> The other two summary branches (and everything under them) are ruled out entirely — never searched at the raw level at all.`);
+  await sleep(1500);
+
+  raw.forEach(r => {
+    const el = document.getElementById(r.id);
+    if (r.parent !== q.match) {
+      el.classList.add('dim');
+    } else {
+      el.classList.add('searching');
+    }
+  });
+  setNote(`<b>Step 4 — second hop: search only the raw chunks under the matched summary.</b> Instead of comparing against all 9 raw chunks, the search now only touches the 3 chunks that live under the one matched branch.`);
+  await sleep(1300);
+
+  raw.forEach(r => {
+    const el = document.getElementById(r.id);
+    if (r.parent === q.match) {
+      el.classList.remove('searching');
+      if (r.best) {
+        el.classList.add('final', 'score-show');
+        el.querySelector('.score').textContent = q.score;
+      } else {
+        el.classList.add('dim');
+      }
+    }
+  });
+  setNote('<b>Done — final chunk selected.</b> Only 3 summaries and then 3 raw chunks were ever compared against the query — 6 total, instead of scanning all 9 raw chunks up front.');
+  document.getElementById('oneliner').innerHTML = '<b>One line:</b> RAPTOR narrowed down <em>where</em> to look (summary → matched branch), and an ANN index (HNSW/IVF-style comparison) is still what actually finds the best match <em>within</em> each level — RAPTOR sits on top, HNSW/IVF work underneath, at every level.';
+  document.getElementById('oneliner').classList.add('show');
+
+  running = false;
+}
+
+function onFlatToggle() {
+  const active = document.querySelector('.controls button.active');
+  if (active) {
+    const idx = ['q1','q2','q3'].indexOf(active.id);
+    if (idx > -1) runQuery(idx);
+  }
+}
+
+function reset() {
+  clearAllClasses();
+  document.getElementById('queryText').textContent = 'Click a query above to start…';
+  document.getElementById('queryText').style.color = 'var(--muted)';
+  setNote('Every box here — summary or raw chunk — was embedded up front, offline, the same way. Nothing changes at query time until you pick a query on the left.');
+  running = false;
+}
+</script>
+
+</body>
+</html>
