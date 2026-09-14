@@ -377,6 +377,18 @@ A few practically useful points that came out of the live audience discussion, n
 
 ---
 
+**🔁 Interview Q6 (follow-up):** "If you're describing a RAG system and considering p99, explicitly tell me what categories we should be looking for."
+
+**✅ Strong answer:** "Two separate axes, and they answer different debugging questions.
+
+**By pipeline stage** (tells you *where* the time goes): query understanding/rewriting, retrieval, reranking, context assembly, and generation.
+
+**By workload/data segment** (tells you *which requests* are slow): which vector index or collection was searched, document category or domain (e.g. legal queries vs. support-ticket queries), query type (simple lookup vs. summarization vs. multi-hop), tenant/customer in a multi-tenant system, and query complexity (single-hop vs. multi-hop chains).
+
+A healthy per-stage breakdown with one bad workload segment, or vice versa, are two completely different bugs that look identical in a single overall p99 number — which is exactly why both axes need their own tracking, not just one aggregate figure."
+
+---
+
 **🎙️ Interview Q7:** "Why is it a mistake to evaluate retrieval quality and generation quality completely separately?"
 
 **✅ Strong answer:** "Because the two failures look identical from the outside — a bad final answer — but need completely different fixes depending on which stage actually broke. If retrieval pulled the right chunk and the answer is still wrong, that's a hallucination problem in generation. If retrieval never found the right chunk in the first place, generation never had a chance, and the fix belongs entirely upstream. If you only check 'is retrieval good' and 'is generation good' as two separate, disconnected checks, you can miss cases where each one looks fine in isolation, but the *combination* — the exact chunk generation actually received for that exact query — was the real problem."
