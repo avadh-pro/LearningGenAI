@@ -3,7 +3,11 @@
 **Project:** Autonomous AI/ML Job Search & Application Agent
 **Owner:** Avadh Dobariya
 **Status:** 🟡 Draft — awaiting review
-**Version:** 0.1 · 2026-09-14
+**Version:** 0.2 · 2026-09-14
+
+> **Changes since 0.1** — Added Forward Deployed Engineering (FDE) as a first-class target job
+> family: title variants in §4.1.1, rationale and two scoring caveats in §4.1.2 (FR-1.6, FR-1.7),
+> and abbreviation search in FR-1.5.
 
 > This document states **what** the system must do and **why**. It deliberately does not state
 > **how**. Once approved, it becomes the input to the technical specification.
@@ -106,14 +110,34 @@ These are facts about the environment, not design choices. They bound what is bu
 | FR-1.2 | Prioritise **direct company career pages and ATS links** over aggregators — better data, and outside the C-1 risk. | Must |
 | FR-1.3 | Location priority: Remote → Pune → Bengaluru → Hyderabad → Mumbai → Delhi NCR → other major Indian tech hubs. International remote allowed only where the posting explicitly permits candidates working from India. Reject roles requiring relocation abroad unless relocation is explicitly supported **and** the opportunity is exceptional. | Must |
 | FR-1.4 | Seniority: target Senior / Staff / Lead / Senior IC / Architect. Consider mid-level only for exceptionally strong companies. Never junior, entry-level, internship, graduate or trainee. | Must |
-| FR-1.5 | Search the 16 target titles (§4.1.1) crossed with GenAI keywords: RAG, LLM, Agentic AI, MCP, GenAI, AI Agents, LangChain, LangGraph, LLMOps, Enterprise AI. | Must |
+| FR-1.5 | Search the target titles (§4.1.1) crossed with GenAI keywords: RAG, LLM, Agentic AI, MCP, GenAI, AI Agents, LangChain, LangGraph, LLMOps, Enterprise AI. Search both `Forward Deployed` and the abbreviation `FDE` — postings use either. | Must |
 
 **§4.1.1 Target titles.** Senior AI Engineer · Senior Generative AI Engineer · Senior LLM Engineer ·
 Senior AI/ML Engineer · Senior Agentic AI Engineer · Senior AI Solution Engineer ·
 AI Solutions Architect · Generative AI Engineer · LLM Engineer · Agentic AI Engineer ·
 AI Platform Engineer · AI Automation Engineer · RAG Engineer · Applied AI Engineer ·
-AI Architect · Senior ML Engineer *(only where there is substantial GenAI/LLM work)*.
+AI Architect · **Forward Deployed Engineer (FDE)** · **Senior Forward Deployed Engineer** ·
+**Forward Deployed AI Engineer** · **Forward Deployed Software Engineer** ·
+Senior ML Engineer *(only where there is substantial GenAI/LLM work)*.
 Closely related titles qualify if the responsibilities genuinely match.
+
+**§4.1.2 Forward Deployed Engineering — why it is a first-class target.** FDE roles map directly
+onto what Avadh already does: owning the full solution lifecycle for enterprise customers
+(requirements → architecture → integration → demos → optimisation → production support),
+integrating LLMs with third-party enterprise systems, and building customer-facing AI solutions.
+The 25+ enterprise AI automation deployments and the enterprise API integration work (Jira,
+Slack, Salesforce, Zoho, Datadog, Microsoft Teams/Graph) are the strongest possible evidence for
+this job family. Search for the expanded form and the abbreviation — postings use both.
+
+Two caveats apply when scoring an FDE role:
+
+- **FR-1.6** — An FDE role qualifies only where there is **substantial GenAI/LLM work**. Some FDE
+  postings are conventional software delivery or data engineering with no AI component; those
+  fall under FR-4.1 (primarily non-AI software development).
+- **FR-1.7** — FDE postings frequently carry **significant travel or onsite client requirements**.
+  Extract and surface any travel percentage, onsite expectation or client-site base location in
+  the job record so it is visible before applying, and treat a requirement to relocate abroad
+  under the FR-1.3 rule.
 
 ### 4.2 Deduplication
 
