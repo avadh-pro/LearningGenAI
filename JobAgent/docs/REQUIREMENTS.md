@@ -2,9 +2,15 @@
 
 **Project:** Autonomous AI/ML Job Search & Application Agent
 **Owner:** Avadh Dobariya
-**Status:** 🟡 Draft — awaiting review
-**Version:** 0.3 · 2026-09-14
+**Status:** 🟢 Approved for spec — see §11
+**Version:** 0.4 · 2026-09-14
 
+> **Changes since 0.3** — All four §10.3 conflicts resolved. Daily target lowered to **10–20**
+> (C-A), which keeps full manual review sustainable (C-B). International roles confirmed in scope
+> (C-C). Budget stays a ceiling with a **tiered cheap-model strategy** (C-D). FR-6.1 dropped.
+> Adds §7.1 model strategy. **O-2 work authorisation is still unanswered** and is now handled as
+> a configurable field defaulting to the safe assumption — see §2.1.
+>
 > **Changes since 0.2** — Decisions logged from review: the answer sheet (§2.1), board policy,
 > runtime, schedule, notifications, budget and retention are now **decided** (§10.1). Adds the
 > daily search audit log (FR-1.8), geographic expansion to Dubai / Europe / Canada (FR-1.3),
@@ -80,8 +86,15 @@ automatically instead of halting at HITL-3.
 | Expected CTC | **₹32 LPA** | ✅ decided v0.3 |
 | Notice period | **1 month** | ✅ decided v0.3 |
 | Relocation stance | — | ⬜ open (O-2) |
-| Work authorisation | — | ⬜ open (O-2) — **now load-bearing**, see FR-1.3a |
+| Work authorisation | **configurable; defaults to `Indian citizen — sponsorship required`** | ⚠️ v0.4 — unconfirmed, see below |
 | Preferred start date | — | ⬜ open (O-2) |
+
+⚠️ **Work authorisation is unconfirmed and load-bearing (FR-1.3a).** Rather than block, it is a
+**configurable field** defaulting to the safe assumption: Indian citizen, no existing EU / Canada /
+UAE work permit, sponsorship required. Under that default the agent rejects non-sponsoring
+European and Canadian roles rather than wasting applications on them. **If Avadh holds any
+existing permit, changing this one setting materially widens the eligible pool** — it should be
+confirmed early.
 
 **Treat every value here as sensitive.** It is never logged to a shared surface, never sent
 anywhere but the application form it is required by, and CTC figures are never volunteered when
@@ -108,8 +121,8 @@ tracker, a review dashboard, and a daily report.
 - Interview scheduling, interview prep, salary negotiation
 - Recruiter outreach or messaging
 - Job boards requiring paid subscriptions
-- Roles in geographies outside India, Dubai/UAE, Europe and Canada (FR-1.3)
-- Roles requiring work authorisation Avadh does not hold where no sponsorship is offered (FR-1.3a)
+- Roles outside India, Dubai/UAE, Europe and Canada (FR-1.3)
+- Roles requiring work authorisation Avadh does not hold **where no sponsorship is offered** (FR-1.3a). International roles are otherwise **in scope** (decided v0.4).
 
 ### 3.3 Hard external constraints
 
@@ -252,7 +265,7 @@ Effort concentrates on Tier 1 and Tier 2.
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-9.1 | Before submitting, verify: correct company · correct job · job still active · sufficient score · not a duplicate · resume accurate · no fabricated information · cover letter tailored · answers accurate · contact details correct · location acceptable · no mandatory qualification falsely claimed. | Must |
-| FR-9.2 | Daily application target is **configurable from the UI**, never hardcoded. Default **30–40/day** per the v0.3 decision. The target is a **ceiling, not a quota**: it is scaled down to genuine availability, and if only 2 jobs clear the threshold, only 2 are applied to. **Never pad to hit a number.** See §10.3 C-A — the threshold and the supply of eligible roles are expected to bind well before this setting does. | Must |
+| FR-9.2 | Daily application target is **configurable from the UI**, never hardcoded. Default **10–20/day** (decided v0.4). The target is a **ceiling, not a quota**: scaled down to genuine availability, and if only 2 jobs clear the threshold, only 2 are applied to. **Never pad to hit a number.** This deliberately keeps volume low so that full manual review (HITL-5) stays sustainable. | Must |
 | FR-9.3 | Submission requires human approval — see §5. | Must |
 | FR-9.4 | Halt and ask rather than guess whenever required information is unavailable or a statement could materially misrepresent Avadh. | Must |
 
@@ -342,6 +355,34 @@ These override every other requirement, including daily targets.
 
 ---
 
+### 7.1 Model strategy
+
+Two separate concerns that must not be confused.
+
+**A. The agent's runtime models** — what JobAgent uses in production. Tiered, so the cheap model
+carries the volume (C-D):
+
+| Stage | Model | Why |
+| --- | --- | --- |
+| Bulk screening / first-pass scoring | **cheapest capable model** (e.g. Haiku 4.5) | Runs over every discovered job; volume stage, cost dominates |
+| Deep JD analysis, scoring rationale | mid-tier | Fewer calls, judgement matters |
+| Resume tailoring, cover letters, screening answers | strongest available | Goes out under Avadh's name; quality dominates, volume is low by FR-9.2 |
+
+| ID | Requirement |
+| --- | --- |
+| TR-10 | The model for each stage must be **configurable**, not hardcoded. LangChain makes this a one-line change. |
+| TR-11 | Per-stage token usage and cost must be tracked and shown against the daily ceiling (FR-13.3). |
+| TR-12 | A **soft alert well below the ceiling** (~$5/day) must fire so a runaway loop is caught by the alert, not the $100 limit. |
+
+**B. The models used to build JobAgent** — development process, not runtime:
+
+| Task | Model |
+| --- | --- |
+| Writing the specification | **Fable** |
+| Implementing the code | **Sonnet and Opus** |
+
+---
+
 ## 8. Non-functional requirements
 
 | ID | Requirement |
@@ -392,24 +433,22 @@ These override every other requirement, including daily targets.
 
 ### 10.2 Still open
 
-| ID | Question | Why it matters |
+| ID | Question | Status |
 | --- | --- | --- |
-| **O-1** | **FR-6.1 is incomplete** — the sentence was cut off at *"you are saying that when the…"*. Needs finishing. | Cannot be specified as written. |
-| **O-2** | **Relocation stance · work authorisation · preferred start date.** For work authorisation, confirm: Indian citizen, no existing EU/Canada/UAE work permit, sponsorship required? | **Now load-bearing.** With FR-1.2 adding Europe and Canada, this is the hard filter deciding which international roles are even eligible (FR-1.3a). Without it the agent cannot tell an applicable role from an impossible one. |
-| **O-3** | **HITL-6** — is a borderline 70–79 score a separate gate before a resume is even generated, or covered by the full HITL-5 review? | **Recommendation: fold into HITL-5.** A second gate doubles the interruptions to reject work that the first gate would reject anyway. The one argument for a separate gate is cost — it avoids paying to tailor a resume that then gets rejected. At the §10.1 budget, that cost is not material. |
-| **O-4** | **LLM provider.** | Both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are already set at User scope on this machine. **Recommendation: Anthropic Claude** as the default, given the resume-tailoring and JD-reasoning workload, with the provider configurable — LangChain makes this a one-line change (`model="claude-sonnet-4-6"` vs `"openai:gpt-5.5"`). |
-| **O-5** | **Pending-approval rollover.** What happens to yesterday's unapproved applications when 09:00 hits today? | **Recommendation: carry over, never auto-submit, never auto-expire.** Queue them ahead of the new batch, and flag any posting that has since closed as `expired` so Avadh is not reviewing dead jobs. Auto-expiry silently discards work; auto-submission violates HITL-1. |
+| **O-1** | ~~FR-6.1 incomplete~~ | ✅ **Dropped v0.4** — not pursued. |
+| **O-2** | Relocation stance · **work authorisation** · preferred start date | ⚠️ **Still open.** Handled as a configurable field defaulting to the safe assumption (§2.1) so it no longer blocks, but confirming it is the single change that most widens the eligible international pool. |
+| **O-3** | HITL-6 — separate gate for 70–79 scores? | **Assumed folded into HITL-5** unless Avadh says otherwise. At 10–20/day a second gate is not worth the interruptions. |
+| **O-4** | LLM provider | ✅ **Resolved v0.4** — tiered cheap-model strategy, see §7.1. Provider configurable; both keys already on the machine. |
+| **O-5** | Pending-approval rollover | **Assumed: carry over, never auto-submit, never auto-expire**, queued ahead of the new batch, closed postings flagged `expired`. |
 
-### 10.3 ⚠️ Conflicts between decisions — resolve before the spec
+### 10.3 Conflicts — ✅ all resolved (v0.4)
 
-These are not new questions. They are places where two decisions already made cannot both hold.
-
-| ID | Conflict |
-| --- | --- |
-| **C-A** | **30–40/day vs. every other constraint.** §1 sets the objective as *interview probability per application, not volume*, and FR-9.2 says never pad to hit a number. FR-3 rejects anything under 70. Q-3 restricts auto-submission to Greenhouse / Lever / Workday / career pages. **Finding 30–40 genuinely matching Senior/Staff AI roles per day on ATS platforms alone is very unlikely** — realistic supply is single digits most days. The target is therefore recorded as a **ceiling, not a quota**, and the honest expectation is that actual daily volume will be far lower. If the intent is genuinely to apply to 30–40 per day, something must give: the 70 threshold, the seniority filter, or the discovery-only board policy. **Recommendation: keep it as a ceiling and let supply decide.** |
-| **C-B** | **30–40/day vs. full manual review.** Q-2 requires Avadh to review every tailored resume and cover letter. At 30–40/day that is 30–40 documents to read daily — plausibly 2–4 hours, which is more time than applying manually would take. **Recommendation: keep full review for the first week to calibrate, then move to spot-checking above a score threshold.** Alternatively accept that C-A caps real volume low enough that full review stays cheap. |
-| **C-C** | **Europe / Canada vs. work authorisation.** If Avadh needs sponsorship, the large majority of European and Canadian postings are ineligible and must be rejected under FR-4.2 — not applied to. Until O-2 is answered, FR-1.2 cannot be implemented correctly, and implementing it wrongly wastes the daily budget on applications that cannot succeed. **Dubai/UAE is the exception** — employer-sponsored work permits are the norm there, so it is the highest-value part of this expansion. |
-| **C-D** | **$100/day vs. expected usage.** The ceiling is roughly ₹8,300/day, about ₹2.5L/month. Realistic spend for 30–40 scored jobs with tailored documents is likely **one to two orders of magnitude below** that. Recorded as a generous ceiling rather than a budget. **Recommendation: add a soft alert at a far lower threshold** (say $5/day) so a runaway loop is caught by the alert rather than by the ceiling. |
+| ID | Conflict | Resolution |
+| --- | --- | --- |
+| **C-A** | 30–40/day contradicted the stated objective, the ≥70 threshold and the discovery-only board policy | ✅ **Daily target lowered to 10–20**, deliberately low volume. Restores consistency with §1 — interview probability per application, not volume. |
+| **C-B** | 30–40/day plus full manual review was 2–4 hours of reading daily | ✅ **Resolved by C-A.** At 10–20/day full review of every resume and cover letter stays sustainable, so HITL-5 remains full review with no spot-checking. |
+| **C-C** | Europe and Canada mostly ineligible without sponsorship | ✅ **International roles confirmed in scope.** Eligibility is enforced by FR-1.3a against the work-authorisation setting (§2.1), which defaults to sponsorship-required so non-sponsoring roles are rejected rather than wasted on. Dubai/UAE remains the highest-value part. |
+| **C-D** | $100/day was one to two orders of magnitude above expected spend | ✅ **Stays a ceiling, not a budget.** Cost is controlled by the tiered model strategy (§7.1) — cheapest capable model for bulk screening, strongest only for the low-volume work that goes out under Avadh's name — plus a soft alert at ~$5/day (TR-12). |
 
 ### 10.4 Note on the suggested resume phrasing
 
@@ -434,18 +473,18 @@ under Krista Software.
 
 ## 11. Approval
 
-**Blocking the spec:** the five open items in §10.2 and the four conflicts in §10.3.
-**O-2 (work authorisation) and C-A / C-B are the ones that change the architecture.**
+**Nothing blocks the spec.** All four conflicts are resolved and the one remaining open item
+(O-2, work authorisation) has a safe configurable default. Spec writing can proceed.
 
 - [x] §1–2 objective and profile are correct
 - [x] §2.1 answer sheet — 3 of 6 fields decided, 3 open (O-2)
 - [ ] §3 scope and constraints — updated for international, needs re-read
-- [ ] §4 functional requirements — FR-6.1 incomplete (O-1)
+- [x] §4 functional requirements — FR-6.1 dropped (O-1)
 - [x] §5 HITL gates — HITL-5 decided, HITL-6 open (O-3)
 - [x] §6 truthfulness constraints
-- [ ] §7–8 technical and non-functional requirements
-- [x] §9 success metrics — ⚠️ see C-A, the daily target contradicts §1's stated objective
-- [ ] §10.2 five open items answered
-- [ ] §10.3 four conflicts resolved
+- [x] §7–8 technical and non-functional requirements — §7.1 model strategy added
+- [x] §9 success metrics — C-A resolved, daily target now consistent with §1
+- [x] §10.3 all four conflicts resolved
+- [ ] §10.2 — **O-2 work authorisation still unconfirmed** (non-blocking; safe default in place)
 
 **On approval → technical specification.**
