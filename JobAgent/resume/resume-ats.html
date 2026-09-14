@@ -1,0 +1,205 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Avadh Dobariya - Senior AI Solution Engineer</title>
+<!--
+  ATS-optimised resume master.
+
+  Design rules, each fixing a measured parser defect in the original PDF:
+    1. SINGLE COLUMN            - two columns split headings from their content by up to 757 chars
+    2. NO EMOJI / NO ICONS      - 10 emoji glued to headings and pulled in 6 unnamed font subsets
+    3. NO PHOTO                 - bias-avoidance policies strip or flag photos on US/global roles
+    4. NO ARROWS OR SYMBOLS     - U+2192 and similar are ATS-hostile; plain ASCII only
+    5. URLS never wrap          - the original broke linkedin.com/in/... mid-URL into a dead link
+    6. KEY PHRASES never wrap   - "Hybrid Search" / "Function Calling" were split across lines
+    7. STANDARD FONTS           - Arial/Helvetica, no subsetting surprises
+    8. REAL TEXT, NO TABLES     - nothing an extractor has to reconstruct
+
+  Every fact here is taken verbatim from Avadh_Dobariya_Senior_AI_Solution_Engineer.pdf.
+  Nothing has been invented. Terms added are ones already evidenced elsewhere in the resume
+  (see README.md in this folder for the exact justification of each).
+
+  Render:  python render.py
+-->
+<style>
+  @page { size: Letter; margin: 0.45in 0.5in; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.3pt;
+    line-height: 1.19;
+    color: #000;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* keep multi-word keywords and URLs on one line so phrase matching survives */
+  .nw { white-space: nowrap; }
+
+  header { margin-bottom: 5pt; }
+  h1 {
+    font-size: 17pt;
+    letter-spacing: .5pt;
+    margin: 0 0 1pt;
+    font-weight: bold;
+  }
+  .role { font-size: 10.5pt; font-weight: bold; margin-bottom: 0; }
+  .tag  { font-size: 9pt; margin-bottom: 2pt; }
+  .contact { font-size: 9pt; line-height: 1.3; }
+  .contact span { margin-right: 3pt; }
+  /* clickable for humans, identical plain text for the parser */
+  .contact a { color: #000; text-decoration: none; }
+
+  h2 {
+    font-size: 10pt;
+    font-weight: bold;
+    letter-spacing: .5pt;
+    margin: 6pt 0 2.5pt;
+    padding-bottom: 1.5pt;
+    border-bottom: 1px solid #000;
+  }
+  h3 { font-size: 9.6pt; font-weight: bold; margin: 4.5pt 0 0.5pt; }
+  h3:first-of-type { margin-top: 1pt; }
+
+  .meta { font-size: 9pt; margin-bottom: 1pt; }
+  p { margin: 0 0 3pt; }
+
+  ul { margin: 1pt 0 0; padding-left: 13pt; }
+  li { margin-bottom: 2pt; }
+
+  .skill { margin-bottom: 2pt; }
+  .skill b { font-weight: bold; }
+</style>
+
+<header>
+  <h1>AVADH DOBARIYA</h1>
+  <div class="role">Senior AI Solution Engineer</div>
+  <div class="tag">AI Automation &amp; Agentic Systems | 4+ Years Experience</div>
+  <div class="contact">
+    <span class="nw">Pune, India 411021</span>|
+    <span class="nw">+91 8779092749</span>|
+    <span class="nw"><a href="mailto:avadhdobariya@gmail.com">avadhdobariya@gmail.com</a></span><br>
+    <span class="nw"><a href="https://linkedin.com/in/avadh-dobariya368935208">linkedin.com/in/avadh-dobariya368935208</a></span>|
+    <span class="nw"><a href="https://github.com/avadhdobariya">github.com/avadhdobariya</a></span>
+  </div>
+</header>
+
+<h2>PROFESSIONAL SUMMARY</h2>
+<p>
+  Senior AI Solution Engineer with 4+ years building production AI automation and agentic
+  platforms powered by LLMs, RAG pipelines, multi-agent systems, and the
+  <span class="nw">Model Context Protocol (MCP)</span>. Core engineer on AIQA, an enterprise RAG
+  platform spanning ingestion, embeddings, <span class="nw">hybrid retrieval</span> and
+  citation-grounded LLM answers; architected an enterprise MCP server connecting AI assistants
+  (Claude, ChatGPT, Cursor) to governed enterprise tools; integrated 25+ enterprise APIs and
+  shipped AI workflows that cut manual effort by up to 80%.
+</p>
+
+<h2>WORK EXPERIENCE</h2>
+<h3>Krista Software (AI Automation Startup) - Pune, India</h3>
+<div class="meta">Senior AI Solution Engineer | Aug 2022 - Present</div>
+<ul>
+  <li>
+    Architected 25+ enterprise AI automation solutions integrating LLMs with third-party systems
+    (Jira, Slack, Salesforce, Zoho, Datadog), reducing manual workflows by up to 80%.
+  </li>
+  <li>
+    Lead engineer on two flagship platform initiatives - a governed MCP server connecting AI
+    assistants (Claude, ChatGPT, Cursor) to enterprise tools, and AIQA, Krista's production RAG
+    platform for enterprise document Q&amp;A - covering architecture, security, and
+    <span class="nw">production support</span>.
+  </li>
+  <li>
+    <b>End-to-end solution ownership</b> in a startup environment - requirements, architecture,
+    integration, demos, optimization and <span class="nw">production support</span> - across
+    enterprise customer engagements, from first scoping call to live production.
+  </li>
+  <li>
+    Mentor 4 engineers; recognized 2x as Shining Star of Krista for customer delivery, AI
+    innovation and cross-functional impact.
+  </li>
+</ul>
+
+<h2>KEY AI PROJECTS</h2>
+
+<h3>Enterprise MCP Server &amp; AI Channel Platform - Krista Platform</h3>
+<ul>
+  <li>
+    Architected a production MCP server over the <span class="nw">MCP JSON-RPC 2.0</span>
+    protocol, letting AI clients (Claude Desktop, ChatGPT, Cursor) securely call governed
+    enterprise tools instead of just answering questions about them.
+  </li>
+  <li>
+    Connected the AI agent to everyday messaging apps like Microsoft Teams (with Slack and
+    WhatsApp support built in), so employees can chat with it right from the tools they
+    already use.
+  </li>
+</ul>
+
+<h3>Enterprise RAG Platform (AIQA)</h3>
+<ul>
+  <li>
+    Core engineer on Krista's production RAG platform: build and maintain 50+ format ingestion
+    readers, chunking/embedding pipelines, and <span class="nw">hybrid lexical + vector
+    retrieval</span> that feed citation-grounded, multi-turn answers (Claude, OpenAI, Gemini)
+    across a large, continuously growing enterprise document corpus.
+  </li>
+</ul>
+
+<h3>AI Risk &amp; Compliance Sync Engine</h3>
+<ul>
+  <li>
+    Automated control-to-process mapping between an enterprise GRC platform and a
+    process-modeling system, eliminating 20+ hrs/week of manual reconciliation for the
+    compliance team.
+  </li>
+</ul>
+
+<h2>SKILLS</h2>
+<div class="skill">
+  <b>AI / LLM &amp; Agentic Systems:</b> LLMs, Generative AI, <span class="nw">Agentic AI</span>,
+  <span class="nw">Agentic RAG</span>, <span class="nw">Model Context Protocol (MCP)</span>,
+  <span class="nw">Tool Calling</span>, <span class="nw">Function Calling</span>,
+  <span class="nw">Prompt Engineering</span>, <span class="nw">Multi-Agent Systems</span>,
+  <span class="nw">AI Orchestration</span>
+</div>
+<div class="skill">
+  <b>GenAI Frameworks &amp; Serving:</b> LangChain, LangGraph, CrewAI,
+  <span class="nw">Hugging Face</span>, FastAPI, vLLM, Ollama, <span class="nw">AWS Bedrock</span>
+</div>
+<div class="skill">
+  <b>Retrieval &amp; Vector Stores:</b> Qdrant, Pinecone, ChromaDB, OpenSearch, Embeddings,
+  <span class="nw">Hybrid Search</span>, <span class="nw">Semantic Search</span>, RRF,
+  <span class="nw">Re-ranking</span>
+</div>
+<div class="skill">
+  <b>Fine-tuning &amp; Evaluation:</b> <span class="nw">LoRA / QLoRA</span>, SFT,
+  <span class="nw">Alignment (PPO, DPO)</span>, <span class="nw">Quantization (GGUF)</span>,
+  RAGAS, DeepEval, <span class="nw">Recall@k / MRR</span>
+</div>
+<div class="skill">
+  <b>LLMOps, Cloud &amp; DevOps:</b> Guardrails, <span class="nw">LLM Observability</span>,
+  <span class="nw">LLM Tracing (Opik)</span>, Prefect,
+  <span class="nw">Grafana / Prometheus</span>, Datadog, <span class="nw">AWS (S3, SQS)</span>,
+  Docker, <span class="nw">Kubernetes / Helm</span>, CI/CD
+</div>
+<div class="skill">
+  <b>Languages &amp; Backend:</b> <span class="nw">Java (Core, 21)</span>, Python, SQL,
+  <span class="nw">JAX-RS / Jersey</span>, PostgreSQL
+</div>
+<div class="skill">
+  <b>APIs, Protocols &amp; Integrations:</b> <span class="nw">Anthropic Claude API</span>,
+  <span class="nw">OpenAI Agents SDK</span>, <span class="nw">JSON-RPC 2.0</span>,
+  <span class="nw">OAuth 2.0</span>, <span class="nw">Microsoft Graph &amp; Teams</span>,
+  Jira, Slack, Salesforce
+</div>
+
+<h2>EDUCATION</h2>
+<h3>B.Tech, Computer Science &amp; Engineering</h3>
+<div class="meta">
+  MIT Academy of Engineering (MITAOE), Pune | Jul 2018 - Jul 2022 | CGPA 8.50/10.00
+</div>
+
+<h2>AWARDS</h2>
+<p>
+  <b>Shining Star of Krista Award (2x)</b> - Outstanding customer delivery, AI innovation, and
+  cross-functional impact.
+</p>
