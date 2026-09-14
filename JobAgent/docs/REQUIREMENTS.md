@@ -3,11 +3,18 @@
 **Project:** Autonomous AI/ML Job Search & Application Agent
 **Owner:** Avadh Dobariya
 **Status:** 🟢 Approved for spec — see §11
-**Version:** 0.4 · 2026-09-14
+**Version:** 0.5 · 2026-09-14
 
+> **Changes since 0.4** — Consistency fixes found by requirements analysis. The daily target
+> read as 10–20, 5–15 *and* 30–40 in different sections — now 10–20 everywhere. **"FR-6.1
+> dropped" was a numbering collision**: the dropped item was an unfinished requirement in the
+> review notes, NOT FR-6.1 resume tailoring, which is a live Must — renamed to O-1 to remove the
+> clash. FR-4.1's self-contradiction ("no scoring override … unless exceptional") resolved.
+>
 > **Changes since 0.3** — All four §10.3 conflicts resolved. Daily target lowered to **10–20**
 > (C-A), which keeps full manual review sustainable (C-B). International roles confirmed in scope
-> (C-C). Budget stays a ceiling with a **tiered cheap-model strategy** (C-D). FR-6.1 dropped.
+> (C-C). Budget stays a ceiling with a **tiered cheap-model strategy** (C-D). The unfinished
+> review-note requirement (O-1) is dropped.
 > Adds §7.1 model strategy. **O-2 work authorisation is still unanswered** and is now handled as
 > a configurable field defaulting to the safe assumption — see §2.1.
 >
@@ -225,7 +232,8 @@ Effort concentrates on Tier 1 and Tier 2.
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| FR-4.1 | Reject outright — no scoring override — when the role is: clearly junior · primarily non-AI software development · primarily data analytics · primarily DevOps with little/no AI · primarily traditional ML with no meaningful GenAI/LLM component (unless overall match is exceptional) · expired · already applied to · fraudulent or suspicious. | Must |
+| FR-4.1 | **Absolute rejections — never overridable by score:** clearly junior · primarily non-AI software development · primarily data analytics · primarily DevOps with little/no AI · expired · already applied to · fraudulent or suspicious. | Must |
+| FR-4.1a | **Conditional rejection — one documented exception:** *traditional ML with no meaningful GenAI/LLM component* is rejected **unless** the overall score is ≥ 90 (Tier 1). This is the only case where a strong score overrides a category rejection, and the exception must be recorded in the job's reasoning (FR-3.4). | Must |
 | FR-4.2 | Reject when a **mandatory** qualification is absent — a required degree or certification Avadh does not hold, or a technology central to the role and wholly absent from his background. | Must |
 | FR-4.3 | **Never attempt to circumvent an explicit mandatory qualification.** | Must |
 
@@ -402,7 +410,7 @@ carries the volume (C-D):
 | Metric | Target |
 | --- | --- |
 | Interview / callback rate per application | **Primary metric.** Beat manual applying. |
-| Applications per day | 5–15, scaled to genuine availability |
+| Applications per day | **10–20**, scaled to genuine availability (FR-9.2). Expect fewer on most days — see §10.3 C-A. |
 | Fabricated claims | **Zero. Non-negotiable.** |
 | Duplicate applications | **Zero** |
 | Below-threshold applications (< 70) | **Zero** |
@@ -426,7 +434,7 @@ carries the volume (C-D):
 | **Q-7** | **Notifications** — **Telegram**, for both approvals and the daily report. |
 | **Q-8** | **Budget** — **$100/day ceiling**, with running spend visible in the UI. Provider still open (O-4). |
 | **Q-9** | **Data retention** — **keep everything, indefinitely**, stored locally. JDs, generated letters and tracker history. |
-| **New** | **Daily target** — **30–40 applications/day, configurable from the UI.** See FR-9.2 and §10.3 C-A. |
+| **New** | **Daily target** — **10–20 applications/day, configurable from the UI** (revised down from 30–40 in v0.4, see C-A). Ceiling, not quota. |
 | **New** | **UI visibility** — every functional requirement needs a UI component. See §4.13. |
 | **New** | **Geography** — expand to Dubai/UAE, Europe and Canada. See FR-1.3, FR-1.3a. |
 | **New** | **Search audit log** — daily per-source, per-query, per-job log doubling as the manual-fallback surface. See FR-1.8, FR-1.9. |
@@ -435,7 +443,7 @@ carries the volume (C-D):
 
 | ID | Question | Status |
 | --- | --- | --- |
-| **O-1** | ~~FR-6.1 incomplete~~ | ✅ **Dropped v0.4** — not pursued. |
+| **O-1** | An unfinished requirement in the review notes, cut off at *"you are saying that when the…"* | ✅ **Dropped v0.4** — not pursued. ⚠️ This was **not** FR-6.1 (resume tailoring), which remains a live **Must**. The clashing label has been removed. |
 | **O-2** | Relocation stance · **work authorisation** · preferred start date | ⚠️ **Still open.** Handled as a configurable field defaulting to the safe assumption (§2.1) so it no longer blocks, but confirming it is the single change that most widens the eligible international pool. |
 | **O-3** | HITL-6 — separate gate for 70–79 scores? | **Assumed folded into HITL-5** unless Avadh says otherwise. At 10–20/day a second gate is not worth the interruptions. |
 | **O-4** | LLM provider | ✅ **Resolved v0.4** — tiered cheap-model strategy, see §7.1. Provider configurable; both keys already on the machine. |
@@ -479,7 +487,7 @@ under Krista Software.
 - [x] §1–2 objective and profile are correct
 - [x] §2.1 answer sheet — 3 of 6 fields decided, 3 open (O-2)
 - [ ] §3 scope and constraints — updated for international, needs re-read
-- [x] §4 functional requirements — FR-6.1 dropped (O-1)
+- [x] §4 functional requirements — O-1 dropped; FR-6.1 resume tailoring remains a live Must
 - [x] §5 HITL gates — HITL-5 decided, HITL-6 open (O-3)
 - [x] §6 truthfulness constraints
 - [x] §7–8 technical and non-functional requirements — §7.1 model strategy added
