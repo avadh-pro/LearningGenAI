@@ -37,4 +37,5 @@ async def main(src: str, dst: str) -> None:
 if __name__ == "__main__":
     src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "resume-ats.html")
     dst = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "Avadh_Dobariya_Senior_AI_Solution_Engineer_ATS.pdf")
-    asyncio.run(main(src, dst))
+    # relative paths must resolve before being turned into a file:// URL
+    asyncio.run(main(os.path.abspath(src), os.path.abspath(dst)))

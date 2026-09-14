@@ -10,9 +10,15 @@ the agent cannot tailor a PDF, but it can tailor this HTML source.
 | `render.py` | Renders the HTML to PDF via headless Chromium. `python render.py` |
 | `Avadh_Dobariya_Senior_AI_Solution_Engineer_ATS.pdf` | Generated output — the file to upload |
 
-The original design (`Avadh_Dobariya_Senior_AI_Solution_Engineer.pdf`) is still the better
-**human-facing** resume — keep sending it to recruiters and warm intros. This variant is for
-**ATS submission**.
+The original design (`Avadh_Dobariya_Senior_AI_Solution_Engineer.pdf`) is still worth keeping for
+warm intros where its personality helps. But this variant is now designed, not plain — navy
+accent, letter-spaced section rules, typographic hierarchy — so it is the default for
+**every application**.
+
+> **Single column does not mean plain.** The first pass of this file traded away all visual design
+> for parser safety, which was an overcorrection. What broke the original was the *narrow sidebar*,
+> not the column count. Hierarchy now comes from typographic scale, whitespace and one restrained
+> accent — with the parse score unchanged.
 
 ---
 
@@ -31,12 +37,32 @@ built on different ones and they disagree.
 | LinkedIn URL | `linkedin.com/in/avadh-dobariya-` ❌ truncated | `...avadh-dobariya368935208` ✅ intact |
 | Keywords (raw text) | 67/74 | **74/74** |
 | Keywords (normalised) | 70/74 | **74/74** |
+| Section headings detected | 6/6 | 6/6 |
 | Clickable links | 2 | 3 |
 | Unnamed font subsets | 6 | **0** |
 | **Factual integrity** | — | **49/49 original facts preserved** |
 
-**Score: 71/100 → 96/100.** The remaining 4 points are a deliberate trade: the page is 94% full
-at 9.3pt body text, which is dense for a human reader. That is the cost of one page.
+**Score: 71/100 → 96/100.** The remaining 4 points are a deliberate trade: the page runs dense to
+stay on one page. Avadh has more genuine content than a truly airy one-pager can hold, and the
+section rules break it up enough that it reads structured rather than cramped.
+
+### ⚠️ The letter-spacing trap
+
+An early version of this design used `letter-spacing: 1.4pt` on the 9.4pt section headings. It
+looked good. It also made **all six section headings undetectable**, because Chrome writes real
+spaces into the PDF text layer when the ratio gets too high:
+
+```
+'P R O F E S S I O N A L   S U M M A R Y'      <- what an ATS actually saw
+'S K I L L S'
+'E D U C AT I O N'
+```
+
+`SKILLS`, `EDUCATION` and the rest simply did not exist as far as any parser was concerned. The
+name survived only because `h1` is 20.5pt, so 1.6pt of spacing is an 8% ratio rather than 15%.
+
+**Rule: keep `letter-spacing` under ~8% of `font-size`.** Headings now use 0.5pt on 9.6pt. Always
+re-run the parser test after any typographic change — this defect is invisible by eye.
 
 ---
 
@@ -143,6 +169,10 @@ python render.py
 3. Keep it to one page — `render.py` output is checked; page 2 means trim.
 4. No emoji, no arrows, no characters above U+2100.
 5. Stay single-column. No tables, no text boxes, no images.
+6. Keep skills as full-width `Label: values` lines. A two-column label/value grid would
+   reintroduce the exact reading-order split that broke the original.
+7. `letter-spacing` must stay under ~8% of `font-size` (see the trap above).
+8. **Re-run the three-parser test after any change.** Visual review is not sufficient.
 
 **Requirements:** Python 3.13 · `playwright` · Chromium. `render.py` pins the executable path;
 override with the `PW_CHROME` environment variable if your Playwright revision differs.
