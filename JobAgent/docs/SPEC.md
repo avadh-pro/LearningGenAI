@@ -4,11 +4,17 @@
 **Owner:** Avadh Dobariya
 **Inputs:** `docs/REQUIREMENTS.md` v0.5 (approved) · `docs/requirements-analysis.md` (assumption register §7 adopted; exceptions in §17) · `docs/test-plan.md` (277 acceptance criteria — every one must be satisfiable by this design) · `docs/ui-ux-design.md` (19 screens, FR→UI map) · `knowledge-base/` (LangChain 1.x / LangGraph API truth)
 **Status:** Phase 3 — specification for implementation by Sonnet/Opus
-**Version:** 1.0 · 2026-09-14
+**Version:** 2.0 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
+**Revision:** closes the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs the
+review required in the same pass (M-1, M-2, M-3, M-15). Changelog: §20. Findings *not* closed
+in this revision are listed in §21 — they are open, not resolved.
 
 > This document says **how**. Every LangChain/LangGraph symbol named here was grepped in
 > `knowledge-base/` before it was written down; §18 is the verification table. Anything that
-> could not be verified is marked **[UNVERIFIED]** rather than asserted. Where this spec departs
+> could not be verified is marked **[UNVERIFIED]** rather than asserted — and in v2 every
+> `[UNVERIFIED]` mark that names a LangChain/LangGraph behaviour has been re-derived against
+> `knowledge-base/` and either verified with a citation or deleted (§18, §20 M-1/M-2/M-3).
+> Where this spec departs
 > from the requirements, the assumption register or the UI design, the departure is tagged
 > **DEPARTURE D-n** inline and collected in §17.
 
@@ -35,6 +41,8 @@
 17. Departures from requirements / assumptions / UI design
 18. Knowledge-base verification table
 19. Open questions
+20. Changelog — what v2 changed, and which finding it closes
+21. Findings not closed in v2
 
 ---
 
@@ -52,12 +60,13 @@ asked of a model:
 
 | Property | Mechanism | Where |
 | --- | --- | --- |
-| **No double submission, ever** (NFR-2, HITL-R5, C-3) | Three-state submission protocol in the tracker (`SUBMITTING` written durably *before* the click; `SUBMITTED` only after evidence is stored); a submit node that never clicks when it finds `SUBMITTING`; `RetryPolicy.retry_on` restricted to a `PreClickError` class; `UNKNOWN_OUTCOME` hands the question to a human and blocks dedup meanwhile. | §9 |
+| **No double submission, ever** (NFR-2, HITL-R5, C-3) | Three-state submission protocol in the tracker (`SUBMITTING` written durably *before* the click; `SUBMITTED` only after evidence is stored); a submit node that never clicks when it finds `SUBMITTING`; `RetryPolicy.retry_on` restricted to a `PreClickError` class; **the same durable-marker discipline applied to every page-advancing POST in `fill_form`** (§9.8); `UNKNOWN_OUTCOME` hands the question to a human, is never manufactured by a second process (§9.6), and costs a typed confirmation and a waiting period to resolve the one way that clicks again (§9.5). | §9 |
 | **No fabrication, ever** (T-1..T-5) | A deterministic fact ledger built from the master resume; a generator that emits a *plan* (element keys + provenance pointers), never free HTML; a verifier (FactGuard) that runs on every artefact, fails closed, and blocks the `SUBMITTING` transition without a fresh pass on the exact artefact hashes. | §8, §10 |
-| **Answer-sheet values never reach an LLM** (§2.1, NFR-7) | Values live in one table, are loaded only inside the deterministic `FormFiller`, never enter graph state (hence never checkpoints), and a `GuardedModel` wrapper asserts on every outbound prompt. | §11, §12 |
-| **Review stays a 60-second task** (HITL-5, UI D-2) | Tailoring is reorder-first; only the professional summary may be rewritten; the change budget is enforced by the plan schema; the diff the reviewer sees is the diff the verifier checked. | §10 |
+| **Answer-sheet values never reach an LLM** (§2.1, NFR-7) | Values live in one table, are loaded only inside the deterministic `FormFiller`, never enter graph state (hence never checkpoints), and a `GuardedModel` wrapper asserts on every outbound prompt — **with no unwrapped path: `.inner` is banned by static check, and the one agentic component is guarded by middleware** (§4.13, §5.4). Masked *in transit*; **never masked from the reviewer** — every value that will be typed into a form is rendered in full on the review screen (§11.7, C-7). | §11, §12 |
+| **Review stays a 60-second task** (HITL-5, UI D-2) | Tailoring is reorder-first; only the professional summary may be rewritten; the change budget is enforced by the plan schema; the diff the reviewer sees is the diff the verifier checked, and the values the reviewer sees are the values the employer receives. | §10, §11.7 |
 
-The runtime is one Python process (`jobagent serve`) hosting a FastAPI backend bound to
+The runtime is **exactly one** Python process (`jobagent serve`) — a named OS mutex makes a
+second instance refuse to start before it can touch a record (§9.6, C-10) — hosting a FastAPI backend bound to
 `127.0.0.1`, two LangGraph graphs on an on-disk SQLite checkpointer, a Playwright browser
 worker with a persistent profile, a Telegram poller, and an in-process scheduler. The frontend is
 a keyboard-first single-page dashboard served by the same process. State that matters
@@ -76,7 +85,8 @@ the system of record; LangGraph checkpoints are execution scaffolding and are pr
 | O2 | 10–20 applications/day ceiling, never padded, each fully reviewed by Avadh in ~60 s. | AC-SB-17..20, AC-NF-15 |
 | O3 | Zero fabricated claims, zero duplicate submissions, zero sub-70 submissions. | AC-AF-14, AC-ID-23, AC-SC-07 |
 | O4 | Runs survive process kills and multi-day pauses with no lost or duplicated work. | AC-ID-19, AC-FM-05..07 |
-| O5 | Spend visible per stage; a runaway loop is caught at $5 and stopped at $20. | AC-FM-08..10, AC-NF-09 |
+| O5 | Spend visible per stage; a runaway loop is caught at $5 and stopped at $20. Every model call in the system is counted, including the career-page mapper's. | AC-FM-08..10, AC-NF-09 |
+| O7 | A fresh install cannot submit to a real employer. `submission_enabled` is `false` until Avadh types the confirmation to enable it. | AC-SB-21 (new), test-plan §17 gate |
 | O6 | Every FR has a UI home (map in §14.4). | AC-UI-01 |
 
 ### 2.2 Non-goals (v1)
@@ -150,6 +160,18 @@ SQLite as the store — multiple processes would only add lock contention and a 
 domain. The one thing that *must* be isolated is the browser, which Playwright already runs as a
 child process.
 
+**Exactly one process — enforced, not assumed (C-10).** SQLite in WAL mode is *designed* to allow
+concurrent multi-process access, so the store will not reject a second instance; and Task Scheduler
+is configured to restart the service on failure, so a hung-but-alive process plus a restart is an
+everyday path to two live instances. `jobagent serve` therefore takes a **named OS mutex**
+(`Global\JobAgent.serve`, via `win32event.CreateMutex`; a pid-bearing exclusive lock file is the
+cross-platform fallback) as its **first action, before any database connection is opened**, and
+exits with a clear message naming the holding pid if it is already held. Binding
+`127.0.0.1:8765` is the second action and a backstop if the mutex ever fails. Only after both
+succeed does startup reconciliation run (§9.6). The ordering is the point: v1 reconciled first and
+discovered the port collision afterwards, which gave a doomed second process a window in which to
+rewrite live rows.
+
 | Task | Responsibility | Concurrency |
 | --- | --- | --- |
 | `api` | FastAPI/uvicorn on `127.0.0.1:8765`; REST + SSE; serves the SPA | async |
@@ -214,6 +236,7 @@ test plan (AC-ID-13/14/24/25, AC-NF-11) grep for them.
 **Interface.**
 ```python
 class Settings(BaseModel):            # persisted in table `settings`, hot-reloaded (AC-SB-19)
+    submission_enabled: bool = False  # C-11 master switch: false ⇒ the system cannot click at a real employer
     daily_ceiling: int = 20           # 0..40 (UI §3.15); 0 allowed (AC-SB-20)
     models: dict[Stage, str]          # {"screen": ..., "analyse": ..., "generate": ..., "judge": ...}
     budget: Budget                    # soft_alert_usd=5, hard_stop_usd=20, ceiling_usd=100 (max)
@@ -248,6 +271,27 @@ verified in the knowledge base are `claude-haiku-4-5-20251001` (`models.md`), `c
 
 Model availability and pricing are provider facts the implementer must confirm at build time; the
 price table (`config/prices.yaml`) is configuration, not code (AC-NF-09 "within 1%").
+
+**`submission_enabled` — the real-submission master switch (C-11).** The test plan's go-live gate
+("Enable real submission … no exceptions, no waivers") is phrased as a switch being thrown, and v1
+had no switch: its only limiter was `daily_ceiling`, and a ceiling of 1 is not "cannot submit" — it
+permits one real application per day from the moment the code first runs, including during a
+developer's manual test against a real URL and including the day `submit` is first wired up in
+Phase 2. This matters concretely for this project: the fake ATS (T-2.5) arrives in Phase 2 and the
+real source adapters (T-4.2) in Phase 4, so the two coexist on one machine under one settings row
+for three phases.
+
+- Default `false`, on a fresh install and after any settings reset (AC-SB-21).
+- Checked in **two** places: `submit` gate (1), before any browser work (§9.3), and `fill_form`
+  before the first page-committing POST (§9.8). Either raises `SubmissionDisabled` → status
+  `NEEDS_ATTENTION`, a guard event, and no browser action. Both checks are required because after
+  C-1 the irreversible surface is not only the final click.
+- Turning it **on** requires a typed confirmation in Settings (`ENABLE REAL SUBMISSION`) and writes
+  an `audit_events` row on every change, on or off.
+- A static check asserts the default literal is `False`; an AC asserts a fresh install refuses to
+  submit; `daily_ceiling` remains a second, independent limit rather than the only one.
+- Exempt: `documents_only` threads, which never reach `fill_form` or `submit`, run normally with
+  the switch off. That is what makes the non-submitting product shippable on its own (§21, Q-S).
 
 **Error handling.** Invalid settings are rejected at the API with field-level errors; the
 previous value stays effective (UI §4 Settings error state). `hard_stop_usd > ceiling_usd` is
@@ -336,9 +380,39 @@ The database enforces `UNIQUE(identity_key)` on `jobs` and `UNIQUE(job_id)` on `
 **Purpose.** The oracle for T-1..T-5 and the addressing scheme for provenance pointers (AC-AF-01).
 
 **Finding.** `resume/resume-ats.html` has **no `id` attributes** (verified by grep). T-5 and the
-test plan speak of "element ids". This spec therefore defines **element keys** computed
-deterministically from document structure, and recommends (Phase 0 task T-0.4) adding matching
-`id` attributes to the master — a zero-text-change edit verified by an identical text diff.
+test plan speak of "element ids", and AC-AF-08 requires a claim's provenance pointer to name *an
+existing element id in the master*.
+
+**v2 ruling (C-8): the ids are a hard prerequisite of Phase 1, not a recommendation.** v1 defined
+keys derived from heading slugs and sibling position, made the `id` attributes optional (Q-O:
+"Recommended; ledger works without them"), rated the drift risk R-14 *Low*, and separately
+supported the human editing the master while applications are pending (§10.6). Those four
+decisions together produce a **silent** failure, which is what makes it critical rather than
+untidy: insert one comma-separated value into skill line 1 and every `skills.s1.vN` above the
+insertion point designates a different technology; rename a heading and every `proj.*` key beneath
+it changes. Stored provenance — in `Claim.provenance`, in `fact_checks`, in
+`decisions.artefact_hashes`, in the NFR-3 reconstruction bundle — does not become invalid. It
+resolves, to the **wrong line**. C9's lemma-overlap test is a weak filter and will frequently pass
+for two adjacent technologies in the same skill line. A job-seeker edits his résumé; R-14's
+likelihood is **High**, not Low.
+
+Therefore:
+
+1. **T-0.4 is promoted to a blocking prerequisite of Phase 1.** `resume-ats.html` receives explicit
+   `id` attributes matching the key set — a zero-text-change edit verified by an identical text
+   diff and an unchanged three-parser ATS result. **Q-O is closed before Phase 1 starts** (§19).
+2. **`build_ledger` refuses, rather than falls back.** A master whose `id` set does not match the
+   expected key set raises `MasterIdsMissing`; there is no derivation path in production. Key
+   derivation survives only as the Phase-0 migration tool that *generates* the ids, run once,
+   under review.
+3. **Keys are content-anchored where that is cheap**, so that reordering or insertion cannot
+   silently repoint a pointer: `skills.s1.pytorch`, not `skills.s1.v3`. Positional keys remain only
+   where the content is a sentence rather than a token (`exp.krista.li1..li4`), and those elements
+   carry their own ids in the master.
+4. **The master is stored, not merely hashed** — see §6.3 (`artefacts.kind='master_html'`, table
+   `ledgers`) and §10.6. A cache keyed by `master_hash` is not a record; without the bytes, no
+   historical application's provenance can be re-resolved and `GET /applications/{id}/bundle`
+   cannot satisfy NFR-3.
 
 **Element key scheme** (document order; slugs from heading text):
 
@@ -351,9 +425,15 @@ deterministically from document structure, and recommends (Phase 0 task T-0.4) a
 | `skills.s1..s7` (line) · `skills.sN.label` · `skills.sN.v1..vM` (comma-separated value) | Skills |
 | `edu.p1` · `awards.p1` | Education, Awards |
 
-Keys are stable as long as headings and element order are stable; the ledger records
-`master_hash = sha256(resume-ats.html)` and every application stores the `master_hash` it was
-tailored from (AC-AF-20).
+Keys are **declared in the master as `id` attributes** (rule 1 above), so they are stable across
+edits by construction rather than by luck. The ledger records
+`master_hash = sha256(resume-ats.html)`, every application stores the `master_hash` it was tailored
+from (AC-AF-20), and the master bytes for every `master_hash` ever used by an application are kept
+forever (§10.6).
+
+**New acceptance criterion (AF group, C-8).** Insert one skill value into the master, rebuild the
+ledger, and assert that every previously-stored provenance pointer either resolves to the same text
+or **fails loudly** — never resolves to different text.
 
 **Interface.**
 ```python
@@ -364,7 +444,7 @@ class Ledger(BaseModel):
     canaries: set[str]; organisations: set[str]; projects: set[str]; numbers: list[NumberFact]
     immutable: dict[str, str]        # title, date ranges, degree line, contact fields (byte-exact)
     scope_verbs: dict[str, int]      # verb → scope rank, from config (AC-AF-09)
-def build_ledger(html: str) -> Ledger                  # byte-stable across runs (snapshot test)
+def build_ledger(html: str) -> Ledger                  # byte-stable across runs (snapshot test); raises MasterIdsMissing if the master's id set != expected keys
 def element_text(html: str, key: str) -> str
 ```
 `FactClass = organisation | title | date_range | number | technology | degree_cert | project | achievement | award`.
@@ -530,6 +610,32 @@ class Letter(BaseModel):
     word_count: int                   # ≤ 300 validated
 class SubjectiveAnswer(BaseModel): question_id: str; claims: list[Claim]; word_count: int   # ≤ 150
 ```
+**`kind="context"` is a narrow, enforced category (C-6).** v1 defined three claim kinds and
+verified two: C9 was scoped to `self`, C11 to `company`, and C10 judged a claim against source text
+that a `context` claim by definition does not have. Since the **generating model chooses the label**,
+a model that cannot find a provenance key for a sentence it wants to write had a schema-legal escape
+hatch — emit it as `context` — and the schema *rewarded* the choice, because a `self` claim without a
+pointer fails C9 while a `context` claim without a pointer is valid. The deterministic residue does
+not close it: a sentence such as *"I have shipped agentic systems that enterprise buyers trust"*
+carries no numeral (C3), no canary or out-of-vocabulary technology (C4), no organisation (C5) and no
+qualification token (C13), yet reaches the employer as a first-person claim about the candidate,
+verified by nothing. That is a T-5 violation the schema permitted.
+
+v2 defines the kind and enforces the definition deterministically:
+
+> **`context` is permitted only for sentences that make no assertion about the candidate** — the
+> salutation, a transition, the closing line. No first-person subject, explicit or implied.
+
+- **Check C14** (§8.2) reclassifies any `context` claim containing a first-person pronoun, or a
+  resume-vocabulary verb phrase with an implied first-person subject, as `self` — after which it
+  must satisfy C9 and C10 or fail. Reclassification is a verifier act, not a request to the model.
+- **Caps**: ≤ 2 `context` claims per letter, **0** per subjective answer. The count is surfaced in
+  the review UI next to the `[n]` markers (§8.5), so an artefact that has quietly become 40% grey
+  markers is visible to the reviewer rather than merely legal.
+- The mutation suite (§8.4) is re-cut so that a `self` claim relabelled `context` is one of its 40
+  seeded fabrications. v1's suite could not catch this class because it was organised by *fact
+  class*, and this is a failure of *claim kind*.
+
 **Behaviour.** Generated only when the form has a cover-letter field or `always_generate`
 (AC-CL-05). The prompt embeds ledger facts, the JD text with span offsets, and the banned-filler
 list; the model must return sentence-level claims with provenance — free prose is not accepted.
@@ -557,13 +663,27 @@ class BrowserWorker:
     async def fill(self, page, plan: FillPlan) -> FillResult        # stops at first blocker: captcha | login | otp | unmapped_required
     async def upload(self, page, field, path)
     async def detect_blocker(self, page) -> Blocker | None
+    async def commit_page(self, page, page_index: int) -> PageResult # advances a multi-page form: an irreversible POST; see §9.8
+    async def page_fingerprint(self, page) -> Fingerprint           # {page_token, dom_hash} — recorded at fill time, re-asserted before the click (C-2)
     async def click_submit(self, page, selector) -> None            # the point of no return; see §9
-    async def capture_evidence(self, page) -> Evidence
+    async def capture_evidence(self, page, timeout_s: int = 180) -> Evidence
     async def screenshot(self, page) -> Path
 ```
 **Behaviour.** One persistent context under `data_dir/browser-profile/` (cookies survive,
-AC-SB-16). Headed (visible) so Avadh can take over; the worker never closes a page that is
-blocked — it leaves it open, screenshots it, and the application thread interrupts at HITL-2.
+AC-SB-16). **The profile directory is opened with an exclusive lock, and a lock failure is fatal to
+the worker, not a restart trigger (C-10)**: a locked profile means another process owns this
+browser, and restarting into it would give two instances a second Playwright context over the same
+cookies. The worker logs, raises, and the application lands in `NEEDS_ATTENTION`; only a crash with
+the profile *free* restarts the worker (AC-FM-13). Headed (visible) so Avadh can take over; the
+worker never closes a page that is blocked — it leaves it open, screenshots it, and the application
+thread interrupts at HITL-2.
+
+**Page identity (C-2).** `page_fingerprint` returns an opaque `page_token` plus a DOM hash over the
+form's field set, recorded when `fill_form` finishes and re-asserted by `submit` step (2). A human
+who took over the browser, solved a CAPTCHA and pressed Submit himself leaves behind a *different*
+document — a confirmation page, a redirect, a fresh blank form — and the fingerprint mismatch makes
+that detectable instead of invisible. v1 asserted only that *a* submit selector existed, which a
+fresh blank form satisfies.
 Blocker detection is heuristic (iframes from known CAPTCHA vendors, `input[type=password]` on a
 login form, OTP labels, "verify your email"). The worker never calls any solver service
 (AC-HL-12, checked by the proxy). Browser crash → application `NEEDS_ATTENTION`, browser
@@ -588,6 +708,18 @@ class SpendLedger:                             # table spend_ledger; per call: r
 **Behaviour.**
 - Every model call in the codebase goes through `GuardedModel` (lint AC-NF-11 extended: no
   direct `init_chat_model(...).invoke` outside `llm/`).
+- **There is no unwrapped path, and `.inner` is banned (C-5).** v1 exposed `GuardedModel.inner`
+  and §5.4 passed it to `create_agent`, which switched off `PromptGuard`, `BudgetGate` and
+  `SpendLedger` for the one agent that runs against a live, partially-filled form — the single
+  place where a DOM snapshot can carry an answer-sheet value in an element's `value` attribute, the
+  single place permitted 60 tool calls, and therefore the single place that could run past the $20
+  hard stop while every other call in the system was gated. The v1 lint did not catch it because
+  the call site used the approved accessor `get_model(...)` and then reached *through* it.
+  Accordingly: `GuardedModel` implements the `BaseChatModel` surface `create_agent` requires and is
+  passed as the model itself (§5.4); the `.inner` attribute is **removed from the class**, and
+  `.inner` joins `init_chat_model` on the static-check ban list (T-0.3), with an AC asserting that
+  no call site anywhere reaches an unwrapped model. Where wrapping cannot be complete, the
+  equivalent guarantee is supplied by middleware inside the agent loop, never by omission.
 - `PromptGuard.assert_clean` renders the messages to text and scans for every current
   answer-sheet value and its formatting variants (`19.8`, `₹19.8`, `19,80,000`, `32 LPA`,
   `1 month`, `30 days`, per-currency figures, `years_by_technology` values in a "years" context),
@@ -670,8 +802,8 @@ application threads from those rows.
 | State size | State holds **ids and hashes**, never JD bodies, HTML, PDFs or answer-sheet values. Content lives in `jobagent.db` / `art/`. Checkpoints stay small (gotcha 13) and can never leak §2.1 values | A-6, A-17 |
 | Interrupt nodes | Prefix `await_`; body = read state → **one** `interrupt(payload)` → return the resume value into state (optionally as `Command(goto=...)`); no I/O before the interrupt; not in a loop; not in `try` | `interrupts.md` Rules; AC-ID-13/14 |
 | Notifications | Sent by the node *preceding* an `await_` node, through the outbox with an idempotency key | AC-ID-12 |
-| Retry defaults | `builder.set_node_defaults(retry_policy=RetryPolicy(max_attempts=3))`. **No graph-wide `error_handler`** — an `await_` node must never have a handler that could swallow the interrupt; handlers are attached per node | `fault-tolerance.md` §401 |
-| Interrupt node retries | `retry_policy=RetryPolicy(max_attempts=1)` on every `await_` node. **[UNVERIFIED]** whether the interrupt control-flow exception is excluded from `default_retry_on`; disabling retries on those nodes removes the question | defensive |
+| Retry defaults | `builder.set_node_defaults(retry_policy=RetryPolicy(max_attempts=3))`. **No graph-wide `error_handler`**; handlers are attached per node. *Note (M-4, open — §21): v1's stated rationale for this ban — that a handler on an `await_` node could swallow the interrupt — is **false** for the same reason as M-1: interrupts bypass error handlers. The ban is retained in v2 only because §5.3's "any node raising `BudgetHardStop`/`PauseRequested`" routing genuinely needs a graph-wide default, which is a contradiction v2 does not resolve and M-4 must.* | `fault-tolerance.md` §401; §389–391 |
+| Interrupt node retries | **Verified, and the v1 mitigation is withdrawn (M-1).** `interrupt()` uses the `GraphBubbleUp` mechanism and *bypasses both retry policies and error handlers*, so a retry policy could never have re-executed an interrupt. The `await_*` nodes therefore keep the graph default `max_attempts=3`, decided on its merits: they perform no I/O before the interrupt, so a retry is harmless, and v1's `max_attempts=1` removed retries from seven nodes for *genuine* transient failures on the safety-critical HITL path. | `langgraph/fault-tolerance.md` §389–391, "Behavior with `interrupt()`" |
 | Timeouts | `timeout=TimeoutPolicy(run_timeout=...)` on browser and model nodes; all nodes are `async def` (timeouts are async-only) | `fault-tolerance.md` Limitations |
 | Pause / drain | Graph invocations receive a `RunControl`; `/pause` calls `control.request_drain("user_pause")`; `GraphDrained` is caught by the supervisor and the thread is resumed later with `ainvoke(None, config)` | `fault-tolerance.md` Graceful shutdown; A-24, AC-HL-25 |
 | Crash recovery | Startup reconciliation: for each non-terminal application, `snapshot = await graph.aget_state(config)`; if `snapshot.next` is non-empty and no task carries `interrupts` → `ainvoke(None, config)`; if an interrupt is pending → leave it (the dashboard reads it) | `checkpointers.md` StateSnapshot fields; `use-time-travel.md` `invoke(None, ...)` |
@@ -776,6 +908,8 @@ class ApplicationState(TypedDict):
     master_hash: str
     form_ref: str | None                 # artefact id of FormModel JSON
     fill_session: str | None             # browser worker page token (opaque)
+    fill_fingerprint: str | None         # dom_hash recorded when fill_form completed; re-asserted by submit (C-2)
+    pages_committed: list[int]           # page_index values whose advancing POST is durably recorded (C-1, §9.8)
     answers: list[AnswerRef]             # {field_id, route, source, artefact_ref | None}  — never a value from the answer sheet
     halts: list[Halt]                    # open HITL-3 items: {field_id, label, field_type, question_text}
     blocker: Blocker | None              # {kind: captcha|login|otp|credential_field, step, screenshot_ref}
@@ -830,7 +964,9 @@ class ApplicationState(TypedDict):
                                  preflight ──(fail)──▶ finalize(PREFLIGHT_FAILED | EXPIRED)
                                      │
                                      ▼
-                                 fill_form ──(blocker)──▶ notify_blocked ─▶ [await_blocker] ─▶ fill_form
+                                 fill_form ──(blocker)──▶ notify_blocked ─▶ [await_blocker] ──┬─(i_submitted)─▶ finalize(SUBMITTED, human)
+                                     │                                                        ├─(continue)───▶ recheck_after_blocker ─▶ fill_form
+                                     │                                                        └─(by_hand|abandon)─▶ finalize
                                      │  (mode==assisted) ─▶ notify_handoff ─▶ [await_handoff] ─▶ finalize(SUBMITTED_BY_HUMAN | BY_HAND)
                                      ▼
                                  submit  ────────────────(submitted)──────────────▶ finalize(SUBMITTED)
@@ -851,7 +987,7 @@ class ApplicationState(TypedDict):
 | `mark_unsupported` | Fallback row `unsupported_form`; status `BY_HAND` | – | upsert | default |
 | `route_questions` | Deterministic routing §11; fills `answers[]` with routes and sources; collects `halts` | classify unknown labels only (`screen`), label text only | none | default |
 | `notify_question` | Outbox M3 (`question:<app>:<field>`) | – | outbox (idempotent key) | default |
-| `await_question` | `interrupt({"kind":"hitl3", ...halts})` → stores answers/`skip_job` | – | **none before interrupt** | `max_attempts=1` |
+| `await_question` | `interrupt({"kind":"hitl3", ...halts})` → stores answers/`skip_job` | – | **none before interrupt** | default (M-1) |
 | `tailor` | Build `TailoringPlan` (`generate`), `apply_plan`, write tailored HTML artefact | generate | artefact write | `timeout=300` |
 | `render_check` | `render.py` subprocess; `ats_check`; artefacts | – | artefact write | `timeout=180` |
 | `generate_letter` | `Letter` claims (`generate`) | generate | artefact | `timeout=300` |
@@ -860,15 +996,16 @@ class ApplicationState(TypedDict):
 | `repair` | Feed violations back; `repair_count += 1`; `Command(goto=<offending stage>)` | – | none | default |
 | `notify_hitl4` / `await_hitl4` / `apply_hitl4_fix` | HITL-4 payload: sentence, fact class, nearest ledger facts; fix = use resume wording / edit / skip | – | outbox; none; artefact | – |
 | `notify_review_ready` | Status `PENDING_REVIEW`; outbox is **batched** at supervisor level (M1 once per run) | – | upsert | default |
-| `await_review` | `interrupt({"kind":"review", "application_id", "artefact_hashes"})` → `{type, decision_id, ...}` | – | **none before interrupt** | `max_attempts=1` |
+| `await_review` | `interrupt({"kind":"review", "application_id", "artefact_hashes"})` → `{type, decision_id, ...}` | – | **none before interrupt** | default (M-1) |
 | `record_decision` | Validates decision vs current artefact hashes; writes `decisions` row; status → `APPROVED` / `REJECTED_BY_USER` / re-queue | – | insert (idempotent by `decision_id`) | default |
 | `preflight` | Twelve FR-9.1 checks §9.4; live re-fetch; status `PREFLIGHT_OK` | – | `preflight_results` rows | `timeout=120`, `retry_on=is_network_error` |
-| `fill_form` | Browser: navigate, upload PDF, fill routed values (answer-sheet values loaded **here**, inside `FormFiller`, from the table); stop on blocker | – | browser only, no POST | `timeout=600` |
-| `submit` | §9.3 protocol: read tracker state → write `SUBMITTING` → click → evidence → `SUBMITTED` | – | **the irreversible click** | `RetryPolicy(max_attempts=3, retry_on=is_pre_click_error)`, `timeout=TimeoutPolicy(run_timeout=180)`, `error_handler=submit_error_handler` |
-| `notify_unknown` / `await_unknown` | Outbox (unknown outcome); `interrupt({"kind":"unknown_outcome", ...})` → `confirmed_submitted` / `confirmed_not_submitted` | – | outbox; none | `max_attempts=1` |
-| `notify_handoff` / `await_handoff` | Assisted mode: M2-style message; `interrupt({"kind":"handoff"})` → `i_submitted` / `by_hand` / `abandon` | – | outbox; none | `max_attempts=1` |
-| `notify_blocked` / `await_blocker` | HITL-2: screenshot ref, step; `interrupt({"kind":"blocked", ...})` → `continue` / `by_hand` / `abandon` | – | outbox; none | `max_attempts=1` |
-| `await_pause` | `interrupt({"kind":"paused", "reason"})` → `Command(goto=state["resume_target"])` | – | none | `max_attempts=1` |
+| `fill_form` | Browser: navigate, upload PDF, fill routed values (answer-sheet values loaded **here**, inside `FormFiller`, from the table); **advances multi-page forms under the §9.8 per-page commit protocol**; refuses to start when `submission_enabled` is false; stop on blocker | – | **page-advancing POSTs — irreversible; `page_commits` row written before each** | `retry_policy=RetryPolicy(max_attempts=1)`, `timeout=600`, `error_handler=fill_error_handler` |
+| `submit` | §9.3 protocol: check `submission_enabled` → read tracker state → re-assert the page fingerprint → write `SUBMITTING` → click → evidence → `SUBMITTED` | – | **the irreversible click** | `RetryPolicy(max_attempts=3, retry_on=is_pre_click_error)`, `timeout=TimeoutPolicy(run_timeout=300)` (evidence capture is now 180 s — C-3), `error_handler=submit_error_handler` |
+| `notify_unknown` / `await_unknown` | Outbox (unknown outcome); `interrupt({"kind":"unknown_outcome", ...})` → `confirmed_submitted` / `confirmed_not_submitted` / `check_again_later`. The dangerous branch is gated by §9.5's friction (typed confirmation, waiting period, checkbox) | – | outbox; none | default (M-1) |
+| `notify_handoff` / `await_handoff` | Assisted mode: M2-style message; `interrupt({"kind":"handoff"})` → `i_submitted` / `by_hand` / `abandon` | – | outbox; none | default (M-1) |
+| `notify_blocked` / `await_blocker` | HITL-2: screenshot ref, step; `interrupt({"kind":"blocked", ...})` → **`i_submitted`** / `continue` / `by_hand` / `abandon`. `i_submitted` is the **first** option on the card and is wired to exactly the `await_handoff` handling: `SUBMITTED`, `confirmation_kind=human`, evidence = statement + screenshot (C-2) | – | outbox; none | default |
+| `recheck_after_blocker` | Re-runs pre-flight #3 (`still_active`) and #5 (`not_duplicate`) after any `await_blocker` resume, **before** re-entering `fill_form`; a fail routes to `finalize(PREFLIGHT_FAILED\|EXPIRED)`. Both checks last ran before the human touched the browser (C-2) | – | `preflight_results` rows | `timeout=120` |
+| `await_pause` | `interrupt({"kind":"paused", "reason"})` → `Command(goto=state["resume_target"])` | – | none | default (M-1) |
 | `finalize` | Terminal status write; evening-digest counters | – | update | default |
 
 **Interrupt payloads** are plain JSON dicts of ids, hashes and short strings (rule 3 of
@@ -912,13 +1049,41 @@ def propose_mapping(field_id: str, route: str, runtime: ToolRuntime[FillContext]
 def request_human(field_id: str, question: str) -> str: ...           # records a HITL-3 halt; never guesses
 
 mapper = create_agent(
-    model=get_model("analyse").inner,          # GuardedModel-wrapped provider model
+    model=get_model("analyse"),                # the GuardedModel ITSELF — never `.inner` (C-5)
     tools=[inspect_form, propose_mapping, request_human],
     system_prompt=FILL_MAPPER_PROMPT,
-    middleware=[ToolCallLimitMiddleware(run_limit=60)],
+    middleware=[
+        GuardMiddleware(),                     # before_model: PromptGuard.assert_clean + BudgetGate.check
+                                               # after_model:  SpendLedger.record(usage_metadata)
+        ToolCallLimitMiddleware(run_limit=60, thread_limit=120, exit_behavior="error"),   # M-3
+    ],
     context_schema=FillContext,
 )
 ```
+**The guards are inside the loop, not around it (C-5).** v1 passed `get_model("analyse").inner`
+— the raw provider model — with the comment "GuardedModel-wrapped provider model". It was not:
+`.inner` discards the wrapper, and with it every mechanism this spec's claims rest on.
+`PromptGuard.assert_clean` never ran on the prompts of the one agent that reads a live,
+partially-filled page (a DOM snapshot taken after `FormFiller` has typed carries `value`
+attributes — the expected-CTC field is one of them, and "`inspect_form` returns no values" was a
+promise about an implementation, not a mechanism). `BudgetGate.check` never ran, so 60 tool calls
+× one model round-trip each could run past the $20 hard stop and the $100 ceiling. `SpendLedger`
+never recorded, so the header meter, the per-stage cost report and the day total were all
+understated whenever a career-page form was processed — breaking AC-NF-09 ("within 1% of provider
+usage metadata") *by construction* and making the $5 soft alert fire late or not at all.
+
+v2 removes `.inner` from `GuardedModel` entirely (§4.13) and passes the wrapper, which implements
+the `BaseChatModel` surface `create_agent` requires. `GuardMiddleware` is belt-and-braces for the
+agent loop specifically: a custom middleware whose `before_model` hook calls
+`PromptGuard.assert_clean` and `BudgetGate.check` on every request and whose `after_model` hook
+records `usage_metadata` to `SpendLedger` (`langchain/middleware__custom.md`). A static check bans
+`.inner` alongside `init_chat_model` (T-0.3).
+
+**`inspect_form` returns a projection, never a serialisation (C-5).** Its return value is built
+field by field from the `FormModel` artefact — `field_id`, `label`, `type`, `required`, `options`
+— and never by serialising the DOM. A unit test asserts that a page whose CTC field has been
+filled produces a tool result containing none of the answer-sheet values.
+
 The agent **never sees or emits a value**: `propose_mapping` takes a *route* (e.g.
 `answer_sheet:expected_ctc`), and the deterministic `FormFiller` resolves the route to a value
 outside the model loop. That is what makes A-6 hold even where an LLM is in the loop. No
@@ -927,8 +1092,17 @@ outside the model loop. That is what makes A-6 hold even where an LLM is in the 
 the stronger separation; the middleware stays available if a future ATS needs an in-agent
 irreversible action).
 
-`ToolCallLimitMiddleware` is verified in `middleware__built-in.md` (name only; constructor
-parameters **[UNVERIFIED]** — the implementer must read the page for the exact kwargs).
+**`ToolCallLimitMiddleware` must exit, not merely complain (M-3).** Its kwargs are documented in
+`langchain/middleware__built-in.md` §591–660 (`tool_name`, `thread_limit`, `run_limit`,
+`exit_behavior`), so v1's `[UNVERIFIED]` was false. It matters: `exit_behavior` defaults to
+`'continue'`, which *"[blocks] exceeded tool calls with error messages, [lets] other tools and the
+model continue. The model decides when to end based on the error messages."* v1 passed
+`run_limit=60` and nothing else, so on hitting the limit the agent kept looping — each blocked call
+still costing a model round-trip — until the model chose to stop. The middleware was chosen as the
+runaway-loop guard for the system's only agentic component and, as configured, was not one;
+combined with C-5 (no `BudgetGate` in the path) the loop had no bound at all. v2 sets
+`exit_behavior="error"`, and `fill_form` handles the resulting `ToolCallLimitExceededError` as an
+`unsupported_form` fallback.
 
 ### 5.5 Compile and wiring (reference shape)
 
@@ -943,10 +1117,16 @@ builder = StateGraph(ApplicationState, context_schema=AppContext)
 builder.set_node_defaults(retry_policy=RetryPolicy(max_attempts=3))
 builder.add_node("load", load)
 ...
-builder.add_node("await_review", await_review, retry_policy=RetryPolicy(max_attempts=1))
+builder.add_node("await_review", await_review)          # graph default retry: interrupts bypass it (M-1)
+builder.add_node("fill_form", fill_form,
+                 retry_policy=RetryPolicy(max_attempts=1),      # a page-advancing POST is irreversible (C-1)
+                 timeout=TimeoutPolicy(run_timeout=600),
+                 error_handler=fill_error_handler)
+builder.add_node("recheck_after_blocker", recheck_after_blocker,
+                 timeout=TimeoutPolicy(run_timeout=120))        # C-2
 builder.add_node("submit", submit,
                  retry_policy=RetryPolicy(max_attempts=3, retry_on=is_pre_click_error),
-                 timeout=TimeoutPolicy(run_timeout=180),
+                 timeout=TimeoutPolicy(run_timeout=300),
                  error_handler=submit_error_handler)
 builder.add_edge(START, "load")
 builder.add_conditional_edges("load", route_after_load)            # documents_only → tailor
@@ -957,7 +1137,9 @@ application_graph = builder.compile(checkpointer=checkpointer)
 Static checks (AC-ID-13/14/25, AC-NF-11) run against this module: every function containing
 `interrupt(` must be named `await_*`, contain exactly one call, have no `side_effects` registry
 call before it, no loop, no `try`; the node named `submit` must contain no `interrupt(` and be
-reachable only from `fill_form`.
+reachable only from `fill_form`; **no module may reference `.inner` or `init_chat_model` outside
+`llm/` (C-5); `Settings.submission_enabled` must default to `False` (C-11); and the only edge into
+`fill_form` from `await_blocker` must pass through `recheck_after_blocker` (C-2)**.
 
 ---
 ## 6. Data model and persistence
@@ -1014,13 +1196,17 @@ Constraint: `UNIQUE(job_id)` (AC-ID-17). FR-10.1 fields all present (AC-TK-01).
 
 **application_versions** — `id, application_id, version INT, created_by (agent|edit|regenerate|hitl4_fix), tailored_html_ref, pdf_ref, letter_ref, answers_ref, ats_report_ref, fact_check_id, note`. The reviewer always sees `current_version_id`.
 
-**artefacts** — `id (sha256[:16]), kind (jd|form_model|tailored_html|pdf|letter|answers|screenshot|evidence|factguard|preflight|plan), sha256 FULL, bytes INT, path, created_at`. Content-addressed; two applications never share a path by accident (AC-RT-13).
+**artefacts** — `id (sha256[:16]), kind (jd|form_model|tailored_html|pdf|letter|answers|screenshot|evidence|factguard|preflight|plan|**master_html**), sha256 FULL, bytes INT, path, created_at`. `master_html` (C-8) persists the full bytes of every master ever used by an application, so that stored provenance stays resolvable after the master is edited. Content-addressed; two applications never share a path by accident (AC-RT-13).
 
-**answers** — `application_id, version_id, field_id, label, field_type, route, source (resume:<key>|answer_sheet:<field>|jd:<span>|human:<decision_id>|profile), value_ref (artefact) NULL for answer_sheet routes, halted BOOL`. **Answer-sheet values are never stored here** — `route` names the field; the value is resolved at fill time (AC-CL-18, AC-NF-05).
+**answers** — `application_id, version_id, field_id, label, field_type, route, source (resume:<key>|answer_sheet:<field>|jd:<span>|human:<decision_id>|profile), value_ref (artefact) NULL for answer_sheet routes, halted BOOL`. **Answer-sheet values are never stored here** — `route` names the field; the value is resolved at fill time (AC-CL-18, AC-NF-05). *This is a storage rule, not a display rule (C-7):* `GET /applications/{id}/answers` resolves each route against `answer_sheet` at request time and returns the value in full to the loopback session, so the reviewer certifies what the employer will receive without the value ever being duplicated into this table (§11.7).
 
 **decisions** — `id, application_id, interrupt_kind, interrupt_id, type (approve|reject|regenerate|postpone|edit|hitl3_answer|hitl4_fix|continue|by_hand|abandon|confirmed_submitted|confirmed_not_submitted|i_submitted|approved_without_review), reason_code, reason_text, channel (dashboard|telegram|system), actor (session id | chat_id), artefact_hashes JSON, confirmation_text, at`. `UNIQUE(application_id, interrupt_id)` → second decision returns "already decided" (AC-HL-08, AC-ID-07).
 
-**preflight_results** — `id, application_id, version_id, run_at, check_name (12 enums), passed BOOL, evidence TEXT`. (AC-SB-01)
+**preflight_results** — `id, application_id, version_id, run_at, check_name (12 enums), passed BOOL, evidence TEXT, phase (preview|gate|post_blocker)`. (AC-SB-01; `post_blocker` rows are the C-2 re-checks)
+
+**page_commits** (new, C-1) — `application_id, attempt INT, page_index INT, url_hash, committed_at, PRIMARY KEY(application_id, attempt, page_index)`. One row written **before** each page-advancing POST in `fill_form` (§9.8). The row is the durable record that makes an intermediate POST replay-safe, exactly as `SUBMITTING` does for the final click.
+
+**ledgers** (new, C-8) — `master_hash PRIMARY KEY, master_artefact_id (kind='master_html'), built_at, facts JSON, key_set JSON`. The ledger for a `master_hash` is a **record**, not a cache: it is never evicted, and `GET /applications/{id}/bundle` (NFR-3) reconstructs provenance from the row for the application's own `master_hash`.
 
 **submission_evidence** — `application_id, attempt INT, submitting_written_at, click_dispatched_at, final_url, page_text_excerpt, screenshot_ref, http_status, confirmation_kind (page_text|url|email_hint|human), captured_at`. Written in the **same transaction** as the `SUBMITTED` transition (AC-SB-12).
 
@@ -1057,15 +1243,28 @@ Constraint: `UNIQUE(job_id)` (AC-ID-17). FR-10.1 fields all present (AC-TK-01).
 | One decision per interrupt | `decisions (application_id, interrupt_id) UNIQUE` |
 | Legal transitions only | `Tracker.transition` uses `UPDATE … WHERE status IN (allowed)`; trigger rejects direct status writes not matching the transition table (`CHECK` via trigger on `applications`) |
 | `SUBMITTED` implies evidence | Trigger: `AFTER UPDATE OF status` when `NEW.status='SUBMITTED'` requires a `submission_evidence` row for `(application_id, submit_attempt)` — same transaction |
+| `SUBMITTING` implies a fresh fact-check (M-15) | Trigger: `BEFORE UPDATE OF status ON applications WHEN NEW.status='SUBMITTING'` requires a `fact_checks` row whose `artefact_hashes` equal the current version's and whose status is `pass` or `pass_with_confirmed_edits`. v1 enforced AC-AF-22 in pre-flight check #7 alone — an ordinary node — although the AC is written as an invariant over *any* path to `SUBMITTING`, and although the structurally identical evidence rule already had a trigger. The gap was reachable: the §7.4 edit endpoints have no status guard, so an edit issued between pre-flight and `submit` creates a new version and a new `fact_checks` row while `submit` writes `SUBMITTING` with no re-check |
+| No POST to an already-committed page (C-1) | `page_commits (application_id, attempt, page_index)` PRIMARY KEY; `FormFiller` inserts before the POST, so a replay collides instead of re-posting |
+| Provenance resolves or fails loudly (C-8) | `ledgers.master_hash` FK from `applications.master_hash`; `build_ledger` raises `MasterIdsMissing` rather than deriving keys |
 | No answer-sheet values outside their table | `answers.value_ref` must be NULL when `route LIKE 'answer_sheet:%'` (CHECK) |
 
 ### 6.5 Retention
 
-Records are kept forever (Q-9). `retention_job` (03:00 daily): delete checkpoints for threads
-whose application reached a terminal status ≥ 30 days ago, via the checkpointer's tables by
-`thread_id` (**[UNVERIFIED — `langgraph-checkpoint-sqlite` has no documented delete-thread API in
-the knowledge base; the implementer deletes rows from the saver's tables by `thread_id` and must
-confirm table names against the installed package]**), then `VACUUM` `checkpoints.db` (AC-NF-12).
+Records are kept forever (Q-9). `retention_job` (03:00 daily): for each thread whose application
+reached a terminal status ≥ 30 days ago, call **`await checkpointer.adelete_thread(thread_id)`** —
+falling back to `aprune` if the installed saver exposes it — then `VACUUM` `checkpoints.db`
+(AC-NF-12).
+
+**M-2.** v1 marked this `[UNVERIFIED]` and instructed the implementer to hand-delete rows from the
+saver's tables by `thread_id` after confirming table names against the installed package. That was
+false and dangerous. `langgraph/checkpointers.md` documents `adelete_thread` in the checkpointer
+interface (§407) and gives it its own subsection (§544: *"delete_thread / adelete_thread — Delete
+all checkpoints and writes for a thread. Both checkpoint rows and write rows must be deleted"*), and
+the same page's extended-capabilities table lists `aprune` for thread-history pruning. Hand-rolled
+deletion against an inferred internal schema — where a checkpoint and its `writes` rows must be
+removed together — is the most likely way to corrupt `checkpoints.db`, which is precisely the
+assumption R-10 rated *Low* on. **AC-NF-12 is amended to assert the API was called**, not merely
+that rows disappeared.
 
 ### 6.6 Windows `MAX_PATH`
 
@@ -1096,7 +1295,7 @@ emits an event within 1 s (AC-UI-15).
 | Today `/` (3.2) | `GET /dashboard/today` → CTA counts (pending, carry-over, oldest age, estimate), needs-you list, funnel, by-hand summary, sources health, top matches, spend today/14-day |
 | Header chrome (2.2) | `GET /status` → run state, next run, spend vs soft/hard/ceiling, pause flag, telegram health |
 | Queue (3.3) | `GET /queue?sort=carry_over_first` → rows with docs flags; `GET /queue/not-in-queue` |
-| Review (3.4–3.6) | `GET /applications/{id}/review` → job rail, score, flags, watch items, pre-flight preview, versions; `GET /applications/{id}/diff` → structural diff (change classes); `GET /applications/{id}/letter` → claims with provenance; `GET /applications/{id}/answers` → routed answers (answer-sheet rows show **field name only**); `GET /artefacts/{id}` (PDF/HTML download); `POST /applications/{id}/reveal-answer` (transient; audited) |
+| Review (3.4–3.6) | `GET /applications/{id}/review` → job rail, score, flags, watch items, pre-flight preview, versions; `GET /applications/{id}/diff` → structural diff (change classes); `GET /applications/{id}/letter` → claims with provenance; `GET /applications/{id}/answers` → routed answers **with the values that will be typed into the form, in full** (C-7; loopback session only — see §11.7); `GET /artefacts/{id}` (PDF/HTML download); `POST /applications/{id}/reveal-answer` (transient; audited) |
 | Decide (5.1) | `POST /applications/{id}/decisions` `{type: approve|reject|postpone|regenerate|dismiss_expired, reason_code?, reason_text?, artefact_hashes}` → `202 {decision_id, effective_at}`; `POST /applications/{id}/decisions/{decision_id}/undo` (within grace) |
 | Edit (3.7) | `PUT /applications/{id}/letter` `{claims}`, `PUT /applications/{id}/resume-text` `{block_edits}`, `PUT /applications/{id}/answers/{field_id}` `{text}` → each returns new `version_id`, `fact_check`, `ats_report?`, `preflight_preview`; `POST /applications/{id}/revise` `{instruction}` → agent revise (costs; returns estimate first with `?estimate=1`); `POST /applications/{id}/confirm-edit` `{confirmation_text}` (AC-AF-19) |
 | Reject overlay (3.8) | part of decisions; `reason_code ∈ {not_relevant, weak_fit, company, location, regenerate, other}`; reject without reason → `400` (AC-HL-04) |
@@ -1109,7 +1308,7 @@ emits an event within 1 s (AC-UI-15).
 | Settings › Targets, Models, Sources, Schedule, Notifications, Data (3.15–3.16) | `GET /settings`, `PUT /settings` (validated; `409` on version mismatch); `GET /settings/models/usage-today`; `GET/PUT /watchlist`, `POST /watchlist/import`; `POST /telegram/test`; `GET /data/summary`, `POST /data/export` |
 | Reports (3.17) | `GET /reports/{date}` (morning + evening), `GET /reports/trend?days=14`, `GET /reports/{date}.txt` |
 | Runs (3.18) | `GET /runs/{date}` → stages, per-stage cost, live step, events, secrets-guard counter; `GET /runs/{date}/events?level`; `GET /traces/{thread_id}`; `POST /runs` (run now) → `202` or `409 lock_held`; `POST /runs/{id}/resume` |
-| Needs-you-now (3.19) | `GET /needs-you` → blocked (HITL-2), questions (HITL-3), claims (HITL-4), unknown outcomes, failed submissions; `POST /applications/{id}/hitl3` `{answers: [{field_id, text, save_as?}], skip_job?}`; `POST /applications/{id}/hitl4` `{action: use_resume_wording|edit|skip_job, text?}`; `POST /applications/{id}/blocker` `{action: continue|by_hand|abandon}`; `POST /applications/{id}/take-over-browser` (brings window to front); `POST /applications/{id}/unknown-outcome` `{outcome: confirmed_submitted|confirmed_not_submitted}`; `POST /applications/{id}/handoff` `{action: i_submitted|by_hand|abandon}` |
+| Needs-you-now (3.19) | `GET /needs-you` → blocked (HITL-2), questions (HITL-3), claims (HITL-4), unknown outcomes, failed submissions; `POST /applications/{id}/hitl3` `{answers: [{field_id, text, save_as?}], skip_job?}`; `POST /applications/{id}/hitl4` `{action: use_resume_wording|edit|skip_job, text?}`; `POST /applications/{id}/blocker` `{action: i_submitted|continue|by_hand|abandon}` (C-2); `POST /applications/{id}/take-over-browser` (brings window to front); `POST /applications/{id}/unknown-outcome` `{outcome: confirmed_submitted|confirmed_not_submitted|check_again_later, confirmation_text?, checked_ats_account?}` — the `confirmed_not_submitted` branch requires both extra fields and a minimum elapsed time, or `409` (C-3, §9.5); `POST /applications/{id}/handoff` `{action: i_submitted|by_hand|abandon}` |
 | Controls (UI-13) | `POST /control/pause`, `POST /control/resume`, `GET /control` |
 | Guard events (UI-11) | `GET /audit-events?kind=guard&from&to` |
 
@@ -1153,6 +1352,13 @@ PUT /applications/{id}/letter {claims}
 PUT /applications/{id}/resume-text {block_edits: [{element_key, new_text}]}
   → apply to tailored HTML (text nodes only; structure immutable) → render.py → ats_check → FactGuard → new version
 ```
+**Status guard (m-5, closed as part of M-15).** Every edit endpoint requires
+`applications.status ∈ {PENDING_REVIEW, TAILORING_FAILED}`; anything at or beyond
+`APPROVED_GRACE` returns `409 {code: "not_editable"}`. Without it, an edit issued between
+pre-flight and `submit` silently created a new version and a new `fact_checks` row while `submit`
+wrote `SUBMITTING` against the old ones — the path that made M-15's missing database trigger
+reachable. The guard and the trigger are independent; both are required.
+
 Edits never touch the master (AC-RT-01).
 
 ---
@@ -1172,8 +1378,9 @@ Avadh's edits.
  artefacts ──▶ C1 structural diff ──▶ C2 immutables ──▶ C3 numbers ──▶ C4 technologies/canaries
            ──▶ C5 organisations/projects ──▶ C6 degrees/certs ──▶ C7 years ──▶ C8 scope verbs
            ──▶ C9 provenance resolution ──▶ C10 entailment (judge) ──▶ C11 company facts ──▶ C12 filler
-           ──▶ C13 mandatory-gap claims ──▶ result {status, violations[]}
- Deterministic C1–C9, C12–C13 (no model). C10–C11 use the `judge` stage. Any single violation → fail.
+           ──▶ C13 mandatory-gap claims ──▶ C14 claim-kind integrity (runs before C9 on claims)
+           ──▶ result {status, violations[]}
+ Deterministic C1–C9, C12–C14 (no model). C10–C11 use the `judge` stage. Any single violation → fail.
 ```
 
 ### 8.2 Checks
@@ -1193,6 +1400,7 @@ Avadh's edits.
 | C11 | Company facts | `company` claims | Provenance must be a `jd:` or `page:` span fetched this run; span text must entail the claim (judge) | AF-18 |
 | C12 | Filler | letter, answers | Banned-phrase list (config) → 0 hits; word caps (letter ≤ 300, answer ≤ 150); five sections present in order | CL-01/02/04 |
 | C13 | Mandatory-gap claims | all artefacts + job's `mandatory` list | No artefact may present a missing mandatory qualification as held (`PhD`, `doctorate`, `certified`, the certification name, the core technology) | AF-12, T-3 |
+| **C14** | **Claim-kind integrity (C-6)** | claims | A `kind="context"` claim whose text contains a first-person pronoun, or a resume-vocabulary verb phrase with an implied first-person subject, is **reclassified to `self`** and must then satisfy C9 and C10. Caps: ≤ 2 `context` claims per letter, 0 per subjective answer; exceeding a cap is a `claim_kind_violation`. Deterministic; runs **before** C9 so that a relabelled claim cannot skip provenance | AF-08, T-5 |
 
 **Extractors** are shared with the ledger builder (same tokenisers, same synonym table) so that
 "what counts as a number/tech/org" is defined once.
@@ -1215,9 +1423,12 @@ class FactGuardResult(BaseModel): status: Literal["pass","fail","pass_with_confi
 
 ### 8.4 Testing the verifier harder than the generator
 
-FactGuard ships with its own fixture suite: 40 seeded fabrications (one per fact class and
-sub-rule) must all be flagged with the correct `fact_class` (AC-AF-15, 40/40 or the build
-fails), and 10 legitimate tailorings plus the unmodified master must produce 0 flags (AC-AF-16).
+FactGuard ships with its own fixture suite: 40 seeded fabrications must all be flagged with the
+correct `fact_class` (AC-AF-15, 40/40 or the build fails), and 10 legitimate tailorings plus the
+unmodified master must produce 0 flags (AC-AF-16). **The 40 are re-cut in v2 (C-6):** v1 organised
+them one per fact class and sub-rule, which is why the suite could not catch a failure of *claim
+kind*. Two of the 40 are now claim-kind mutations — a `self` claim relabelled `context`, and a
+`context` claim over the cap — and the count stays 40 so AC-AF-15 is unchanged.
 The synonym and canary tables are versioned; a change to either re-runs the suite.
 
 ### 8.5 How the UI plugs in
@@ -1227,7 +1438,7 @@ The synonym and canary tables are versioned; a change to either re-runs the suit
 | Resume tab diff (`−/+`, `~↑↓`, `·`) | `GET /applications/{id}/diff` = C1's change list; a `violation` class renders red and disables Approve |
 | Skills "reordered · nothing added" | C1 result for `.skill` lines |
 | Pre-flight "facts 49/49", "no fabrication", "no false qualification" | `fact_checks.status`, C3–C8 counts, C13 |
-| Letter `[n]` markers; unresolved marker red | `Claim.provenance` and C9/C10 per claim; `kind=context` markers grey |
+| Letter `[n]` markers; unresolved marker red | `Claim.provenance` and C9/C10 per claim; `kind=context` markers grey, **with a running count "context 2/2" beside them** so an artefact that has quietly become mostly grey is visible (C-6) |
 | Edit mode live guard ("no resume source — will block approve") | C9 executed client-side on keystroke against the ledger shipped to the SPA (`GET /ledger` — facts and element keys only, no answer sheet), authoritative check on save |
 | HITL-4 card (claim vs resume line, "Use resume wording") | `Violation.text`, `nearest_facts`, `element_text(key)` |
 | Guard-events panel | `audit_events kind=guard` |
@@ -1249,6 +1460,28 @@ application; not retrying may lose one. C-3 says there is no unsend. Therefore: 
 has been dispatched, the system never clicks again for that application without a human saying
 the first click did not land.**
 
+**Two corrections v2 makes to that framing.**
+
+*The irreversible act is not only the final click (C-1).* `FormModel.fields` carries `page_index`
+because ATS forms are multi-page, and a multi-page form is advanced by **submitting the current
+page** — an HTTP POST that on Greenhouse's multi-step flows, on Workday and on many career-page
+ATSs creates a server-side record: a draft, a partial application, or in several tenants an
+application the employer can already see. v1 asserted `fill_form` performs "no POST" (§5.3, §13.6
+FM-05) and built the whole of §9 on the premise that exactly one act was irreversible. The premise
+was false, and two details made it worse: `fill_form` inherited the graph-wide
+`RetryPolicy(max_attempts=3)`, so a page-advancing POST could be re-issued three times per node
+attempt; and `fill_form` is re-entered from `await_blocker`, where LangGraph restarts a node from
+its first line, so every blocker resume replayed every page advance. None of those POSTs wrote
+`SUBMITTING`, captured evidence, or could reach `UNKNOWN_OUTCOME`. §9.8 extends the protocol to
+cover them.
+
+*The question is not only "who may click twice" but "what manufactures the condition that permits
+it" (C-10 → C-3).* `UNKNOWN_OUTCOME` is the one state from which a second click is sanctioned. v1
+treated it purely as an input. In fact the system could **produce** it spuriously — a second
+process flipping a live `SUBMITTING` row four seconds after a real click — and then resolve it
+through a one-click path with less friction than editing a sentence of a cover letter. Every layer
+behaved correctly; the protocol was not defeated, it was *fed*. §9.5 and §9.6 close both ends.
+
 ### 9.2 Application state machine
 
 ```
@@ -1262,7 +1495,9 @@ the first click did not land.**
           PREPARING                                  APPROVED ──preflight fail──▶ PREFLIGHT_FAILED ──(fix/retry)──▶ APPROVED
                                                          │                       └──posting closed──▶ EXPIRED
                                                          ▼ preflight ok
-                                                    PREFLIGHT_OK ──blocker──▶ BLOCKED ──continue──▶ PREFLIGHT_OK
+                                                    PREFLIGHT_OK ──fill starts──▶ FILLING ──blocker──▶ BLOCKED ──┬─i_submitted──▶ SUBMITTED(human)
+                                                         │                            ▲                        └─continue──▶ recheck ──▶ FILLING
+                                                         │                            └── per-page commits recorded in `page_commits` (§9.8)
                                                          │  (assisted) ──▶ HANDOFF ──i_submitted──▶ SUBMITTED(human)  / by_hand ──▶ BY_HAND
                                                          ▼ fill complete, about to click
                                                      SUBMITTING   ◀── written durably BEFORE the click; carries submit_attempt
@@ -1275,6 +1510,12 @@ the first click did not land.**
  Other terminals: REJECTED_BY_USER · EXPIRED · BY_HAND · ABANDONED · NEEDS_ATTENTION (recoverable) · PAUSED_BUDGET (recoverable)
  Dedup treats {SUBMITTING, UNKNOWN_OUTCOME, SUBMITTED, MANUAL, REJECTED_BY_USER} as "applied".
 ```
+
+**`FILLING` (new in v2, C-1).** Written when `fill_form` begins browser work and before any
+page-advancing POST, so that the tracker — not a process-local variable — knows an application is
+mid-form. It carries `submit_attempt` like `SUBMITTING`, and the per-page markers live in
+`page_commits`. A crash in `FILLING` is recoverable (§9.6 step 3) because a page commit is
+individually recorded; a crash in `SUBMITTING` is not, and still goes to `UNKNOWN_OUTCOME`.
 
 **Legal transitions** are a fixed table in `tracker/transitions.py`; `Tracker.transition` is a
 single conditional `UPDATE` plus a `transitions` row plus (for `SUBMITTED`) the evidence insert,
@@ -1294,6 +1535,12 @@ async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
     tr, bw = runtime.context.tracker, runtime.context.browser
     app = await tr.get(state["application_id"])
 
+    # (0) Master switch — before any browser work (C-11).
+    if not runtime.context.settings.submission_enabled:
+        await tr.transition(app.id, {"PREFLIGHT_OK", "FILLING"}, "NEEDS_ATTENTION",
+                            detail="submission_enabled=false")
+        raise SubmissionDisabled(app.id)
+
     # (1) Idempotency gate — the node may be re-entered by retry, resume, or crash recovery.
     if app.status == "SUBMITTED":
         return {"submit_result": "submitted"}
@@ -1307,6 +1554,10 @@ async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
 
     # (2) Pre-click work — retryable, side-effect free with respect to the ATS.
     page = await bw.page_for(state["fill_session"])           # raises PreClickError if the page is gone → Command(goto="fill_form") via error handler
+    fp = await bw.page_fingerprint(page)                      # (C-2) same document instance we filled?
+    if fp.dom_hash != state["fill_fingerprint"]:
+        # A human took over and the page moved on — or the ATS replaced it. Never click a page we did not fill.
+        return Command(update={"blocker": {"kind": "page_changed"}}, goto="notify_blocked")
     await bw.verify_filled(page, state["answers"])            # PreClickError on mismatch
     selector = await bw.locate_submit(page)                   # PreClickError if not found
     if await bw.detect_blocker(page):
@@ -1320,7 +1571,7 @@ async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
     # (4) The click and everything after it. Any exception here is PostClickError.
     try:
         await bw.click_submit(page, selector)
-        evidence = await bw.capture_evidence(page, timeout_s=60)   # final URL, confirmation text, screenshot, status
+        evidence = await bw.capture_evidence(page, timeout_s=180)  # final URL, confirmation text, screenshot, status (C-3: 60 s was short for a slow ATS and manufactured UNKNOWN_OUTCOME on successes)
     except BaseException as e:
         # includes asyncio.CancelledError and NodeTimeoutError: outcome unknown
         await tr.transition(app.id, {"SUBMITTING"}, "UNKNOWN_OUTCOME", detail=repr(e))
@@ -1344,7 +1595,8 @@ never fires for a post-click failure because step (4) converts those into a norm
 contains no `interrupt()`. The `try` exists precisely to convert *every* post-dispatch exception,
 including cancellation, into `UNKNOWN_OUTCOME` rather than letting the retry policy see it.
 
-**Timeouts.** `TimeoutPolicy(run_timeout=180)` covers the whole node. A timeout during (2) is
+**Timeouts.** `TimeoutPolicy(run_timeout=300)` covers the whole node — raised from 180 s so that
+the 180-second evidence capture (C-3) cannot itself be cut short by the node budget. A timeout during (2) is
 `NodeTimeoutError` with no dispatch marker → retryable (AC-FM-18, `delay(120000)` on page load).
 A timeout during (4) is caught by the `try` → `UNKNOWN_OUTCOME`. If the process is killed between
 (3) and (4), the marker is gone but the tracker row says `SUBMITTING` → gate (1) → `UNKNOWN_OUTCOME`
@@ -1357,22 +1609,45 @@ gate (1) returns immediately (AC-ID-06).
 | --- | --- | --- | --- |
 | 1 | `company_match` | Live re-fetch of `canonical_url`; company name on page normalises to the record's | `PREFLIGHT_FAILED` |
 | 2 | `job_match` | ATS job id / title family matches record (`title_changed` fixture) | `PREFLIGHT_FAILED` |
-| 3 | `still_active` | HTTP 200, no closed marker, not redirected to careers home | `EXPIRED` |
+| 3 | `still_active` | HTTP 200, no closed marker, not redirected to careers home. **Unreachable ⇒ `still_active_unverified` ⇒ hard fail (C-4)** | `EXPIRED`, or `PREFLIGHT_FAILED` when unverifiable |
 | 4 | `score_sufficient` | `applications.score_total ≥ 70` re-read from DB | `PREFLIGHT_FAILED` |
 | 5 | `not_duplicate` | Tracker query for same identity / company+title-family with applied-class status other than this application | `PREFLIGHT_FAILED` |
 | 6 | `resume_hash_matches_approved` | sha256 of PDF on disk == `decisions.artefact_hashes.pdf` | `PREFLIGHT_FAILED` |
 | 7 | `no_fabrication` | `fact_checks` row with status pass/pass_with_confirmed_edits for exactly these hashes | `PREFLIGHT_FAILED` |
 | 8 | `letter_tailored` | Letter present iff form has letter field; hash matches approved | `PREFLIGHT_FAILED` |
-| 9 | `answers_accurate` | Answers hash matches approved; every route resolvable now (answer-sheet keys still exist) | `PREFLIGHT_FAILED` |
+| 9 | `answers_accurate` | Answers hash matches approved; every route resolvable now **and resolving to a value whose `answer_sheet.status` is `decided` or `learned` — `unconfirmed` or `open` is a hard fail (C-7)** | `PREFLIGHT_FAILED` |
 | 10 | `contact_correct` | Profile fields to be filled equal §2 constants | `PREFLIGHT_FAILED` |
 | 11 | `location_acceptable` | Eligibility rules 10–12 recomputed from stored facts + current settings | `PREFLIGHT_FAILED` |
 | 12 | `no_false_mandatory_claim` | C13 recomputed against the job's `mandatory` list | `PREFLIGHT_FAILED` |
 
-All 12 rows are stored with evidence (AC-SB-01); the whole pre-flight completes within 60 s of
-the click (`fill_form` and `submit` follow immediately; the browser worker queue is FIFO). Check
-3 that *cannot reach* the posting (network) is recorded `unverified` and shown amber; approval is
-still allowed with the warning (UI §4 pre-flight partial state) — but a definite closed marker is
-a hard fail.
+All 12 rows are stored with evidence (AC-SB-01). Pre-flight runs immediately before `fill_form`
+(`fill_form` and `submit` follow; the browser worker queue is FIFO).
+
+**An unverifiable posting is a red, not an amber (C-4).** v1's closing rule was: *"Check 3 that
+cannot reach the posting (network) is recorded `unverified` and shown amber; approval is still
+allowed with the warning."* That ruling was withdrawn in v2, for two reasons.
+
+*It was temporally impossible as written.* Pre-flight runs **after** approval, immediately before
+`fill_form` — the section title says so. At that moment there is no approval left to permit;
+"approval is still allowed with the warning" described a UI state that had already passed. What the
+rule actually authorised was **the click, with nobody asked** — which is the one thing FR-9.1 exists
+to prevent.
+
+*The carve-out was unreachable in the case it was written for.* Checks #1 (`company_match`) and #2
+(`job_match`) depend on the same live re-fetch and have no `unverified` path, so a network failure
+fails at #1 and never reaches #3's amber branch. The amber branch could only fire when the fetch
+*partially* succeeded — a login wall, an error page, a redirect — which is the case where submitting
+is *least* defensible, not most.
+
+**v2 rule.** An unverifiable #3 records `still_active_unverified` and hard-fails to
+`PREFLIGHT_FAILED`. The application is retryable from the dashboard the moment connectivity
+returns; nothing is lost but time. Checks #1 and #2 keep their existing hard-fail semantics, so all
+three re-fetch checks now behave alike. **No DEPARTURE id is required, because v2 no longer departs
+from FR-9.1** — v1's carve-out did, and was untagged.
+
+**Pre-flight is also rendered as a preview before Approve** (`phase='preview'` rows), so the
+reviewer sees the same twelve checks while he still has a decision to make; the authoritative run
+after approval is `phase='gate'`. The preview is advisory and never authorises anything.
 
 ### 9.5 `UNKNOWN_OUTCOME` resolution
 
@@ -1382,28 +1657,81 @@ instruction "check the ATS / your inbox for a confirmation". Meanwhile dedup tre
 applied (§4.3 rule 4). Resolution:
 
 - `confirmed_submitted` → `SUBMITTED` with `confirmation_kind=human`; evidence row records the
-  human confirmation (AC-ID-04 second branch).
+  human confirmation (AC-ID-04 second branch). Available immediately.
+- `check_again_later` → the thread stays at `await_unknown`; a reminder is re-queued. Available
+  immediately.
 - `confirmed_not_submitted` → `APPROVED` with `submit_attempt+1` → `preflight` → `fill_form` →
   `submit`, whose gate (1) now sees `PREFLIGHT_OK` and may click exactly once.
+
+**The `confirmed_not_submitted` branch carries real friction (C-3).** §9.2 is explicit that this is
+the *only* route from a dispatched click back to another click, and gating it on a human is right.
+v1 then gave that decision no friction at all: **one click**, while editing a single sentence of a
+cover letter required typing *"I confirm this statement is true"* (§7.4, AC-AF-19). The friction
+gradient was inverted — the cheaper action was the irreversible one. Worse, the human was asked
+"did it land?" at the moment the evidence could not yet exist, since an ATS confirmation email
+routinely lags the POST by minutes, and "I don't see it" is the honest answer that produces the
+wrong outcome. v2 requires **all four** of:
+
+1. **A typed confirmation naming the employer** — `NOT SUBMITTED TO <company>` — stored in
+   `decisions.confirmation_text` (the column already exists, §6.3).
+2. **A minimum elapsed time from `click_dispatched_at` before the option is even enabled** —
+   default **60 minutes**, configurable, never zero. `confirmed_submitted` and `check_again_later`
+   stay available immediately; only the dangerous branch waits. Attempting it early returns `409`.
+3. **An explicit checkbox** — *"I checked the ATS account and the application is not there"* —
+   recorded on the decision row (`checked_ats_account`).
+4. **The consequence stated where the decision is made**, in the dashboard card and in the Telegram
+   message, not only in §9.1's prose: *"If you are wrong, this employer receives a second
+   application under your name, and there is no unsend."*
+
+The trigger is also tuned down: evidence capture rises from 60 s to 180 s (§9.3), because a slow
+ATS confirmation page was producing `UNKNOWN_OUTCOME` with `detail="no confirmation signal"` on
+applications that had in fact succeeded — manufacturing the very condition this branch resolves.
 
 There is no auto-resolution and no timeout on `UNKNOWN_OUTCOME`.
 
 ### 9.6 Startup reconciliation (crash recovery)
 
-On `jobagent serve` start, before the API accepts requests:
+**Order matters, and v1 had it wrong (C-10).** v1 ran reconciliation *before* the FastAPI bind, so
+a second instance executed every step below and only afterwards failed on `EADDRINUSE`. In those
+seconds it stole the run lock and aborted the live run, **transitioned every `SUBMITTING` row to
+`UNKNOWN_OUTCOME` and fired the notification** — including a row belonging to a click the first
+process had dispatched four seconds earlier and was still capturing evidence for — and opened a
+second Playwright context on the same profile directory. The human was then told "we don't know if
+this was submitted; check the ATS" about an application that *was* submitted and whose confirmation
+had not yet arrived. He checks, sees nothing, and clicks `confirmed_not_submitted`; in v1 that was
+one click with no confirmation text, no waiting period and no warning. This is the double-submission
+path the design missed — not a retry it forgot to guard, but a **manufactured `UNKNOWN_OUTCOME`
+feeding the one gate permitted to click twice**. v1's only defence, §9.6 step 5, could not work:
+SQLite in WAL mode (§6.1) is designed to permit concurrent multi-process access, so "not locked by
+another process" does not detect a second instance.
 
-1. Acquire `locks.run` if stale (heartbeat older than 5 min) → mark the previous run `aborted`,
-   mark its audit rows `run_aborted`.
-2. For every application with status in `{SUBMITTING}` → transition to `UNKNOWN_OUTCOME`
-   (detail `process_died_during_submit`), enqueue the unknown-outcome notification. The graph
-   thread, when resumed, hits gate (1) and lands in `await_unknown`.
-3. For every application with a non-terminal status: `snapshot = await graph.aget_state(config)`.
+On `jobagent serve` start, in this order:
+
+0. **Acquire the named single-instance mutex** (§3.2). Held ⇒ print the holding pid and exit
+   non-zero. Nothing below has run; no record has been touched.
+1. **Bind `127.0.0.1:8765`** — a backstop if the mutex ever fails — but do not serve requests yet.
+   Only now does reconciliation begin.
+2. Acquire `locks.run` if stale (heartbeat older than 5 min) **and the holder pid is not alive** →
+   mark the previous run `aborted`, mark its audit rows `run_aborted`.
+3. For every application with status `SUBMITTING`, transition to `UNKNOWN_OUTCOME`
+   (detail `process_died_during_submit`) and enqueue the notification **only if both**: the
+   `locks` holder pid is not alive, **and** `submitting_written_at` is older than the `submit` node
+   timeout (300 s). A row younger than that belongs to a click that may still be in flight in a
+   living process; leave it alone. The graph thread, when resumed, hits gate (1) and lands in
+   `await_unknown` — so nothing is lost by waiting.
+4. For every application with status `FILLING` (C-1): consult `page_commits` for the highest
+   committed `page_index` and resume `fill_form` **after** it; never re-post a committed page.
+5. For every application with a non-terminal status: `snapshot = await graph.aget_state(config)`.
    If a task has pending `interrupts` → nothing to do (dashboard shows it). Else if
    `snapshot.next` non-empty → `ainvoke(None, config, durability="sync")` under the thread lock
    (bounded concurrency; browser-dependent nodes queue on the worker).
-4. `APPROVED_GRACE` rows older than the grace window → treated as approved: resume.
-5. Verify the checkpointer file is writable and not locked by another process; refuse to start
-   otherwise (AC-FM-14).
+6. `APPROVED_GRACE` rows older than the grace window → treated as approved: resume.
+7. Verify the checkpointer file is writable and not corrupt; refuse to start otherwise (AC-FM-14).
+   This is a corruption check, **not** an instance check — step 0 is the instance check.
+8. Start serving on the already-bound socket.
+
+**AC-ID-08 is extended (C-10):** the second process must refuse to start at all, and must be shown
+to have written no row — not merely to have lost the thread lock.
 
 ### 9.7 Assisted mode (Workday)
 
@@ -1414,7 +1742,45 @@ records `i_submitted` (→ `SUBMITTED`, `confirmation_kind=human`, evidence = hi
 screenshot) or `by_hand`/`abandon`. The agent never clicks in assisted mode (AC-SB-13). HITL-1
 is satisfied by the earlier approval; the human click is the submission.
 
+### 9.8 Multi-page forms: the per-page commit protocol (C-1)
+
+`fill_form` advances multi-page ATS forms, and each advance is an HTTP POST that can create a
+server-side draft or partial application. That is an irreversible act outside v1's protocol. v2
+gives it the same discipline as the final click, one level down.
+
+```python
+async def commit_page(state, page, page_index: int, tr, bw) -> None:
+    if page_index in state["pages_committed"]:
+        return                                     # replay after resume: never re-post (§9.6 step 4)
+    if not runtime.context.settings.submission_enabled:
+        raise SubmissionDisabled(state["application_id"])          # C-11, second check point
+    await tr.record_page_commit(state["application_id"], attempt=app.submit_attempt,
+                                page_index=page_index, url_hash=sha256(page.url))   # durable BEFORE the POST
+    await bw.commit_page(page, page_index)         # the POST
+```
+
+The rules, mirroring §9.3 exactly:
+
+1. **`FILLING` is written before browser work begins**, and the durable `page_commits` row is
+   written **before** each page-advancing POST — the same "record then act" ordering as
+   `SUBMITTING` before the click (§9.3 step 3). `page_commits` has a composite primary key, so a
+   replay collides at the database rather than at the ATS (§6.4).
+2. **`fill_form` retries at most once — `RetryPolicy(max_attempts=1)`.** Under v1's inherited
+   `max_attempts=3`, one node attempt could re-issue a page-advancing POST three times.
+3. **`fill_error_handler` may never re-enter a page the tracker records as committed.** It resumes
+   after the highest committed index, or routes to `NEEDS_ATTENTION` if the page identity no longer
+   matches.
+4. **The "no POST" claim is deleted** from §5.3 and §13.6 and replaced by the real invariant:
+   *no POST to a page the tracker records as already committed.*
+5. **`submission_enabled` is checked here too** (C-11), because after this finding the final click
+   is no longer the only way to reach an employer.
+
+**Test changes.** The fake ATS (T-2.5) becomes a **multi-page** form with a per-page POST counter.
+AC-ID-23's 200-run kill fuzz is extended to kill **between pages**, asserting every per-page counter
+is ≤ 1 — the same assertion the suite already makes for the final submit.
+
 ---
+
 ## 10. Tailoring contract (diff-friendly by construction)
 
 ### 10.1 The constraint
@@ -1491,7 +1857,17 @@ threads (D-3) tailor normally so the by-hand download is useful.
 
 `load` compares `master_hash` with the on-disk master. If the master changed while applications
 are pending, the application is flagged `MASTER_CHANGED`; the UI banner offers "Re-tailor all
-≈ $x" (UI §5.3). The ledger is rebuilt per `master_hash` and cached.
+≈ $x" (UI §5.3).
+
+**The master is snapshotted, not cached (C-8).** v1 said "the ledger is rebuilt per `master_hash`
+and cached" — but §6.3 defined no table for ledgers and no artefact kind for a master snapshot, and
+a cache is not a record. The moment the master changed, no historical application's provenance could
+be re-resolved and `GET /applications/{id}/bundle` could not satisfy NFR-3. v2: on first use of any
+`master_hash`, the **full master bytes** are written as an artefact with `kind='master_html'` and a
+row is inserted into `ledgers` (§6.3). Both are kept forever — §6.5 already keeps records forever;
+this is the record that makes the others meaningful. Provenance for an application is always
+resolved against the ledger row for *that application's* `master_hash`, never against the current
+file on disk.
 
 ---
 
@@ -1502,8 +1878,9 @@ are pending, the application is flagged `MASTER_CHANGED`; the UI banner offers "
 Two independent guarantees:
 1. **Answer-sheet values never enter an LLM prompt** — enforced by data placement (values live
    only in `answer_sheet`, are read only by `FormFiller.fill_value`, are never put in graph
-   state, artefacts, logs, notifications or API responses other than the reveal endpoint) and
-   by `PromptGuard` scanning every outbound prompt (AC-NF-04/05, AC-CL-10/11).
+   state, artefacts, logs, notifications or exports) and
+   by `PromptGuard` scanning every outbound prompt (AC-NF-04/05, AC-CL-10/11). **This is masking
+   *in transit*, and it is not masking from the reviewer — see §11.7 (C-7).**
 2. **Numbers about experience are never generated** — total years is computed from resume
    dates; per-technology years come only from `years_by_technology`; anything else halts
    (AC-AF-10/11, AC-CL-06..08).
@@ -1548,6 +1925,19 @@ The dashboard card (UI §3.19) offers "Save to answer sheet as `<key>`" (default
 written to `answer_sheet` with `status=learned`, and the label's normalised form is added to that
 key's alias list so the next form with the same label does not interrupt (AC-HL-15).
 
+**Learned values are verified and re-shown (C-7).** A `learned` answer is free text written once by
+a human — the schema's own example is `employment_termination` — and v1 then sent it to every
+employer whose form asked a similarly-worded question, **never re-shown, never re-reviewed, and
+never passed through FactGuard**, which runs only on "tailored HTML, letter claims, subjective
+answers, any edited version" (§8.1). That is a statement to an employer that no control in the
+system ever inspected. v2:
+
+- Every `learned` value is passed through FactGuard checks **C3, C4, C6, C7 and C13 on write**, and
+  a failure blocks the save with the violation shown, exactly as an edit would.
+- A `learned` value is included in the reviewed artefact set for the **first three reuses**
+  (`used_count` already exists in §6.3), after which it is shown on the Answers tab like any other
+  value (§11.7) but no longer forced into the diff.
+
 ### 11.5 `years_by_technology` (FR-8.1 restated)
 
 **DEPARTURE D-7 (challenge to FR-8.1 as written).** FR-8.1 asks the agent to auto-answer years
@@ -1569,8 +1959,36 @@ fill_form node ─▶ FormFiller.plan(answers routes) ─▶ for route in plan:
 ```
 `PromptGuard` holds the current answer-sheet values in memory for scanning; they are refreshed on
 each settings change. The E2E proxy scan (AC-NF-04) and the log/trace scan (AC-NF-05) are the
-external proofs; CTC may appear in exactly one place — the encrypted `form_payload` blob of the
-submission evidence, masked in the UI.
+external proofs; CTC may appear in exactly one place outside the form itself — the encrypted
+`form_payload` blob of the submission evidence, masked in the UI.
+
+### 11.7 What the reviewer sees (C-7)
+
+HITL-5 is *"full review, no spot-checking"* — the requirement the safety of this system rests on.
+v1's review screen made a whole class of statements-to-employers structurally invisible to the
+person certifying them: answer-sheet routes rendered as the **field name only**, and seeing a value
+required a per-field transient keypress (`Ctrl+Shift+V`) that was separately audited as a sensitive
+action. Current CTC, expected CTC, notice period, work authorisation and sponsorship all reach the
+employer as literal text; all rendered as a label.
+
+The cause was a conflict the spec never named. §2.1's privacy control and HITL-5's review control
+pulled in opposite directions, and v1 resolved it silently in favour of privacy. But **the threat
+model behind §2.1 is LLM providers, traces, logs and notifications. The reviewer is not that
+threat** — he is the author of the values and the person accountable for them.
+
+**v2 rule: masked in transit, never masked from the reviewer.**
+
+| Surface | Values |
+| --- | --- |
+| Review screen, Answers tab (loopback session) | **Rendered in full**, every value that will be typed into the form. No keypress. This is the one surface the answer sheet exists to serve |
+| LLM prompts, traces, logs, Telegram, exports, tracker, screenshots | Masked, exactly as v1 — unchanged, and still proved by the proxy and log scans |
+| Settings › Answer sheet | Masked by default with an audited reveal (unchanged — that screen is for editing, not certifying) |
+
+Consequences: **AC-HL-19 is amended** to require the Answers tab to show values rather than
+sources, and a new AC asserts that a `learned` value appears in the reviewed artefact set.
+Pre-flight #9 additionally fails when any route resolves to a value whose `status` is `unconfirmed`
+or `open` (§9.4) — v1 checked only that the key still existed, so an `unconfirmed`
+work-authorisation string, which is a statement about visa status, could be sent unreviewed.
 
 ---
 
@@ -1626,6 +2044,10 @@ non-pending interrupt is refused; a replayed decision returns `already_decided` 
 | Discovery-only sources never submit | `SourceAdapter.policy` is a class attribute; `selection` never creates a submitting application for `discovery_only`; `submit` refuses if `applications.channel` is not in `{greenhouse, lever, career_page}` (AC-SB-15) |
 | No bulk approve | No endpoint accepts a list of approvals; the UI has no control (UI D-6) |
 | Hard rejections have no override | `POST /jobs/{id}/promote` returns `409` for `reason_enum` in the FR-4.1/4.2/5.1 sets |
+| **A fresh install cannot submit (C-11)** | `settings.submission_enabled` defaults `False`; checked in `submit` gate (0) and in `commit_page` (§9.8); enabling requires a typed confirmation and writes an `audit_events` row; static check asserts the default literal |
+| **No model call escapes the guards (C-5)** | `GuardedModel` has no `.inner`; `.inner` and `init_chat_model` are both on the static-check ban list outside `llm/`; the mapper agent carries `GuardMiddleware` inside its loop |
+| **No POST to an already-committed page (C-1)** | `page_commits` composite primary key + `RetryPolicy(max_attempts=1)` on `fill_form` + `fill_error_handler` that resumes only after the highest committed page |
+| **Only one process (C-10)** | Named OS mutex acquired before any database connection; port bind before reconciliation; reconciliation's `SUBMITTING` sweep additionally requires a dead holder pid and an aged `submitting_written_at` |
 
 ---
 ## 13. Operations
@@ -1634,7 +2056,7 @@ non-pending interrupt is refused; a replayed decision returns `already_decided` 
 
 | Element | Design |
 | --- | --- |
-| Service start | Windows Task Scheduler task `JobAgent` → `jobagent serve` at user logon, restart on failure. The dashboard, Telegram and approvals need the process alive all day, so the *service* is what Task Scheduler owns, not the run. |
+| Service start | Windows Task Scheduler task `JobAgent` → `jobagent serve` at user logon, restart on failure. The dashboard, Telegram and approvals need the process alive all day, so the *service* is what Task Scheduler owns, not the run. **"Restart on failure" is exactly why the single-instance mutex is mandatory (C-10): a hung-but-alive process plus a scheduled restart is an ordinary Windows event, and it is the everyday path to two live instances.** The task is configured `IfRunningRule=IgnoreNew` as a second line of defence; the mutex is the first. |
 | Daily run | In-process scheduler fires `run(trigger="scheduled")` at `settings.schedule.run_at` (09:00 Asia/Kolkata). |
 | Missed run | On service start and every 10 min, if today's run has not started and now < `catch_up_until` (20:00 IST) → `run(trigger="catch_up")` (AC-TK-07); if ≥ 20:00 → `runs` row `missed`, Telegram M8 (AC-TK-08). At 09:15 with no run started (machine awake but blocked) → M8 as well. |
 | Evening digest | 21:00 IST: `reports(kind=evening)` — approved / edited / rejected (with reasons) / submitted / unknown-outcome counts; Telegram M5 (AC-TK-05). |
@@ -1703,7 +2125,9 @@ any manual DB edit detected by the settings/history checksum. Reported weekly fr
 | One source down / 429 / 403 | Isolated; `source_failed` / `rate_limited` 24 h; run continues (FM-01/02) |
 | Provider 429/5xx on one call | Retry with back-off; then `evaluation_failed` for that job (FM-03) |
 | Provider down all run | Discovery + audit complete; all `evaluation_failed`; report says so; nothing queued (FM-04) |
-| Network lost mid fill | `PreClickError`; thread resumes at `fill_form`; no POST (FM-05) |
+| Network lost mid fill | `PreClickError`; thread resumes at `fill_form` **after the highest `page_commits` index — no POST to an already-committed page** (FM-05, C-1). The v1 wording "no POST" was false for multi-page forms |
+| Second instance started | Refuses at the mutex before touching any record; no `SUBMITTING` row is disturbed (C-10, AC-ID-08) |
+| `submission_enabled` false | `submit` and `commit_page` raise `SubmissionDisabled`; `NEEDS_ATTENTION`; guard event; documents-only threads unaffected (C-11) |
 | Disk full on tracker write | Transaction rolls back (SQLite atomic); run aborts `disk_full`; Telegram; no submission (FM-06) |
 | Disk full on checkpoint write | Graph fails loudly; last complete checkpoint intact; resumable (FM-07) |
 | `render.py` fails | `TAILORING_FAILED`; others unaffected (FM-12) |
@@ -1746,7 +2170,7 @@ approve control anywhere (UI D-6). Served from `/` by FastAPI as static files; A
 | S2 | Approval queue (3.3) | `/queue` | `GET /queue` | `J/K`, `⏎`, `X`, `Shift+R`, `Space` |
 | S3 | Review — Resume diff (3.4) | `/queue/:appId` tab 1 | `/applications/{id}/review`, `/diff` | `A`, `Shift+A`, `E`, `R`, `P`, `X`, `Z`, `1/2/3`, `D`, `J/K`, `O`, `Shift+O` |
 | S4 | Review — Cover letter (3.5) | tab 2 | `/letter` (claims + provenance) | `Tab` cycles markers, `⏎` jumps |
-| S5 | Review — Answers (3.6) | tab 3 | `/answers` (field names for answer-sheet rows) | `Ctrl+Shift+V` transient reveal |
+| S5 | Review — Answers (3.6) | tab 3 | `/answers` — **every value shown in full** (C-7, §11.7) | — (the transient-reveal keypress is retired here; it survives only on S13) |
 | S6 | Review — Edit mode (3.7) | tab n, `E` | `PUT /letter`, `/resume-text`, `/answers/{f}`, `POST /revise`, `/confirm-edit`; `GET /ledger` for live guard | `Ctrl+⏎`, `Esc` |
 | S7 | Reject overlay (3.8) | overlay | `POST /decisions {reject, reason_code}` | `R`, `1–6`, `⏎` |
 | S8 | Audit — Sources/Queries (3.9) | `/audit/:date/sources`, `/queries` | `/runs/{date}/sources`, `/queries`; retry | — |
@@ -1850,7 +2274,9 @@ the safety core and must be green before any browser touches a real ATS.
 | T-0.1 | Repo layout `src/jobagent/`, `tests/`, `fixtures/`, `config/`; pyproject with pinned `langchain>=1.3.3`, `langgraph>=1.2`, `langgraph-checkpoint-sqlite`, `langchain-anthropic`, `langchain-openai`, FastAPI, Playwright, SQLAlchemy, pdfminer.six, pypdf, PyMuPDF | S |
 | T-0.2 | `config` module: `Settings`, `Stage`, `prices.yaml`, `synonyms.yaml`, `canaries.yaml`, `field_ontology.yaml`, banned-filler list; registry-scoped secret loading via `winreg` | M |
 | T-0.3 | Static checks: import lint (AC-NF-11), `InMemorySaver` ban (AC-ID-24), interrupt rules (AC-ID-13/14), topology (AC-ID-25), path length (AC-FM-19), `GuardedModel`-only calls | M |
-| T-0.4 | Element-key scheme + recommended `id` attributes on `resume-ats.html` (zero text change; verify by text diff); rebuild PDF; three-parser test unchanged | S |
+| T-0.4 | **BLOCKING prerequisite of Phase 1 (C-8)** — element-key scheme + `id` attributes on `resume-ats.html` (zero text change; verify by identical text diff); content-anchored keys where cheap; `build_ledger` refuses a master whose ids do not match; rebuild PDF; three-parser test unchanged. **Q-O must be closed before Phase 1 starts, not at go-live** | M |
+| T-0.7 | Single-instance mutex + port-bind-before-reconcile startup sequence (§3.2, §9.6) (C-10) | S |
+| T-0.8 | `settings.submission_enabled` with typed-confirmation enable, audit row, static check on the default (C-11) | S |
 | T-0.5 | `clock`, `faults.maybe_kill`, logging with secret scrubber | S |
 | T-0.6 | Fixture corpus skeleton: ≥ 120 JDs by category tags, ≥ 40 forms, dup groups (test plan §0.2) — content authored across phases | L |
 
@@ -1873,9 +2299,12 @@ the safety core and must be green before any browser touches a real ATS.
 | T-2.1 | SQLite schema (§6.3), triggers (§6.4), `Tracker.transition`, transitions table | L |
 | T-2.2 | `AsyncSqliteSaver` wiring, boot refusal of in-memory saver, `durability="sync"` invocation helpers, thread/run locks | M |
 | T-2.3 | `ApplicationGraph` skeleton: all nodes as stubs, edges, policies, `await_*` nodes, `context_schema` | L |
-| T-2.4 | `submit` node protocol §9.3 + `PreClickError`/`PostClickError` + `submit_error_handler` | L |
-| T-2.5 | Fake ATS with POST counter and fault modes; fake boards | M |
-| T-2.6 | Fault injector harness (subprocess kill at named points); AC-ID-02..06, AC-ID-09..11, AC-ID-23 (200-run fuzz) | L |
+| T-2.4 | `submit` node protocol §9.3 + `PreClickError`/`PostClickError` + `submit_error_handler` + page fingerprint assertion (C-2) | L |
+| T-2.4a | `page_commits` + §9.8 per-page commit protocol + `fill_error_handler` (C-1); `FILLING` status | M |
+| T-2.4b | §9.5 `confirmed_not_submitted` friction: typed confirmation, 60-minute minimum, ATS checkbox, consequence copy (C-3) | S |
+| T-2.4c | `recheck_after_blocker` node + `i_submitted` on HITL-2 (C-2) | S |
+| T-2.5 | Fake ATS — **multi-page**, with a per-page POST counter and fault modes (C-1); fake boards | M |
+| T-2.6 | Fault injector harness (subprocess kill at named points); AC-ID-02..06, AC-ID-09..11, AC-ID-23 (200-run fuzz, **extended to kill between form pages and assert every per-page POST counter ≤ 1** — C-1); AC-ID-08 extended to assert a second process writes nothing (C-10) | L |
 | T-2.7 | Decision API (§7.2) with grace window, idempotent decisions, thread lock, `409/423` semantics; AC-ID-07/08, AC-HL-07/08/23 | M |
 | T-2.8 | Startup reconciliation §9.6; `RunControl` pause/drain; AC-HL-25 | M |
 | T-2.9 | Pre-flight (§9.4) with live re-fetch; AC-SB-01..11 | M |
@@ -1892,7 +2321,7 @@ the safety core and must be green before any browser touches a real ATS.
 | T-3.5 | `probe_form` (Playwright field enumeration), `FormModel`, `supported_ratio` | L |
 | T-3.6 | Question router + field ontology + answer-sheet formatting + `years_by_technology` + EEO decline | L |
 | T-3.7 | `FormFiller` fill-time isolation; `fill_form` node; blocker detection; HITL-2 nodes | L |
-| T-3.8 | Career-page mapper `create_agent` with route-only tools and `ToolCallLimitMiddleware` | M |
+| T-3.8 | Career-page mapper `create_agent` on the **wrapped** model with `GuardMiddleware` and `ToolCallLimitMiddleware(..., exit_behavior="error")`; `inspect_form` projection + its leak test (C-5, M-3) | M |
 | T-3.9 | Edit pipeline (§7.4) incl. confirm-edit; AC-AF-19, AC-HL-02 | M |
 | T-3.10 | Adversarial JD suite AC-AF-14 with live `generate` model | M |
 
@@ -1940,11 +2369,12 @@ the safety core and must be green before any browser touches a real ATS.
 | --- | --- | --- |
 | T-7.1 | Full E2E suite through proxy; AC-AF-14, AC-AF-15, AC-ID-05, AC-ID-23 as release blockers | M |
 | T-7.2 | Windows Task Scheduler registration script; service restart; missed-run behaviour on a real sleeping PC | S |
-| T-7.3 | Supervised first live week: ceiling 1/day, ATS confirmation reconciliation daily; raise only after 5 clean days | M |
+| T-7.3 | Supervised first live week: **the act of turning `submission_enabled` on** (C-11), with ceiling 1/day as a second and independent limit, ATS confirmation reconciliation daily; raise only after 5 clean days | M |
 | T-7.4 | Month-2 metrics: rescue events, callback rate | S |
 
-**Totals:** 60 tasks (8 S · 27 M · 22 L · 3 XL). Summing the complexity bands gives ≈ 115–190
-implementer-days; the safety core (Phases 1–3, 27 tasks) is roughly half of that. Phases 1–3 are
+**Totals:** 65 tasks (11 S · 29 M · 22 L · 3 XL) — v2 adds T-0.7, T-0.8, T-2.4a, T-2.4b, T-2.4c
+and upgrades T-0.4 from S to M. Summing the complexity bands gives ≈ 120–200
+implementer-days; the safety core (Phases 1–3, 32 tasks) is roughly half of that. Phases 1–3 are
 sequential; Phase 4 can proceed in parallel with Phase 3 after Phase 2; Phase 6 can start after
 T-5.2 stabilises the API.
 
@@ -1967,7 +2397,7 @@ T-5.2 stabilises the API.
 | R-11 | **PC asleep / service not running** → silent missed days | Medium | High | Catch-up rule, M8 at 09:15, header missed state, Task Scheduler restart | Low |
 | R-12 | **`render.py`/Chromium path drift** breaks tailoring | Low | Medium | `PW_CHROME` override; `TAILORING_FAILED` isolates; alert | Low |
 | R-13 | **Judge model cost** on 10–20 apps × ~15 claims/day | Low | Low | Judge on `analyse` tier; batched per artefact; well under $5/day | Low |
-| R-14 | **Element keys drift** if headings are edited in the master | Medium | Low | Keys derive from heading slugs; recommended `id` attributes make them explicit; ledger snapshot test fails loudly | Low |
+| R-14 | **Element keys drift** if the master is edited — provenance silently resolves to the *wrong* line | Critical | **High** (a job-seeker edits his résumé) | C-8: explicit `id`s are mandatory before Phase 1; `build_ledger` refuses a mismatched master instead of deriving; content-anchored keys; master bytes and ledger persisted per `master_hash`; AC asserts a pointer resolves to the same text or fails loudly | Low |
 | R-15 | **Localhost Telegram links** leave blocked gates unseen for hours | Medium | Medium | Self-sufficient messages; stale reminders; configurable base URL | Medium |
 
 **Three highest-severity risks: R-1 (double submission), R-2 (fabrication past the verifier),
@@ -2014,7 +2444,11 @@ marked **[UNVERIFIED]** in the body are *not* LangChain/LangGraph APIs (third-pa
 | `from langchain.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage` (not `langchain_core.messages`) | `CORE-CONCEPTS.md` §1.3, gotcha 2 |
 | `from langchain.tools import tool, ToolRuntime`; `runtime.state`, `runtime.context`, `runtime.tool_call_id`; tools returning `Command(update=...)` | `langchain/tools.md` §154–266 |
 | `HumanInTheLoopMiddleware(interrupt_on={... "allowed_decisions", "when"})`; `Command(resume={"decisions": [...]})`; `version="v2"` → `GraphOutput.interrupts` | `langchain/human-in-the-loop.md` §47–251 |
-| `ToolCallLimitMiddleware`, `ModelRetryMiddleware`, `ModelFallbackMiddleware`, `PIIMiddleware(... strategy=block|redact|mask|hash, detector=...)` | `langchain/middleware__built-in.md` |
+| `ToolCallLimitMiddleware(tool_name=, thread_limit=, run_limit=, exit_behavior=)`; `exit_behavior` defaults to `'continue'` (blocked calls + error messages, model decides when to end); `'error'` raises `ToolCallLimitExceededError` and stops execution immediately; `'end'` only for a single limited tool | `langchain/middleware__built-in.md` §591–660 (M-3 — v1 marked the kwargs `[UNVERIFIED]`; they are documented with a worked example) |
+| `ModelRetryMiddleware`, `ModelFallbackMiddleware`, `PIIMiddleware(... strategy=block\|redact\|mask\|hash, detector=...)` | `langchain/middleware__built-in.md` |
+| Custom middleware hooks `before_model` / `after_model` (the C-5 `GuardMiddleware`) | `langchain/middleware__custom.md` |
+| **`interrupt()` bypasses both retry policies and error handlers** (`GraphBubbleUp`); it is not routed to the error handler and the graph pauses as usual | `langgraph/fault-tolerance.md` §389–391, "Behavior with `interrupt()`" (M-1 — v1 marked this `[UNVERIFIED]`; it is answered under a heading that names the question) |
+| **`delete_thread` / `adelete_thread(thread_id)`** on the checkpointer interface — deletes all checkpoints *and* write rows for a thread; `aprune` for thread-history pruning | `langgraph/checkpointers.md` §407 (signature), §544 (subsection), extended-capabilities table (M-2 — v1 marked this `[UNVERIFIED]` and instructed hand-deletion from inferred tables) |
 | `from langgraph.graph import StateGraph, START, END`; `add_node`, `add_edge`, `add_conditional_edges`, `.compile(checkpointer=)` | `langgraph/graph-api.md`; `CORE-CONCEPTS.md` §2.2 |
 | `StateGraph(State, context_schema=...)`; `Runtime[Context]` from `langgraph.runtime`; `runtime.context`, `runtime.execution_info.thread_id`; `invoke(..., context=...)` | `langgraph/graph-api.md` §498–935 |
 | Reducers `Annotated[list, operator.add]`; `Overwrite` from `langgraph.types` | `langgraph/graph-api.md` §155–269 |
@@ -2041,9 +2475,15 @@ marked **[UNVERIFIED]** in the body are *not* LangChain/LangGraph APIs (third-pa
 Items explicitly **not** from the knowledge base (standard libraries / external services, marked
 [UNVERIFIED] where they appear): FastAPI, uvicorn, SQLAlchemy, APScheduler, Playwright API
 details, httpx, `cryptography`, pdfminer.six/pypdf/PyMuPDF, Greenhouse/Lever board JSON
-endpoints, Windows Task Scheduler options, `winreg`, checkpoint table names for pruning,
-`ToolCallLimitMiddleware` constructor kwargs, whether the interrupt control-flow exception is
-excluded from `default_retry_on`.
+endpoints, Windows Task Scheduler options, `winreg`, `win32event.CreateMutex`.
+
+**Three entries were removed from this list in v2 (M-1, M-2, M-3).** Each was marked
+`[UNVERIFIED]` in v1 and each is in fact answered in the supplied knowledge base — one of them
+under a heading that names the question. They are now rows in the table above, with citations. This
+matters beyond the three fixes: TR-2 ("All LangChain/LangGraph APIs must be verified against
+`knowledge-base/`") is the requirement this document most loudly claims to honour, and v1 broke it
+while asserting it. Every remaining `[UNVERIFIED]` mark in this document was re-derived during the
+v2 pass and names a third-party or external API, not a LangChain/LangGraph one.
 
 ---
 
@@ -2067,10 +2507,90 @@ Carried from the analysis (§6) with the default this spec builds on; plus new o
 | Q-L | Auto-select "prefer not to say" on EEO? | Yes | — |
 | **Q-M (new)** | Accept D-3 (documents-only tailoring for fallback jobs ≥ 80) and its review-time cost? | Yes, threshold 80, counted against ceiling | Off → by-hand list has no downloads |
 | **Q-N (new)** | Accept D-6 (no promote-to-queue for score < 70)? | Yes | Allowing it breaks the §9 zero-below-threshold metric |
-| **Q-O (new)** | May the master `resume-ats.html` receive `id` attributes matching the element keys (zero text change)? | Recommended; ledger works without them | Without ids, key stability depends on heading text |
+| **Q-O** | May the master `resume-ats.html` receive `id` attributes matching the element keys (zero text change)? | **RATIFIED in v2 — yes, and required. Must be closed before Phase 1 begins** (C-8). The "ledger works without them" default is withdrawn: without ids, stored provenance silently resolves to the wrong line after any master edit | Blocking. If refused, AC-AF-08 cannot pass and NFR-3 reconstruction is unsound |
 | **Q-P (new)** | Data directory `%LOCALAPPDATA%\JobAgent` acceptable (D-5)? | Yes | Repo-relative path risks OneDrive sync and long paths |
 | **Q-Q (new)** | Default `generate` model — confirm the strongest currently available Anthropic model id at build time (only `claude-opus-4-8` appears in the knowledge base) | `anthropic:claude-opus-4-8` | Config change only |
-| **Q-R (new)** | Bounded parallel tailoring (2 concurrent application threads) acceptable, or strictly serial for easier hand-off? | 2 | Serial lengthens the 09:00 run; parallel complicates HITL-2 browser hand-off (browser worker is serial regardless) |
+| **Q-R** | Bounded parallel tailoring (2 concurrent application threads) acceptable, or strictly serial for easier hand-off? | 2 | Serial lengthens the 09:00 run; parallel complicates HITL-2 browser hand-off (browser worker is serial regardless) |
+| **Q-S (new, from the CTO review's closing recommendation)** | Ship the **non-submitting product first** — Phases 0–3 plus documents-only mode and the by-hand list — and treat automated submission as a later decision made with real operating experience? | **Not decided. v2 makes it possible but does not choose it:** `submission_enabled=false` is the default and documents-only threads run normally with the switch off, so the non-submitting system is already a shippable configuration | Shipping it first removes the entire Area A risk surface for months and lands value earlier; it also defers the question the project exists to answer. This is Avadh's call, not the spec's |
+| **Q-T (new)** | Minimum wait before `confirmed_not_submitted` is enabled — 60 minutes (C-3 default)? | 60 min, configurable, never zero | Shorter increases the chance of authorising a second submission before the ATS confirmation has had time to arrive |
+
+---
+
+## 20. Changelog — what v2 changed, and which finding it closes
+
+v1.0 was **REJECTED** by adversarial CTO review on 2026-09-15: 10 CRITICAL · 24 MAJOR · 12 MINOR,
+with 14 of 277 acceptance criteria unsatisfiable as designed. This revision closes the ten
+CRITICALs and the four MAJORs the review required in the same pass. Every row below is a change to
+this document, not a plan to change it.
+
+| # | Finding | What v2 does | Sections |
+| --- | --- | --- | --- |
+| **C-1** | `fill_form`'s multi-page POSTs are irreversible acts outside the submission protocol; §5.3 and §13.6 asserted "no POST" | New `FILLING` status and `page_commits` table; a durable per-page marker written **before** each page-advancing POST; `fill_form` drops to `max_attempts=1` with a `fill_error_handler` that may never re-enter a committed page; the "no POST" claim deleted and replaced by *no POST to an already-committed page*; the fake ATS becomes multi-page and AC-ID-23's fuzz kills between pages | §9.8 (new), §9.1, §9.2, §5.3, §5.5, §6.3, §6.4, §13.6, T-2.4a, T-2.5, T-2.6 |
+| **C-2** | HITL-2 had no "I already submitted it"; `continue` re-ran `fill_form` from the top and fell through to a second click | `i_submitted` added to `await_blocker` as the **first** option, wired to the `await_handoff` handling; new `recheck_after_blocker` node re-runs pre-flight #3 and #5 before re-entering `fill_form`; `submit` re-asserts a page token + DOM fingerprint recorded at fill time | §5.3, §7.1, §9.3, §4.12, T-2.4c |
+| **C-3** | `confirmed_not_submitted` authorised a second irreversible submission with less friction than editing one sentence | Typed `NOT SUBMITTED TO <company>` confirmation; 60-minute minimum from `click_dispatched_at` before the option is enabled; mandatory "I checked the ATS account" checkbox; irreversibility stated in the card and the Telegram message; `check_again_later` added; evidence capture 60 s → 180 s so slow successes stop being misreported as unknown | §9.5, §9.3, §7.1, T-2.4b |
+| **C-4** | Pre-flight let the click proceed when it could not reach the posting, and the carve-out was internally incoherent | Amber-and-allow withdrawn: an unverifiable #3 is `still_active_unverified` → hard fail, retryable from the dashboard. #1/#2/#3 now behave alike. Pre-flight additionally renders as a *preview* before Approve, where a human still has a decision to make. No DEPARTURE id is needed — v2 no longer departs from FR-9.1 | §9.4 |
+| **C-5** | The mapper agent ran on `.inner`, bypassing `PromptGuard`, `BudgetGate` and `SpendLedger` | `.inner` removed from `GuardedModel` and added to the static-check ban list; the wrapper itself is passed to `create_agent`; `GuardMiddleware` (`before_model`/`after_model`) enforces guard, budget and ledger inside the agent loop; `inspect_form` specified as a field-by-field projection, never a DOM serialisation, with a leak test | §5.4, §4.13, §12.5, T-0.3, T-3.8 |
+| **C-6** | `kind="context"` claims escaped C9, C10 and C11 entirely | `context` defined narrowly (no assertion about the candidate) and enforced by new deterministic check **C14**, which reclassifies offenders to `self` *before* C9 runs; caps of ≤ 2 per letter and 0 per subjective answer, surfaced in the review UI; two of the 40 mutation fixtures re-cut as claim-kind mutations | §8.2, §4.10, §8.4, §8.5 |
+| **C-7** | Answer-sheet and `learned` values reached employers but were structurally invisible to the HITL-5 reviewer | *Masked in transit, never masked from the reviewer*: the Answers tab renders every value in full to the loopback session; masking for prompts, traces, logs, Telegram and exports is unchanged; `learned` values pass FactGuard C3/C4/C6/C7/C13 on write and appear in the reviewed set for three reuses; pre-flight #9 fails on `unconfirmed`/`open` values; AC-HL-19 amended | §11.7 (new), §11.1, §11.4, §9.4, §7.1, §14.2 |
+| **C-8** | Provenance anchored to derived positional keys over a master with no ids; fixing it was left optional in Q-O | T-0.4 promoted to a blocking prerequisite of Phase 1 and **Q-O ratified**; `build_ledger` refuses a mismatched master instead of deriving; keys content-anchored where cheap; master bytes persisted as `artefacts.kind='master_html'` with a new `ledgers` table; new AC requires a stored pointer to resolve to the same text or fail loudly; R-14 re-rated Critical / High | §4.4, §6.3, §6.4, §10.6, §16, §19, T-0.4 |
+| **C-10** | No single-instance guard; reconciliation ran before the port bind and converted live `SUBMITTING` rows into `UNKNOWN_OUTCOME`, feeding C-3 | Named OS mutex as the **first** action of `jobagent serve`, before any database connection; port bind **before** reconciliation as a backstop; the `SUBMITTING` sweep now requires both a dead holder pid and a `submitting_written_at` older than the submit timeout; the browser worker fails loudly on a locked profile instead of restarting; AC-ID-08 extended to require the second process to write nothing | §3.2, §9.6, §4.12, §13.1, §12.5, T-0.7, T-2.6 |
+| **C-11** | No `submission_enabled` master switch, which the test plan's own go-live gate presumes | `settings.submission_enabled: bool = False`, checked in `submit` gate (0) **and** in `commit_page` (because after C-1 the click is not the only irreversible act); typed confirmation to enable, audit row on every change, static check on the default; documents-only threads exempt; T-7.3 becomes the act of turning it on, with the 1/day ceiling as a second independent limit | §4.1, §9.3, §9.8, §12.5, §15, O7 |
+| **M-1** | The §5.1 interrupt/retry `[UNVERIFIED]` was false, and the "defensive" mitigation was harmful | `interrupt()` bypasses retry policies and error handlers (`fault-tolerance.md` §389–391) — so `max_attempts=1` never provided interrupt protection and only removed genuine retries from seven HITL nodes. All `await_*` nodes return to the graph default | §5.1, §5.3, §5.5, §18 |
+| **M-2** | The §6.5 checkpoint-pruning `[UNVERIFIED]` was false, and the instruction it justified was dangerous | Retention uses `await checkpointer.adelete_thread(thread_id)` (`checkpointers.md` §407, §544), falling back to `aprune`; hand-deletion from inferred tables removed; AC-NF-12 amended to assert the API was called | §6.5, §18 |
+| **M-3** | The §5.4 `ToolCallLimitMiddleware` `[UNVERIFIED]` was false, and the default `exit_behavior` meant the 60-call limit did not stop the mapper | `ToolCallLimitMiddleware(run_limit=60, thread_limit=120, exit_behavior="error")`, with `ToolCallLimitExceededError` handled as an `unsupported_form` fallback | §5.4, §18 |
+| **M-15** | AC-AF-22 was enforced by a node, not by the database, unlike its sibling invariant | `BEFORE UPDATE OF status … WHEN NEW.status='SUBMITTING'` trigger requires a matching `fact_checks` row with status `pass` / `pass_with_confirmed_edits`; added to the §6.4 table | §6.4 |
+| *m-5* | The edit endpoints had no status guard — the path that made M-15 reachable | Edits require `status ∈ {PENDING_REVIEW, TAILORING_FAILED}`; anything later returns `409 not_editable`. Closed incidentally, because M-15's fix is incoherent without it | §7.4 |
+
+**Two things this revision deliberately does *not* do.** It does not accept a criticism it believes
+to be wrong without saying so — see §5.1's note on M-4, where v1's *rationale* is false but the
+*rule* is retained, because removing it creates a contradiction that M-4 must resolve properly. And
+it does not quietly re-scope the project: the review's closing recommendation to ship the
+non-submitting product first is recorded as **Q-S** for Avadh to decide, not adopted by the spec.
+v2 makes that option cheap — `submission_enabled` defaults to false and documents-only mode runs
+with it off — without making the choice on his behalf.
+
+---
+
+## 21. Findings not closed in v2
+
+The review raised 46 findings. v2 closes 15 of them (the ten CRITICALs, four MAJORs and one MINOR
+listed in §20). **The remaining 31 are open, not resolved**, and this section exists so that no
+reader mistakes a v2 badge for a clean bill of health. A re-review should assume every item below
+still stands.
+
+**MAJOR, open (20).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
+one; `BudgetHardStop` and `PauseRequested` are retried three times before any handler fires — v2
+corrects the false *rationale* in §5.1 but not the contradiction) · M-5 (`is_pre_click_error`
+cannot key the dispatch marker to an application) · M-6 (the post-click `except` awaits during
+cancellation, and nothing sweeps rows stuck in `SUBMITTING` while the process stays alive) · M-7
+(the `submit` timeout budget is not partitioned — v2 raises it to 300 s for C-3 but does not
+partition it) · M-8 (a crash inside the 5-second grace window auto-submits on restart) · M-9
+(AC-ID-25 is silently weakened) · M-9a (`spawn_apps` can relaunch a thread already under review) ·
+M-10 (AC-SB-01's 60-second bound is unachievable with a serialised browser worker, and no
+throughput budget exists) · M-11 (AC-HL-13 contradicts LangGraph resume semantics) · M-12
+(AC-HL-17's "< 10% of forms halt" is unreachable under the spec's own defaults) · M-13 (AC-HL-26
+cannot pass, and §12.5 asserts the opposite) · M-14 (AC-NF-04 fails by design and the exception is
+untagged) · M-16 (`pass_with_confirmed_edits` overrides every fabrication class on a memorised
+constant phrase) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
+edit) · M-18 (a source that breaks silently is indistinguishable from a quiet day) · M-19 (ledger
+and master snapshots — *partially* addressed by C-8's `ledgers` table; the NFR-3 reconstruction
+path still needs re-deriving end to end) · M-20 (phase exit gates cite acceptance criteria that
+later phases implement) · M-21 (the schedule is six to nine months for one person and never says
+so) · M-22 (the primary approve key advances to the next application, chaining approvals and making
+the undo unreachable) · M-23 (the budget hard stop is a floor, not a ceiling).
+
+**MINOR, open (11).** m-1, m-2, m-3, m-4, m-6, m-7, m-8, m-9, m-10, m-11, m-12 — as listed in the
+review report.
+
+**The reviewer's structural objection, unanswered.** The review's sharpest point is not on this
+list, because it is not a defect to patch: *"The human cannot be made safe by measurement alone."*
+The design's answer to rubber-stamping is telemetry — `review_seconds`, a median, a flag in a
+report the reviewer writes for himself — while the primary approve key advances to the next
+application (M-22), approval is reachable from tab 1 without ever rendering tab 3, and the undo
+window is five seconds and is left behind by the very keystroke that starts it. v2 closes C-7, so
+the reviewer can now *see* the values he is certifying, which was the most concrete part of that
+objection. The rest — making Approve cost something proportionate to its consequence — is M-22,
+M-13 and the UI work behind them, and it remains open.
 
 ---
 
