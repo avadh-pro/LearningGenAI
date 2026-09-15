@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reciprocal Rank Fusion — Interactive Explainer</title>
+<style>
+  :root{
+    --bg: #0f1216;
+    --panel: #171b21;
+    --panel-2: #1e232b;
+    --border: #2a313b;
+    --text: #e9edf2;
+    --text-dim: #93a1b0;
+    --text-faint: #5c6773;
+    --dense: #5b9cff;
+    --dense-dim: rgba(91,156,255,0.16);
+    --sparse: #ffb454;
+    --sparse-dim: rgba(255,180,84,0.16);
+    --fused: #43d9ad;
+    --fused-dim: rgba(67,217,173,0.16);
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    padding: 32px 20px 64px;
+    line-height: 1.5;
+  }
+
+  .wrap{ max-width: 1100px; margin: 0 auto; }
+
+  header{ margin-bottom: 28px; }
+  .eyebrow{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fused);
+    margin: 0 0 10px;
+  }
+  h1{
+    font-size: clamp(24px, 4vw, 34px);
+    margin: 0 0 10px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .sub{
+    color: var(--text-dim);
+    max-width: 68ch;
+    font-size: 15px;
+  }
+  .sub code{
+    font-family: var(--mono);
+    background: var(--panel-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+
+  .lists{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 28px 0;
+  }
+  @media (max-width: 720px){
+    .lists{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .panel-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom: 12px;
+  }
+  .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .dot.dense{ background: var(--dense); }
+  .dot.sparse{ background: var(--sparse); }
+  .dot.fused{ background: var(--fused); }
+  .panel-title{ font-weight: 600; font-size: 14px; }
+  .panel-desc{ font-size: 12.5px; color: var(--text-faint); margin: -6px 0 12px 17px; }
+
+  .card{
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: background .15s ease, border-color .15s ease;
+    cursor: default;
+  }
+  .card + .card{ margin-top: 2px; }
+  .card.active{ background: var(--panel-2); border-color: var(--border); }
+
+  .rank{
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-faint);
+    text-align:center;
+  }
+  .card.active .rank.dense-r{ color: var(--dense); font-weight:700; }
+  .card.active .rank.sparse-r{ color: var(--sparse); font-weight:700; }
+
+  .doc-text{ font-size: 13.5px; color: var(--text); }
+  .raw-score{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+
+  .formula-box{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 8px 0 28px;
+  }
+  .formula{
+    font-family: var(--mono);
+    font-size: clamp(14px, 2.4vw, 18px);
+    text-align:center;
+    padding: 14px 8px;
+    color: var(--fused);
+    letter-spacing: 0.01em;
+  }
+  .formula .k{ color: #fff; background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 5px; }
+  .formula .d{ color: var(--dense); }
+  .formula .s{ color: var(--sparse); }
+
+  .k-row{
+    display:flex;
+    align-items:center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .k-row label{ font-size: 13px; color: var(--text-dim); font-family: var(--mono); }
+  input[type=range]{
+    flex: 1;
+    min-width: 160px;
+    accent-color: var(--fused);
+  }
+  .k-val{
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    min-width: 28px;
+    text-align:center;
+    color: #fff;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+  .presets{ display:flex; gap:8px; }
+  .preset-btn{
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .preset-btn:hover{ border-color: var(--fused); color: var(--fused); }
+  .k-note{ font-size: 12.5px; color: var(--text-faint); margin-top: 10px; }
+
+  .fused-panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .frow{
+    display: grid;
+    grid-template-columns: 28px 1fr 300px 70px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-radius: 8px;
+  }
+  .frow + .frow{ border-top: 1px solid var(--border); }
+  @media (max-width: 720px){
+    .frow{ grid-template-columns: 22px 1fr; }
+    .frow .bar-cell, .frow .fscore{ grid-column: 1 / -1; }
+  }
+
+  .frank{ font-family: var(--mono); font-size: 13px; color: var(--text-faint); }
+  .ftext{ font-size: 13.5px; }
+  .bar-cell{ display:flex; align-items:center; height: 20px; }
+  .bar-track{
+    position: relative;
+    width: 100%;
+    height: 10px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    overflow: hidden;
+    display:flex;
+  }
+  .seg-d{ background: var(--dense); height:100%; transition: width .25s ease; }
+  .seg-s{ background: var(--sparse); height:100%; transition: width .25s ease; }
+  .fscore{
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fused);
+    text-align: right;
+  }
+
+  .legend{
+    display:flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 14px;
+  }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend .sw{ width:10px; height:10px; border-radius:3px; }
+
+  footer{
+    margin-top: 36px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Hands-on companion &middot; LangGraph_Qdrant_Hybrid_Rerank.ipynb</p>
+    <h1>How Reciprocal Rank Fusion actually combines dense + sparse search</h1>
+    <p class="sub">
+      This uses the <strong>real ranked lists</strong> your notebook's Cell 9 produced for the query
+      <em>"How does LangGraph differ from a normal LangChain chain?"</em> — the same 5 documents came back from both
+      <code>dense_search()</code> and <code>sparse_search()</code>, just in different orders. Drag the slider below and watch
+      exactly how <code>qmodels.Fusion.RRF</code> turns two rankings into one — using only rank position, never the raw scores.
+    </p>
+  </header>
+
+  <div class="lists">
+    <div class="panel">
+      <div class="panel-head"><span class="dot dense"></span><span class="panel-title">Dense-only search (cosine similarity)</span></div>
+      <div class="panel-desc">Semantic match — ranked by meaning</div>
+      <div id="denseList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="dot sparse"></span><span class="panel-title">Sparse-only search (BM25-style)</span></div>
+      <div class="panel-desc">Keyword match — ranked by term overlap</div>
+      <div id="sparseList"></div>
+    </div>
+  </div>
+
+  <div class="formula-box">
+    <div class="formula" id="formulaText">
+      RRF(<span style="color:#fff">d</span>) &nbsp;=&nbsp;
+      1 / (<span class="k">k</span> + <span class="d">rank_dense</span>)
+      &nbsp;+&nbsp;
+      1 / (<span class="k">k</span> + <span class="s">rank_sparse</span>)
+    </div>
+    <div class="k-row">
+      <label for="kSlider">k =</label>
+      <input type="range" id="kSlider" min="1" max="60" step="1" value="1">
+      <span class="k-val" id="kVal">1</span>
+      <div class="presets">
+        <button class="preset-btn" data-k="1">k = 1 (Qdrant's default here)</button>
+        <button class="preset-btn" data-k="60">k = 60 (classic literature value)</button>
+      </div>
+    </div>
+    <p class="k-note" id="kNote"></p>
+  </div>
+
+  <div class="fused-panel">
+    <div class="panel-head"><span class="dot fused"></span><span class="panel-title">Fused ranking (recomputed live as you move the slider)</span></div>
+    <div id="fusedList"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--dense)"></span>contribution from dense rank</span>
+      <span><span class="sw" style="background:var(--sparse)"></span>contribution from sparse rank</span>
+    </div>
+  </div>
+
+  <footer>
+    At <strong>k = 1</strong>, this exact formula reproduces Qdrant's real fused scores from your notebook: 1.0, 0.6667, 0.45, 0.45, 0.3333 —
+    verified, not approximated. Notice RRF never looks at 0.8139 or 5.4881 (the raw dense/sparse scores) — only each document's
+    <em>position</em> in each list. That's the whole trick: it lets you fairly combine two scoring systems on completely
+    different scales (bounded cosine similarity vs. unbounded BM25 sums) without one dominating just because its numbers are bigger.
+  </footer>
+
+</div>
+
+<script>
+  // Real data captured from the notebook's actual Cell 9 output for the same query.
+  const docs = [
+    { id: "core",       text: "LangGraph is a library for building stateful, multi-actor applications with LLMs, built on top of LangChain.", denseRank: 1, denseScore: 0.8139, sparseRank: 1, sparseScore: 5.4881 },
+    { id: "cycles",     text: "Unlike LCEL chains, which are directed acyclic graphs, LangGraph supports cycles and conditional branching.", denseRank: 2, denseScore: 0.809,  sparseRank: 2, sparseScore: 5.4881 },
+    { id: "stategraph", text: "A StateGraph in LangGraph defines nodes, edges, and a shared state object that flows through the graph.", denseRank: 3, denseScore: 0.761,  sparseRank: 4, sparseScore: 2.7513 },
+    { id: "condedges",  text: "Conditional edges in LangGraph route execution to different nodes based on the current state, enabling dynamic control flow.", denseRank: 4, denseScore: 0.7425, sparseRank: 3, sparseScore: 5.4452 },
+    { id: "checkpoint", text: "LangGraph's checkpointing feature allows persisting graph state, enabling resumability and human-in-the-loop workflows.", denseRank: 5, denseScore: 0.6689, sparseRank: 5, sparseScore: 2.7369 },
+  ];
+
+  const denseListEl = document.getElementById("denseList");
+  const sparseListEl = document.getElementById("sparseList");
+  const fusedListEl = document.getElementById("fusedList");
+  const kSlider = document.getElementById("kSlider");
+  const kVal = document.getElementById("kVal");
+  const kNote = document.getElementById("kNote");
+
+  function renderSourceLists(){
+    const byDense = [...docs].sort((a,b)=>a.denseRank-b.denseRank);
+    const bySparse = [...docs].sort((a,b)=>a.sparseRank-b.sparseRank);
+
+    denseListEl.innerHTML = byDense.map(d => `
+      <div class="card" data-id="${d.id}" data-side="dense">
+        <span class="rank dense-r">${d.denseRank}</span>
+        <span class="doc-text">${d.text}</span>
+        <span class="raw-score">${d.denseScore.toFixed(4)}</span>
+      </div>`).join("");
+
+    sparseListEl.innerHTML = bySparse.map(d => `
+      <div class="card" data-id="${d.id}" data-side="sparse">
+        <span class="rank sparse-r">${d.sparseRank}</span>
+        <span class="doc-text">${d.text}</span>
+        <span class="raw-score">${d.sparseScore.toFixed(4)}</span>
+      </div>`).join("");
+  }
+
+  function highlight(id){
+    document.querySelectorAll(".card, .frow").forEach(el=>{
+      el.classList.toggle("active", el.dataset.id === id);
+    });
+  }
+
+  function computeFused(k){
+    return docs.map(d => {
+      const dContrib = 1 / (k + d.denseRank);
+      const sContrib = 1 / (k + d.sparseRank);
+      return { ...d, dContrib, sContrib, total: dContrib + sContrib };
+    }).sort((a,b)=> b.total - a.total);
+  }
+
+  function renderFused(k){
+    const fused = computeFused(k);
+    const maxTotal = fused[0].total;
+
+    fusedListEl.innerHTML = fused.map((d, i) => {
+      const dPct = (d.dContrib / maxTotal) * 100;
+      const sPct = (d.sContrib / maxTotal) * 100;
+      return `
+        <div class="frow" data-id="${d.id}">
+          <span class="frank">${i+1}</span>
+          <span class="ftext">${d.text}</span>
+          <span class="bar-cell">
+            <span class="bar-track">
+              <span class="seg-d" style="width:${dPct}%"></span>
+              <span class="seg-s" style="width:${sPct}%"></span>
+            </span>
+          </span>
+          <span class="fscore">${d.total.toFixed(4)}</span>
+        </div>`;
+    }).join("");
+
+    document.querySelectorAll(".card, .frow").forEach(el=>{
+      el.addEventListener("mouseenter", ()=>highlight(el.dataset.id));
+      el.addEventListener("mouseleave", ()=>highlight(null));
+    });
+  }
+
+  function updateNote(k){
+    if (k <= 3){
+      kNote.textContent = `At k=${k}, ranks matter a lot: being #1 instead of #2 in a list swings the score sharply — this small-k regime is what Qdrant actually uses here, which is why rank 3 vs 4 (StateGraph/Conditional edges) still tie at 0.45 when their ranks are simply swapped between the two lists.`;
+    } else if (k <= 20){
+      kNote.textContent = `As k grows, each rank position matters relatively less — the gap between being #1 and #2 shrinks.`;
+    } else {
+      kNote.textContent = `At large k (like the classic k=60 used in big web-search literature), rank position barely matters — RRF becomes almost a gentle tie-break rather than a strong reordering signal. Useful when you have thousands of candidates and don't want the top few ranks to totally dominate.`;
+    }
+  }
+
+  function render(){
+    const k = Number(kSlider.value);
+    kVal.textContent = k;
+    renderSourceLists();
+    renderFused(k);
+    updateNote(k);
+  }
+
+  kSlider.addEventListener("input", render);
+  document.querySelectorAll(".preset-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      kSlider.value = btn.dataset.k;
+      render();
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>
