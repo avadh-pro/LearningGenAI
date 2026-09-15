@@ -288,7 +288,7 @@ Zooming out from any one component to how the whole system is designed.
 2. **Metadata-rich chunking combined with hierarchical indexing** — the best overall chunking approach, enabling precise filtering and deep drill-down.
 3. **Evaluation-first design** — the *only* way to actually know if any of the above is working: a real test set, retrieval evaluation, generation evaluation, end-to-end evaluation, then iterate.
 
-**Four things that remain genuinely unsolved:**
+**Four things that remain genuinely unsolved:** (We could deep dive)
 
 1. **Multi-hop reasoning at low latency** — every hop adds latency, it's hard to know when to stop retrying, and errors can propagate across hops.
 2. **Truly dynamic corpora without retrieval lag** — indexing large-scale real-time updates cleanly, without a freshness-vs-consistency trade-off, isn't solved.
