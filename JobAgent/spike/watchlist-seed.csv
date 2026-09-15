@@ -1,51 +1,51 @@
 company,candidate_slugs,ats_guess,region,why_relevant
-Databricks,databricks,greenhouse,global+india,"Data/AI platform; large India org; FDE and AI solution roles exist"
-Confluent,confluent,greenhouse,global+india,"Streaming + AI; Bengaluru engineering; solutions architect track"
-MongoDB,mongodb,greenhouse,global+india,"Vector search push; Gurugram/Bengaluru; solutions architecture"
-Elastic,elastic,greenhouse,global+remote,"Search/vector; remote-first; ESRE and GenAI roles"
-HashiCorp,hashicorp,greenhouse,global+remote,"Remote-first; solutions engineering"
-Snowflake,snowflakecomputing|snowflake,greenhouse,global+india,"Cortex/LLM push; Pune + Bengaluru"
-Cloudflare,cloudflare,greenhouse,global+india,"Workers AI; Bengaluru office"
-Datadog,datadog,greenhouse,global+india,"Observability + AI; India hiring"
-GitLab,gitlab,greenhouse,global+remote,"All-remote; GitLab Duo AI"
-Atlassian,atlassian,greenhouse,global+india,"Bengaluru R&D; Atlassian Intelligence"
-Twilio,twilio,greenhouse,global+india,"CustomerAI; Bengaluru"
-Stripe,stripe,greenhouse,global+india,"Bengaluru hub; applied ML"
-Rubrik,rubrik,greenhouse,global+india,"Bengaluru + Palo Alto; Ruby AI"
-Nutanix,nutanix,greenhouse,global+india,"Bengaluru + Pune; GPT-in-a-box"
-Glean,glean|gleanwork,greenhouse,global+india,"Enterprise RAG search; Bengaluru office; closest product analogue"
-Weights & Biases,weightsandbiases|wandb,greenhouse,global+remote,"LLMOps; remote"
-LangChain,langchain,greenhouse,global+remote,"Direct stack match; remote"
-Vercel,vercel,greenhouse,global+remote,"AI SDK; remote"
-Temporal,temporaltechnologies|temporal,greenhouse,global+remote,"Durable execution; remote"
-Airbyte,airbyte,greenhouse,global+remote,"Data movement; remote"
-Freshworks,freshworks,greenhouse,india,"Chennai/Bengaluru; Freddy AI"
-Postman,postman,greenhouse,india,"Bengaluru; MCP and API AI work; direct MCP match"
-Razorpay,razorpay,lever,india,"Bengaluru; ML platform"
-Zeta,zeta|zetasuite,lever,india,"Bengaluru; banking AI"
-CRED,cred,lever,india,"Bengaluru; ML"
-Meesho,meesho,lever,india,"Bengaluru; ML/GenAI"
-Swiggy,swiggy,lever,india,"Bengaluru; ML platform"
-Groww,groww,lever,india,"Bengaluru; ML"
-PhonePe,phonepe,lever,india,"Bengaluru; ML platform"
-Sprinklr,sprinklr,greenhouse,india,"Gurugram/Bengaluru; unified CXM AI"
-Chargebee,chargebee,greenhouse,india,"Chennai; AI features"
-Hasura,hasura,greenhouse,india+remote,"Bengaluru; PromptQL — strong GenAI match"
-Harness,harness,greenhouse,india,"Bengaluru; AIDA AI"
-BrowserStack,browserstack,greenhouse,india,"Mumbai/Bengaluru; AI test agents"
-Innovaccer,innovaccer,greenhouse,india,"Noida/Bengaluru; healthcare AI"
-Uniphore,uniphore,greenhouse,india,"Chennai/Bengaluru; conversational AI"
-Observe.AI,observeai,greenhouse,india,"Bengaluru; contact-centre LLM"
-Yellow.ai,yellowai|yellowmessenger,lever,india,"Bengaluru; conversational AI agents"
-Gupshup,gupshup,lever,india,"Bengaluru; conversational AI"
-Sarvam AI,sarvamai|sarvam,lever,india,"Bengaluru; Indic LLMs"
-Fractal Analytics,fractalanalytics|fractal,lever,india,"Mumbai/Bengaluru; AI services + FDE-shaped roles"
-Quantiphi,quantiphi,lever,india,"Mumbai; applied AI services"
-Netradyne,netradyne,lever,india,"Bengaluru; CV/edge AI"
-Druva,druva,greenhouse,india,"Pune; data protection AI"
-Icertis,icertis,greenhouse,india,"Pune; contract intelligence LLM"
-MoEngage,moengage,lever,india,"Bengaluru; marketing AI"
-Whatfix,whatfix,lever,india,"Bengaluru; DAP + AI"
-Darwinbox,darwinbox,lever,india,"Hyderabad; HR AI"
-Zepto,zepto|kiranakart,lever,india,"Mumbai/Bengaluru; ML"
-slice,sliceit|slice,lever,india,"Bengaluru; ML"
+Databricks,databricks,greenhouse,global+india,Data/AI platform; large India org; FDE and AI solution roles exist
+Confluent,confluent,ashby,global+india,Streaming + AI; Bengaluru engineering; solutions architect track
+MongoDB,mongodb,greenhouse,global+india,Vector search push; Gurugram/Bengaluru; solutions architecture
+Elastic,elastic,greenhouse,global+remote,Search/vector; remote-first; ESRE and GenAI roles
+HashiCorp,hashicorp,greenhouse,global+remote,Remote-first; solutions engineering
+Snowflake,snowflake,ashby,global+india,Cortex/LLM push; Pune + Bengaluru
+Cloudflare,cloudflare,greenhouse,global+india,Workers AI; Bengaluru office
+Datadog,datadog,greenhouse,global+india,Observability + AI; India hiring
+GitLab,gitlab,greenhouse,global+remote,All-remote; GitLab Duo AI
+Atlassian,atlassian,greenhouse,global+india,Bengaluru R&D; Atlassian Intelligence
+Twilio,twilio,greenhouse,global+india,CustomerAI; Bengaluru
+Stripe,stripe,greenhouse,global+india,Bengaluru hub; applied ML
+Rubrik,rubrik,greenhouse,global+india,Bengaluru + Palo Alto; Ruby AI
+Nutanix,nutanix,greenhouse,global+india,Bengaluru + Pune; GPT-in-a-box
+Glean,gleanwork|glean,greenhouse,global+india,Enterprise RAG search; Bengaluru office; closest product analogue
+Weights & Biases,weightsandbiases|wandb,greenhouse,global+remote,LLMOps; remote
+LangChain,langchain,ashby,global+remote,Direct stack match; remote
+Vercel,vercel,greenhouse,global+remote,AI SDK; remote
+Temporal,temporal,ashby,global+remote,Durable execution; remote
+Airbyte,airbyte,ashby,global+remote,Data movement; remote
+Freshworks,freshworks,smartrecruiters,india,Chennai/Bengaluru; Freddy AI
+Postman,postman,greenhouse,india,Bengaluru; MCP and API AI work; direct MCP match
+Razorpay,razorpay,lever,india,Bengaluru; ML platform
+Zeta,zeta|zetasuite,lever,india,Bengaluru; banking AI
+CRED,cred,lever,india,Bengaluru; ML
+Meesho,meesho,lever,india,Bengaluru; ML/GenAI
+Swiggy,swiggy,smartrecruiters,india,Bengaluru; ML platform
+Groww,groww,lever,india,Bengaluru; ML
+PhonePe,phonepe,lever,india,Bengaluru; ML platform
+Sprinklr,sprinklr,greenhouse,india,Gurugram/Bengaluru; unified CXM AI
+Chargebee,chargebee,greenhouse,india,Chennai; AI features
+Hasura,hasura,greenhouse,india+remote,Bengaluru; PromptQL — strong GenAI match
+Harness,harness,greenhouse,india,Bengaluru; AIDA AI
+BrowserStack,browserstack,greenhouse,india,Mumbai/Bengaluru; AI test agents
+Innovaccer,innovaccer,greenhouse,india,Noida/Bengaluru; healthcare AI
+Uniphore,uniphore,greenhouse,india,Chennai/Bengaluru; conversational AI
+Observe.AI,observeai,greenhouse,india,Bengaluru; contact-centre LLM
+Yellow.ai,yellowai|yellowmessenger,lever,india,Bengaluru; conversational AI agents
+Gupshup,gupshup,lever,india,Bengaluru; conversational AI
+Sarvam AI,sarvam,ashby,india,Bengaluru; Indic LLMs
+Fractal Analytics,fractalanalytics|fractal,lever,india,Mumbai/Bengaluru; AI services + FDE-shaped roles
+Quantiphi,quantiphi,lever,india,Mumbai; applied AI services
+Netradyne,netradyne,lever,india,Bengaluru; CV/edge AI
+Druva,druva,greenhouse,india,Pune; data protection AI
+Icertis,icertis,greenhouse,india,Pune; contract intelligence LLM
+MoEngage,moengage,lever,india,Bengaluru; marketing AI
+Whatfix,whatfix,smartrecruiters,india,Bengaluru; DAP + AI
+Darwinbox,darwinbox,lever,india,Hyderabad; HR AI
+Zepto,zepto|kiranakart,lever,india,Mumbai/Bengaluru; ML
+slice,sliceit|slice,lever,india,Bengaluru; ML

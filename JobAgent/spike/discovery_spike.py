@@ -61,6 +61,13 @@ from pathlib import Path
 UA = "JobAgent-discovery-spike/0.1 (personal job search; contact via repo owner)"
 GREENHOUSE = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
 LEVER = "https://api.lever.co/v0/postings/{slug}?mode=json"
+ASHBY = "https://api.ashbyhq.com/posting-api/job-board/{slug}"
+SMARTRECRUITERS = "https://api.smartrecruiters.com/v1/companies/{slug}/postings"
+
+# Tier 1 is what SPEC §4.2 can actually auto-submit to. Tier 2 is structured and
+# plausible for the career-page mapper agent (§5.4) but is NOT in the v1 adapter
+# set, so its supply must never be blended into the tier-1 number.
+TIER = {"greenhouse": 1, "lever": 1, "ashby": 2, "smartrecruiters": 2}
 
 # --- the prefilter -----------------------------------------------------------
 # Deliberately generous: this is a supply question, not a scoring question.
@@ -168,6 +175,43 @@ def greenhouse_rows(payload, company, slug, now):
         }
 
 
+def _iso(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def ashby_rows(payload, company, slug, now):
+    for j in (payload or {}).get("jobs", []):
+        loc = j.get("location") or ""
+        dt = _iso(j.get("publishedAt"))
+        yield {
+            "company": company, "ats": "ashby", "slug": slug,
+            "title": j.get("title", ""), "location": loc,
+            "url": j.get("jobUrl", ""), "bucket": bucket(loc),
+            "age_days": age_days(dt, now), "date_field": "publishedAt",
+        }
+
+
+def smartrecruiters_rows(payload, company, slug, now):
+    for j in (payload or {}).get("content", []):
+        l = j.get("location") or {}
+        loc = ", ".join(x for x in (l.get("city"), l.get("region"), l.get("country")) if x)
+        if l.get("remote"):
+            loc = (loc + ", Remote").strip(", ")
+        dt = _iso(j.get("releasedDate"))
+        yield {
+            "company": company, "ats": "smartrecruiters", "slug": slug,
+            "title": j.get("name", ""), "location": loc,
+            "url": f"https://jobs.smartrecruiters.com/{slug}/{j.get('id','')}",
+            "bucket": bucket(loc), "age_days": age_days(dt, now),
+            "date_field": "releasedDate",
+        }
+
+
 def lever_rows(payload, company, slug, now):
     for j in payload or []:
         cats = j.get("categories") or {}
@@ -221,41 +265,61 @@ def main() -> int:
         candidates = [s.strip() for s in row["candidate_slugs"].split("|") if s.strip()]
         resolved = None
 
+        parsers = {
+            "greenhouse": greenhouse_rows,
+            "lever": lever_rows,
+            "ashby": ashby_rows,
+            "smartrecruiters": smartrecruiters_rows,
+        }
+        # Collect every hit, then choose — first-match-wins is wrong here for two
+        # reasons found the hard way:
+        #   1. SmartRecruiters answers 200 with `totalFound: 0` for ANY unknown
+        #      company (verified: `thiscompanydoesnotexist99` "resolves"), so an
+        #      empty response is not evidence a board exists. Only postings count.
+        #   2. Taking the first hit let a stray tier-2 match on an early slug
+        #      pre-empt the real tier-1 board on a later one — Glean is on
+        #      Greenhouse as `gleanwork`, but a 1-posting SmartRecruiters hit on
+        #      `glean` won the race and silently cost six India roles.
+        # So: probe candidates, keep only hits with postings, and pick the best by
+        # (tier ascending, postings descending). Stop early only on a tier-1 hit,
+        # which nothing later can beat.
+        hits = []
         for slug in candidates:
             for ats, url in (
                 ("greenhouse", GREENHOUSE.format(slug=slug)),
                 ("lever", LEVER.format(slug=slug)),
+                ("ashby", ASHBY.format(slug=slug)),
+                ("smartrecruiters", SMARTRECRUITERS.format(slug=slug)),
             ):
                 payload, note = probe(url)
                 time.sleep(args.delay + random.uniform(0, args.delay))
                 if payload is None:
                     continue
-                rows = list(
-                    greenhouse_rows(payload, company, slug, now)
-                    if ats == "greenhouse"
-                    else lever_rows(payload, company, slug, now)
-                )
+                rows = list(parsers[ats](payload, company, slug, now))
                 if not rows:
-                    # Resolved but empty: a real signal (board exists, nothing posted).
-                    resolved = (ats, slug, note, 0)
                     continue
-                resolved = (ats, slug, note, len(rows))
-                roles.extend(r for r in rows if matches(r["title"]))
+                hits.append((TIER[ats], -len(rows), ats, slug, note, rows))
+            if any(h[0] == 1 for h in hits):
                 break
-            if resolved and resolved[3] > 0:
-                break
+
+        if hits:
+            hits.sort(key=lambda h: (h[0], h[1]))
+            _tier, _neg, ats, slug, note, rows = hits[0]
+            resolved = (ats, slug, note, len(rows))
+            roles.extend(r for r in rows if matches(r["title"]))
 
         if resolved:
             ats, slug, note, total = resolved
             boards.append(
-                {"company": company, "resolved_ats": ats, "slug": slug,
-                 "status": note, "total_postings": total}
+                {"company": company, "resolved_ats": ats, "tier": TIER.get(ats, ""),
+                 "slug": slug, "status": note, "total_postings": total}
             )
-            print(f"[{i:>2}/{len(seed)}] {company:<20} {ats:<10} {slug:<20} {total} postings")
+            print(f"[{i:>2}/{len(seed)}] {company:<20} t{TIER.get(ats,'?')} {ats:<16} "
+                  f"{slug:<20} {total} postings")
         else:
             boards.append(
-                {"company": company, "resolved_ats": "", "slug": "|".join(candidates),
-                 "status": "unresolved", "total_postings": 0}
+                {"company": company, "resolved_ats": "", "tier": "",
+                 "slug": "|".join(candidates), "status": "unresolved", "total_postings": 0}
             )
             print(f"[{i:>2}/{len(seed)}] {company:<20} UNRESOLVED ({'|'.join(candidates)})")
         sys.stdout.flush()
@@ -287,6 +351,8 @@ def write_summary(out: Path, boards, roles, now, seed_name: str) -> None:
     # without exposing postings). Do not let it inflate "reachable boards".
     live_boards = [b for b in resolved_boards if int(b["total_postings"]) > 0]
     empty_boards = [b for b in resolved_boards if int(b["total_postings"]) == 0]
+    t1_boards = [b for b in live_boards if str(b.get("tier")) == "1"]
+    t2_boards = [b for b in live_boards if str(b.get("tier")) == "2"]
     india = [r for r in roles if r["bucket"] == "india"]
     remote = [r for r in roles if r["bucket"] == "remote"]
     geo = [r for r in roles if r["bucket"] == "target_geo"]
@@ -310,6 +376,13 @@ def write_summary(out: Path, boards, roles, now, seed_name: str) -> None:
     f30 = fresh(reachable, 30)
     per_week = len(f30) / (30 / 7)
 
+    # The tier-1 figure is the one comparable across runs and the one Q-S turns
+    # on: it is the supply this system can actually submit to as specified.
+    r_t1 = [r for r in reachable if TIER.get(r["ats"]) == 1]
+    r_t2 = [r for r in reachable if TIER.get(r["ats"]) == 2]
+    t1_week = len(fresh(r_t1, 30)) / (30 / 7)
+    t2_week = len(fresh(r_t2, 30)) / (30 / 7)
+
     by_company = {}
     for r in reachable:
         by_company[r["company"]] = by_company.get(r["company"], 0) + 1
@@ -328,10 +401,13 @@ def write_summary(out: Path, boards, roles, now, seed_name: str) -> None:
         "## Board reachability (this is the half that is a hard fact)",
         "",
         f"- Companies probed: **{len(boards)}**",
-        f"- Boards resolved **with live postings**: **{len(live_boards)}** — these are the"
-        " auto-submittable surface",
-        f"- Boards resolved but **empty**: **{len(empty_boards)}** (slug likely right, nothing"
-        " posted publicly right now)",
+        f"- Boards resolved **with live postings**: **{len(live_boards)}**"
+        f" — **{len(t1_boards)} on tier 1** (Greenhouse/Lever — the spec's auto-submit adapters)"
+        f" and **{len(t2_boards)} on tier 2** (Ashby/SmartRecruiters — structured, but not in the"
+        " v1 adapter set)",
+        f"- Boards resolved but **empty**: **{len(empty_boards)}** — a board counts as resolved"
+        " only if it returns postings. SmartRecruiters answers 200 with `totalFound: 0` for any"
+        " unknown company, so an empty response is not evidence a board exists.",
         f"- Unresolved (not on Greenhouse/Lever under the guessed slug): **{len(boards) - len(resolved_boards)}**",
         f"- Total postings visible across resolved boards: **{sum(int(b['total_postings']) for b in boards)}**",
         "",
@@ -351,6 +427,14 @@ def write_summary(out: Path, boards, roles, now, seed_name: str) -> None:
         f"**Genuinely reachable: {len(reachable)}**, of which **{len(f30)}** are dated within 30 days",
         f"→ **~{per_week:.1f} roles/week**, and that is still an upper bound: the ≥ 70 rubric, the",
         "seniority rules, the mandatory-qualification rule and dedup all cut it further.",
+        "",
+        "Split by what the system can actually do with them:",
+        "",
+        f"- **Tier 1 — auto-submittable today** (Greenhouse/Lever): **{len(r_t1)}** reachable,"
+        f" **~{t1_week:.1f}/week**. *This is the number Q-S turns on.*",
+        f"- **Tier 2 — structured but out of scope** (Ashby/SmartRecruiters): **{len(r_t2)}**"
+        f" reachable, **~{t2_week:.1f}/week**. Adding these adapters is a v1.1 question; until"
+        " then they are by-hand supply.",
         "",
         f"Concentration: the top four companies supply **{top4_share:.0%}** of the reachable pool.",
         "",

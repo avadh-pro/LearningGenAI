@@ -1,0 +1,31 @@
+company,ats,tier,slug,postings,status
+Confluent,ashby,2,confluent,21,ok
+HashiCorp,,,,0,not_found
+Snowflake,ashby,2,snowflake,363,ok
+Atlassian,,,,0,not_found
+Nutanix,,,,0,not_found
+Weights & Biases,,,,0,not_found
+LangChain,ashby,2,langchain,109,ok
+Temporal,ashby,2,temporal,71,ok
+Airbyte,ashby,2,airbyte,13,ok
+Freshworks,smartrecruiters,2,freshworks,138,ok
+Razorpay,,,,0,not_found
+Swiggy,smartrecruiters,2,swiggy,86,ok
+PhonePe,,,,0,not_found
+Sprinklr,,,,0,not_found
+Chargebee,,,,0,not_found
+Hasura,,,,0,not_found
+Harness,,,,0,not_found
+BrowserStack,,,,0,not_found
+Innovaccer,,,,0,not_found
+Uniphore,,,,0,not_found
+Yellow.ai,,,,0,not_found
+Gupshup,,,,0,not_found
+Sarvam AI,ashby,2,sarvam,63,ok
+Fractal Analytics,,,,0,not_found
+Quantiphi,,,,0,not_found
+Icertis,,,,0,not_found
+MoEngage,,,,0,not_found
+Whatfix,smartrecruiters,2,whatfix,1,ok
+Darwinbox,,,,0,not_found
+Zepto,,,,0,not_found
