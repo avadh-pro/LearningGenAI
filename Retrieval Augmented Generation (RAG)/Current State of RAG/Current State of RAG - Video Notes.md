@@ -634,3 +634,31 @@ Rewriting each hop's query to be self-sufficient before chaining it sequentially
 - **"When to stop" is a calibration problem, not a latency problem.** Even with unlimited time, the system still has to judge whether it's gathered enough evidence to answer, or needs another hop — getting that judgment wrong doesn't go away just because speed stopped being a constraint.
 
 **One line:** sequential self-sufficient query chaining solves the "how do I structure the chain" problem, but "what if an early hop is wrong" and "when have I gathered enough" are reliability issues that removing the latency constraint doesn't fix.
+
+---
+
+### Q17: What is an IDF modifier, in relation to sparse vectors?
+
+**IDF (Inverse Document Frequency) modifier — it makes rare words count for more and common words count for less when scoring a sparse-vector match.**
+
+Without it, a sparse vector just counts raw word frequency, and a word like "the" appearing 5 times looks just as "important" as a rare, specific term appearing 5 times — even though "the" tells you nothing useful.
+
+**Example:** searching "Aadhaar Act biometric requirements" — "the" appears in almost every document in the corpus, so IDF gives it almost zero weight. "Aadhaar" appears in very few documents, so IDF boosts its weight heavily. A document matching on "Aadhaar" scores much higher than one that only matches on "the," even if "the" technically appears more times.
+
+**One line:** IDF is what turns a plain word-count sparse vector into something that behaves like BM25 — it weights each term by how *rare and distinctive* it is across the whole collection, not just by how often it shows up in one document.
+
+---
+
+### Q18: How is MMR different from RRF (Reciprocal Rank Fusion), and is MMR based on a transformer model?
+
+**Different jobs entirely — RRF merges multiple lists, MMR de-duplicates one list.**
+
+**RRF:** you have *two separate* ranked lists (e.g. dense search + keyword/BM25 search) and RRF merges them into *one* combined ranking, using only each document's rank position in each list — nothing about content or diversity.
+
+**MMR (Maximal Marginal Relevance):** you already have *one* ranked list (maybe the RRF-fused output) and MMR trims redundancy within it — if the top 5 results are all near-identical restatements of the same clause, MMR swaps some out for results that are still relevant but meaningfully *different* from what's already been picked.
+
+**Example:** searching "penalty for late tax filing" — RRF's job is merging the dense-search list and keyword-search list into one ranked list of 20 candidates. MMR's job, applied *after* that: from those 20, if the top 5 are all slightly different phrasings of the same penalty clause, MMR picks a more diverse set instead — one about the penalty amount, one about the appeal process, one about exceptions.
+
+**❌ Is MMR based on a transformer model? No.** MMR is just a formula/algorithm — it takes similarity scores already computed elsewhere (usually via a transformer-based embedding model, like cosine similarity between embeddings) and uses them to greedily pick a diverse subset. It doesn't run any neural network itself; it's math applied on top of embeddings someone else already produced.
+
+**One line:** RRF combines multiple ranked lists into one using only rank position; MMR takes one list and diversifies its top picks using existing similarity scores — and MMR itself is a plain selection formula, not a model, even though the similarity scores it uses typically come from a transformer-based embedding model.
