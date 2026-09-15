@@ -4,10 +4,11 @@
 **Owner:** Avadh Dobariya
 **Inputs:** `docs/REQUIREMENTS.md` v0.5 (approved) · `docs/requirements-analysis.md` (assumption register §7 adopted; exceptions in §17) · `docs/test-plan.md` (277 acceptance criteria — every one must be satisfiable by this design) · `docs/ui-ux-design.md` (19 screens, FR→UI map) · `knowledge-base/` (LangChain 1.x / LangGraph API truth)
 **Status:** Phase 3 — specification for implementation by Sonnet/Opus
-**Version:** 2.0 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
-**Revision:** closes the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs the
-review required in the same pass (M-1, M-2, M-3, M-15). Changelog: §20. Findings *not* closed
-in this revision are listed in §21 — they are open, not resolved.
+**Version:** 2.1 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
+**Revision:** v2.0 closed the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs
+the review required in the same pass (M-1, M-2, M-3, M-15). **v2.1 answers Q-S on measured
+evidence and re-cuts the plan into two releases (§15.0).** Changelog: §20. Findings *not* closed
+are listed in §21 — they are open, not resolved.
 
 > This document says **how**. Every LangChain/LangGraph symbol named here was grepped in
 > `knowledge-base/` before it was written down; §18 is the verification table. Anything that
@@ -64,6 +65,12 @@ asked of a model:
 | **No fabrication, ever** (T-1..T-5) | A deterministic fact ledger built from the master resume; a generator that emits a *plan* (element keys + provenance pointers), never free HTML; a verifier (FactGuard) that runs on every artefact, fails closed, and blocks the `SUBMITTING` transition without a fresh pass on the exact artefact hashes. | §8, §10 |
 | **Answer-sheet values never reach an LLM** (§2.1, NFR-7) | Values live in one table, are loaded only inside the deterministic `FormFiller`, never enter graph state (hence never checkpoints), and a `GuardedModel` wrapper asserts on every outbound prompt — **with no unwrapped path: `.inner` is banned by static check, and the one agentic component is guarded by middleware** (§4.13, §5.4). Masked *in transit*; **never masked from the reviewer** — every value that will be typed into a form is rendered in full on the review screen (§11.7, C-7). | §11, §12 |
 | **Review stays a 60-second task** (HITL-5, UI D-2) | Tailoring is reorder-first; only the professional summary may be rewritten; the change budget is enforced by the plan schema; the diff the reviewer sees is the diff the verifier checked, and the values the reviewer sees are the values the employer receives. | §10, §11.7 |
+
+**Release 1 does not submit.** On measured evidence (§15.0) the system ships first as a
+discovery, tailoring, verification and hand-over tool: it finds the roles, produces the documents,
+proves they contain no fabrication, and hands them to Avadh to send. `submission_enabled` stays
+`false` and the `submit` node is not built until Release 2. Everything below is specified for the
+complete system; §15.0 says which parts are in which release.
 
 The runtime is **exactly one** Python process (`jobagent serve`) — a named OS mutex makes a
 second instance refuse to start before it can touch a record (§9.6, C-10) — hosting a FastAPI backend bound to
@@ -2267,6 +2274,73 @@ Complexity: **S** ≤ ½ day · **M** 1–2 days · **L** 3–5 days · **XL** >
 implementer with this spec). Each phase names its exit gate from the test plan. Phases 1–3 are
 the safety core and must be green before any browser touches a real ATS.
 
+### 15.0 Release plan — Q-S, decided on measured evidence
+
+**The decision.** Release 1 is the **non-submitting** product. Release 2 adds automated
+submission, entered deliberately rather than by default.
+
+**The evidence, not the taste.** The discovery spike (`spike/`, run 2026-09-15) probed 50 seeded
+companies against four public board APIs and then verified every unresolved slug:
+
+| Measurement | Value |
+| --- | --- |
+| Boards reachable by the spec's auto-submit adapters (Greenhouse/Lever) | 20 of 50 |
+| Reachable AI/ML roles on those boards | **40** |
+| Of which dated within 30 days | 38 → **~7.0 roles/week** |
+| Unresolved boards that turned out to be wrong slugs | **0 of 29** |
+| Companies on ATSs outside all four probed (Workday, Darwinbox, Keka, in-house) | 21 |
+| Share of the reachable pool from the top four companies | 60% |
+
+Two things follow. First, **~7 roles/week is an upper bound** — it is a title/location regex, not
+the ≥ 70 rubric of §4.6, and the hard rules of §4.5 cut it further; the realistic queue is a
+handful a week. Second, **that number is not an artefact of a lazy seed list**: none of the 29
+unresolved boards were wrong Greenhouse/Lever slugs, so fixing slugs does not move it.
+
+Against a system whose ceiling is 10–20 applications *per day*, supply is one to two orders of
+magnitude below the constraint the design optimises for. The submission protocol — the part
+carrying every irreversible action, five of the ten CRITICALs, and nine of the fourteen
+unsatisfiable acceptance criteria — would be built to automate work that takes a human minutes.
+
+**What Release 1 contains.**
+
+| Phase | In Release 1 | Deferred to Release 2 |
+| --- | --- | --- |
+| 0 Foundations | all (T-0.1 … T-0.8) | — |
+| 1 Ledger + FactGuard | all (T-1.1 … T-1.7) | — |
+| 2 Tracker + graphs | T-2.1, T-2.2, T-2.3, T-2.7, T-2.8 | T-2.4, T-2.4a/b/c, T-2.5, T-2.6, T-2.9, T-2.10 — the whole submission protocol |
+| 3 Tailoring + docs | T-3.1, T-3.2, T-3.3, T-3.4, T-3.9, T-3.10 | T-3.5, T-3.6, T-3.7, T-3.8 — form probe, router, filler, mapper agent |
+| 4 Discovery | all (T-4.1 … T-4.10) | — |
+| 5 API + reports | all, minus the submission endpoints | pre-flight, unknown-outcome, blocker and handoff endpoints |
+| 6 Frontend | **thin cut** — see below | the rest of the 19 screens |
+| 7 Hardening / go-live | — | all (T-7.1 … T-7.4) |
+
+**The honest arithmetic, because the review's "ships months earlier" overstates it.** Deferring
+submission removes roughly **25–40 implementer-days of 120–200 — about 20%**. The risk reduction is
+far larger than the time saved: it removes every irreversible action from v1, and with it the
+entire class of defect that got v1.0 rejected. But if *time to first usable output* is the goal,
+the bigger lever is elsewhere, and it should be pulled in the same pass:
+
+> **Phase 6 is the largest non-safety cost in the plan** — a 19-screen keyboard-first SPA
+> (T-6.3 alone is XL) for a **single user**. Release 1 ships a **thin cut**: the review screen
+> (S3–S7, where the whole value is), the by-hand list (S10), the tracker (S11) and settings
+> (S13–S16). Today/queue/audit/reports/run-console (S1, S2, S8, S9, S12, S17, S18, S19) are
+> Release 2 or later; their data is reachable from the API and, at a handful of applications a
+> week, a table is enough.
+
+Combined, Release 1 is roughly **half the total plan** and produces the thing that actually helps:
+tailored, fact-checked documents for the right roles, ready to send.
+
+**What Release 1 must still honour.** Everything in §8 (FactGuard), §10 (tailoring contract) and
+the C-6/C-7/C-8 fixes. Documents-only does not weaken the truthfulness argument — it *is* the
+truthfulness argument, with the click removed. HITL-5 still applies: Avadh reviews every artefact,
+and §11.7 puts the real values in front of him.
+
+**Entering Release 2.** Not a date — a trigger. Re-open Q-S when any holds: measured tier-1 supply
+exceeds ~20 reachable roles/week; or Release 1 has run for a month and the hand-over step is the
+demonstrated bottleneck; or the Ashby/SmartRecruiters adapters (tier 2, a further ~1.9 roles/week,
+including Sarvam AI) are wanted, which is the cheaper adjacent move. Release 2 then begins with
+the deferred Phase 2 tasks, and `submission_enabled` is turned on only at T-7.3.
+
 ### Phase 0 — Foundations (exit: repo builds, static checks run, master snapshot recorded)
 
 | Task | Description | Cx |
@@ -2388,7 +2462,7 @@ T-5.2 stabilises the API.
 | R-2 | **Fabrication slips past FactGuard** (novel phrasing, synonym drift, judge false-`ENTAILED`) | Critical | Medium | Generator emits plans/claims not prose; deterministic checks first; judge ≠ generator; mutation suite 40/40; adversarial live suite; Avadh's review is the last gate and the UI makes traces visible | Medium — the residual is the human reviewer's attention |
 | R-3 | **Review degrades into rubber-stamping** as volume settles | High | Medium | Diff-first tailoring (§10), change budget, no bulk approve, review-time telemetry and reject-rate in Reports; if median review time drops under ~20 s the report flags it | Medium |
 | R-4 | **Answer-sheet leak** through an unexpected channel (error message, trace, screenshot OCR, Telegram) | High | Low | Values isolated to one table, encrypted, decrypted only in `FormFiller`/reveal; `PromptGuard`; log scrubber; allowlisted notification variables; proxy and log scans in CI | Low |
-| R-5 | **Discovery yield too low** on the submit-capable sources because the watchlist is empty / boards are sparse | High | High initially | Seed list (Q-B), auto-grow from aggregators, per-source yield in the audit log to steer effort | Medium |
+| R-5 | **Discovery yield too low** on the submit-capable sources | High | **MEASURED, 2026-09-15: fired.** ~7 reachable roles/week on Greenhouse/Lever, upper bound, from 20 of 50 seeded boards; 21 companies are on ATSs the spec cannot auto-submit to | Q-S decided accordingly (§15.0): ship the non-submitting product first, so the plan no longer depends on this risk not firing. Seed list (Q-B) verified; auto-grow from aggregators; per-source yield in the audit log | Accepted, and designed around rather than mitigated |
 | R-6 | **Aggregator scraping is challenged/banned** (LinkedIn/Naukri/Indeed) | Medium | High | Logged-out only, 24 h back-off, best-effort; never the personal session; measured yield decides whether to keep | Medium |
 | R-7 | **Workday assisted mode still consumes Avadh's time** | Medium | High | Explicit assisted flow with pre-fill; by-hand fallback; promote to automation only if audit shows a repeatable pattern | Medium |
 | R-8 | **Career-page forms too varied** — `supported_ratio` < 0.9 on most | Medium | Medium | Mapper agent (route-only tools) + fallback with prepared documents (D-3) | Medium |
@@ -2511,7 +2585,7 @@ Carried from the analysis (§6) with the default this spec builds on; plus new o
 | **Q-P (new)** | Data directory `%LOCALAPPDATA%\JobAgent` acceptable (D-5)? | Yes | Repo-relative path risks OneDrive sync and long paths |
 | **Q-Q (new)** | Default `generate` model — confirm the strongest currently available Anthropic model id at build time (only `claude-opus-4-8` appears in the knowledge base) | `anthropic:claude-opus-4-8` | Config change only |
 | **Q-R** | Bounded parallel tailoring (2 concurrent application threads) acceptable, or strictly serial for easier hand-off? | 2 | Serial lengthens the 09:00 run; parallel complicates HITL-2 browser hand-off (browser worker is serial regardless) |
-| **Q-S (new, from the CTO review's closing recommendation)** | Ship the **non-submitting product first** — Phases 0–3 plus documents-only mode and the by-hand list — and treat automated submission as a later decision made with real operating experience? | **Not decided. v2 makes it possible but does not choose it:** `submission_enabled=false` is the default and documents-only threads run normally with the switch off, so the non-submitting system is already a shippable configuration | Shipping it first removes the entire Area A risk surface for months and lands value earlier; it also defers the question the project exists to answer. This is Avadh's call, not the spec's |
+| **Q-S** | Ship the **non-submitting product first** and treat automated submission as a later decision made with real operating experience? | **DECIDED 2026-09-15: yes.** Release 1 is documents-only; automated submission is Release 2, entered deliberately (§15.0). Decided on the discovery spike's measured supply, not on taste — see `spike/out/summary.md` | Reversible at low cost: v2 already made documents-only a first-class configuration, so Release 2 is additive rather than a rewrite. If measured supply rises materially, re-open it |
 | **Q-T (new)** | Minimum wait before `confirmed_not_submitted` is enabled — 60 minutes (C-3 default)? | 60 min, configurable, never zero | Shorter increases the chance of authorising a second submission before the ATS confirmation has had time to arrive |
 
 ---
@@ -2541,13 +2615,27 @@ this document, not a plan to change it.
 | **M-15** | AC-AF-22 was enforced by a node, not by the database, unlike its sibling invariant | `BEFORE UPDATE OF status … WHEN NEW.status='SUBMITTING'` trigger requires a matching `fact_checks` row with status `pass` / `pass_with_confirmed_edits`; added to the §6.4 table | §6.4 |
 | *m-5* | The edit endpoints had no status guard — the path that made M-15 reachable | Edits require `status ∈ {PENDING_REVIEW, TAILORING_FAILED}`; anything later returns `409 not_editable`. Closed incidentally, because M-15's fix is incoherent without it | §7.4 |
 
-**Two things this revision deliberately does *not* do.** It does not accept a criticism it believes
+**One thing this revision deliberately does *not* do.** It does not accept a criticism it believes
 to be wrong without saying so — see §5.1's note on M-4, where v1's *rationale* is false but the
-*rule* is retained, because removing it creates a contradiction that M-4 must resolve properly. And
-it does not quietly re-scope the project: the review's closing recommendation to ship the
-non-submitting product first is recorded as **Q-S** for Avadh to decide, not adopted by the spec.
-v2 makes that option cheap — `submission_enabled` defaults to false and documents-only mode runs
-with it off — without making the choice on his behalf.
+*rule* is retained, because removing it creates a contradiction that M-4 must resolve properly.
+
+### v2.1 — Q-S answered, plan re-cut
+
+v2.0 recorded the review's closing recommendation as **Q-S** and left it open, on the grounds that
+re-scoping was Avadh's call rather than the spec's. It is now **decided: yes, ship the
+non-submitting product first** (§15.0, §19).
+
+What changed between v2.0 and v2.1 is not an opinion but a measurement. The discovery spike
+(`spike/`) put a number on R-5, the risk the whole plan leaned on not firing: **~7 reachable
+roles/week** on the Greenhouse/Lever adapters, an upper bound before the ≥ 70 rubric, against a
+design whose ceiling is 10–20 applications *per day*. The follow-up slug verification closed the
+obvious objection — **0 of 29 unresolved boards were wrong slugs**, so the number does not move by
+tidying the seed list. Building the submission protocol, which carries every irreversible action
+and five of the ten CRITICALs, to automate a handful of applications a week is not a good trade.
+
+§15.0 carries the release split, and is candid about two things the review was not: deferring
+submission saves only ~20% of implementer-days, and the larger lever on time-to-first-output is
+the 19-screen SPA, which Release 1 cuts to four screens for what is a single-user system.
 
 ---
 
@@ -2581,6 +2669,16 @@ the undo unreachable) · M-23 (the budget hard stop is a floor, not a ceiling).
 
 **MINOR, open (11).** m-1, m-2, m-3, m-4, m-6, m-7, m-8, m-9, m-10, m-11, m-12 — as listed in the
 review report.
+
+**What the Release 1 split does to this list.** It does not close a single finding, and must not be
+read as doing so. What it does is move most of them out of the critical path: M-5, M-6, M-7, M-8,
+M-9, M-9a, M-10, M-11, M-14 and M-23 live in the submission protocol and the form-filling path,
+which Release 1 does not build. They must be closed before Release 2 begins, and §15.0's entry
+trigger is the point at which that work becomes due. The findings that **remain in Release 1's
+path** are the ones to fix next: **M-16** (`pass_with_confirmed_edits` overrides every fabrication
+class on a memorised constant phrase) and **M-19** (ledger and master snapshots for NFR-3
+reconstruction, only partly addressed by C-8) sit in FactGuard and the ledger, which are Phase 1;
+plus **M-22** and **M-13**, the rubber-stamping findings, which land in the thin-cut review screen.
 
 **The reviewer's structural objection, unanswered.** The review's sharpest point is not on this
 list, because it is not a defect to patch: *"The human cannot be made safe by measurement alone."*
