@@ -4,11 +4,11 @@
 **Owner:** Avadh Dobariya
 **Inputs:** `docs/REQUIREMENTS.md` v0.5 (approved) · `docs/requirements-analysis.md` (assumption register §7 adopted; exceptions in §17) · `docs/test-plan.md` (277 acceptance criteria — every one must be satisfiable by this design) · `docs/ui-ux-design.md` (19 screens, FR→UI map) · `knowledge-base/` (LangChain 1.x / LangGraph API truth)
 **Status:** Phase 3 — specification for implementation by Sonnet/Opus
-**Version:** 2.2 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
+**Version:** 2.3 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
 **Revision:** v2.0 closed the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs
 the review required in the same pass (M-1, M-2, M-3, M-15). **v2.1 answers Q-S on measured
-evidence and re-cuts the plan into two releases (§15.0). v2.2 closes M-16 and M-19, the two open
-MAJORs that sat inside Release 1's own path.** Changelog: §20. Findings *not* closed
+evidence and re-cuts the plan into two releases (§15.0). v2.2 closes M-16 and M-19, and v2.3 closes
+M-22 and M-13 — every MAJOR that sat inside Release 1's own path.** Changelog: §20. Findings *not* closed
 are listed in §21 — they are open, not resolved.
 
 > This document says **how**. Every LangChain/LangGraph symbol named here was grepped in
@@ -251,7 +251,7 @@ class Settings(BaseModel):            # persisted in table `settings`, hot-reloa
     schedule: Schedule                # run_at="09:00", tz="Asia/Kolkata", catch_up_until="20:00", digest_at="21:00"
     geography_priority: list[str]     # FR-1.3 order; toggles
     strong_companies: list[str] = []  # A-12
-    telegram: Telegram                # chat_id, approve_enabled=False, base_url="http://127.0.0.1:8765", stale_hours=48
+    telegram: Telegram                # chat_id, base_url="http://127.0.0.1:8765", stale_hours=48  (no approve flag — M-13)
     sources: dict[str, SourceConfig]  # enabled, daily_request_cap, min_interval_s=(3,8)
     tailor_fallback_min_score: int = 80   # DEPARTURE D-3, §17
     rate_limit: RateLimit             # A-21
@@ -753,10 +753,14 @@ back-off and marks `delivered_at`; never duplicates (AC-FM-11). Message template
 as UI §7.1; **no answer-sheet value or secret is ever interpolated** (template variables are an
 allowlist). Inbound: only `settings.telegram.chat_id` is honoured; others logged
 `unauthorised_telegram` (AC-HL-09). Commands: `/reject <app_short_id> <reason_code>` (recorded
-channel `telegram`), `/pause`, `/resume`, `/status`; `/approve` only when
-`telegram.approve_enabled` (default false) and then recorded `approved_without_review`
-(AC-HL-10/11). **DEPARTURE D-4** from UI §7 principle 4 ("notify-only"): the test plan requires
-Telegram reject to work; A-14 is adopted over the UI note.
+channel `telegram`), `/pause`, `/resume`, `/status`. **There is no `/approve` command and no
+`approve_enabled` setting (M-13)**: `/approve` replies with the dashboard link and records nothing.
+Approving is a dashboard act, because it is the one decision that needs the diff, the letter
+provenance and the values on screen — none of which fits in a chat message.
+
+**DEPARTURE D-4** from UI §7 principle 4 ("notify-only"): the test plan requires
+Telegram reject to work; A-14 is adopted over the UI note. **This also departs from AC-HL-10/11**,
+which describe an approve-over-Telegram path; see §17.
 
 ### 4.15 `audit` — Search audit log, fallback surface, guard events
 
@@ -1208,7 +1212,7 @@ Constraint: `UNIQUE(job_id)` (AC-ID-17). FR-10.1 fields all present (AC-TK-01).
 
 **answers** — `application_id, version_id, field_id, label, field_type, route, source (resume:<key>|answer_sheet:<field>|jd:<span>|human:<decision_id>|profile), value_ref (artefact) NULL for answer_sheet routes, halted BOOL`. **Answer-sheet values are never stored here** — `route` names the field; the value is resolved at fill time (AC-CL-18, AC-NF-05). *This is a storage rule, not a display rule (C-7):* `GET /applications/{id}/answers` resolves each route against `answer_sheet` at request time and returns the value in full to the loopback session, so the reviewer certifies what the employer will receive without the value ever being duplicated into this table (§11.7).
 
-**decisions** — `id, application_id, interrupt_kind, interrupt_id, type (approve|reject|regenerate|postpone|edit|hitl3_answer|hitl4_fix|continue|by_hand|abandon|confirmed_submitted|confirmed_not_submitted|i_submitted|approved_without_review), reason_code, reason_text, channel (dashboard|telegram|system), actor (session id | chat_id), artefact_hashes JSON, confirmation_text, at`. `UNIQUE(application_id, interrupt_id)` → second decision returns "already decided" (AC-HL-08, AC-ID-07).
+**decisions** — `id, application_id, interrupt_kind, interrupt_id, type (approve|reject|regenerate|postpone|edit|hitl3_answer|hitl4_fix|continue|by_hand|abandon|confirmed_submitted|confirmed_not_submitted|i_submitted), reason_code, reason_text, channel (dashboard|telegram|system), actor (session id | chat_id), artefact_hashes JSON, confirmation_text, tabs_reviewed JSON, at`. `approved_without_review` is **gone** (M-13); `tabs_reviewed` records which review tabs were rendered before the decision (M-22). `UNIQUE(application_id, interrupt_id)` → second decision returns "already decided" (AC-HL-08, AC-ID-07).
 
 **preflight_results** — `id, application_id, version_id, run_at, check_name (13 enums), passed BOOL, evidence TEXT, phase (preview|gate|post_blocker)`. (AC-SB-01; `post_blocker` rows are the C-2 re-checks)
 
@@ -1325,16 +1329,46 @@ emits an event within 1 s (AC-UI-15).
 ### 7.2 Decision semantics (the contract the graph relies on)
 
 ```
-POST /applications/{id}/decisions {type: approve, artefact_hashes}
+POST /applications/{id}/decisions {type: approve, artefact_hashes, tabs_reviewed}
   1. Load application; require status ∈ {PENDING_REVIEW}; else 409 {code: "not_pending"}.
   2. Require a pending interrupt on the thread (aget_state → tasks[*].interrupts non-empty, kind=review); else 409.
   3. Compare artefact_hashes with current version's hashes; mismatch → 409 {code: "stale_artefacts"} (reviewer reloads).
   4. Require fact_checks row for these hashes with status pass|pass_with_confirmed_edits; else 409 {code: "fact_check_required"} — and Approve is disabled in the UI anyway.
-  5. INSERT decisions (interrupt_id = pending interrupt id). UNIQUE violation → 200 {already_decided: true, decision_id}.
-  6. Transition PENDING_REVIEW → APPROVED_GRACE (effective_at = now + 5 s). Emit SSE.
-  7. After effective_at, resume_worker: acquire thread lock → ainvoke(Command(resume={...decision}), config, durability="sync").
+  5. (M-22) Require tabs_reviewed ⊇ tabs_with_content(application): always "resume"; "letter" if a letter
+     artefact exists; "answers" if any field is routed. Else 409 {code: "tabs_unreviewed", missing: [...]}.
+  6. INSERT decisions (interrupt_id = pending interrupt id, tabs_reviewed). UNIQUE violation → 200 {already_decided: true, decision_id}.
+  7. Transition PENDING_REVIEW → APPROVED_GRACE (effective_at = now + 5 s). Emit SSE.
+  8. After effective_at, resume_worker: acquire thread lock → ainvoke(Command(resume={...decision}), config, durability="sync").
 Undo within grace: DELETE decision row + APPROVED_GRACE → PENDING_REVIEW. After grace: 409 {code: "already_submitting"}.
+The undo is addressed by decision_id and is NOT scoped to the current route (M-22): Z undoes the most
+recent decision still inside its grace window, whichever application the reviewer is now looking at.
 ```
+**Why approval is gated on rendering, and why the undo is global (M-22).** v1 carried two
+keybindings from the UI design into §14.2 — `A` and `Shift+A` — and defined neither. In the UI they
+are *Approve & next* and *Approve & stay*, so the **primary, unshifted key approved the current
+application and navigated away from it**. The physical action for fifteen applications was fifteen
+presses of one key with nothing in between, which is not review, it is a counter.
+
+That interacted badly with the only real safeguard. The 5-second grace and the `Z` undo were both
+scoped to the application on screen; once `A` had advanced, the reviewer was looking at something
+else while the previous toast expired behind him. The undo affordance was designed for a workflow
+the primary keybinding prevented.
+
+And nothing gated Approve on having *looked*. The three tabs are `1/2/3`, and approval was reachable
+from tab 1 alone — so for an application whose only risk lives on tab 3, which after **C-7** is
+where the values actually sent to the employer are rendered, the reviewer could approve without that
+risk ever being drawn on screen.
+
+v2.3 therefore: swaps the bindings so the unshifted key **stays** (§14.2); refuses the approval at
+the API unless every tab with content was rendered; records the tab set on the decision row, which
+costs nothing and makes AC-NF-15's telemetry mean something; and makes the grace toast a fixed
+element addressed by `decision_id`, so `Z` still works after advancing.
+
+This is a real mitigation, not a solution. A determined reviewer can press `1`, `2`, `3`, `A` as a
+four-key chord and learn nothing. What the gate removes is the *cheapest* path — approval without
+the evidence ever being rendered — which is the specific failure the review identified. The residual
+is still the one R-3 names, and it is still rated Medium.
+
 `reject` skips the grace window and resumes immediately; `postpone` and `dismiss_expired` are API-only
 (no resume; `dismiss_expired` transitions to `EXPIRED` and cancels the thread by resuming with
 `{type: "expired"}` so the thread reaches `finalize`).
@@ -1346,8 +1380,8 @@ Decisions for terminal or unknown threads → `404`/`409` (AC-HL-07).
 ### 7.3 Telegram command mapping
 
 `/reject <short_id> <1-6> [text]` → same handler as the dashboard reject with `channel=telegram`.
-`/approve <short_id>` → if `telegram.approve_enabled` false: reply with dashboard link; else record
-`approved_without_review` and proceed. `/pause`, `/resume`, `/status`. Everything else → help.
+`/approve <short_id>` → **not a command.** It replies with the dashboard link and nothing else;
+there is no flag that changes this (M-13). `/pause`, `/resume`, `/status`. Everything else → help.
 Sender check precedes parsing.
 
 ### 7.4 Edit pipeline (server side)
@@ -2104,7 +2138,8 @@ non-pending interrupt is refused; a replayed decision returns `already_decided` 
 
 | Rule | Enforcement |
 | --- | --- |
-| HITL-1 / HITL-5 cannot be disabled | No setting, flag or env var exists; `record_decision` requires a `decisions` row; the graph has no edge from `notify_review_ready` to `preflight` (AC-HL-26) |
+| HITL-1 / HITL-5 cannot be disabled | No setting, flag or env var exists — **true as of v2.3, and it was not true before (M-13)**: v1 shipped `telegram.approve_enabled`, which let `/approve` record `approved_without_review` with no diff, no evidence trace, no pre-flight preview and no artefact hashes. That is HITL-5 disabled by a setting, for that application, and §12.5 asserted the opposite *in the section whose purpose is to enumerate guarantees that are code rather than prose*. The command and the flag are removed rather than documented, which is the only version of this row that is worth having. `record_decision` requires a `decisions` row; the graph has no edge from `notify_review_ready` to `preflight` (AC-HL-26) |
+| Approval requires the evidence to have been rendered (M-22) | `POST /decisions {approve}` returns `409 tabs_unreviewed` unless every tab with content for this application has been opened; the tab set is recorded on the decision row |
 | Discovery-only sources never submit | `SourceAdapter.policy` is a class attribute; `selection` never creates a submitting application for `discovery_only`; `submit` refuses if `applications.channel` is not in `{greenhouse, lever, career_page}` (AC-SB-15) |
 | No bulk approve | No endpoint accepts a list of approvals; the UI has no control (UI D-6) |
 | Hard rejections have no override | `POST /jobs/{id}/promote` returns `409` for `reason_enum` in the FR-4.1/4.2/5.1 sets |
@@ -2239,7 +2274,7 @@ approve control anywhere (UI D-6). Served from `/` by FastAPI as static files; A
 | --- | --- | --- | --- | --- |
 | S1 | Today dashboard (3.2) | `/` | `GET /dashboard/today`, `/status` | `⏎` start review, `B`, `N` |
 | S2 | Approval queue (3.3) | `/queue` | `GET /queue` | `J/K`, `⏎`, `X`, `Shift+R`, `Space` |
-| S3 | Review — Resume diff (3.4) | `/queue/:appId` tab 1 | `/applications/{id}/review`, `/diff` | `A`, `Shift+A`, `E`, `R`, `P`, `X`, `Z`, `1/2/3`, `D`, `J/K`, `O`, `Shift+O` |
+| S3 | Review — Resume diff (3.4) | `/queue/:appId` tab 1 | `/applications/{id}/review`, `/diff` | **`A` = Approve & stay** (M-22; the unshifted key does not navigate), **`Shift+A` = Approve & next**, `E`, `R`, `P`, `X`, **`Z` = undo the most recent in-grace decision, route-independent**, `1/2/3` tabs, `D`, `J/K`, `O`, `Shift+O`. Approve is refused — client-side and at the API — until every tab with content has been rendered |
 | S4 | Review — Cover letter (3.5) | tab 2 | `/letter` (claims + provenance) | `Tab` cycles markers, `⏎` jumps |
 | S5 | Review — Answers (3.6) | tab 3 | `/answers` — **every value shown in full** (C-7, §11.7) | — (the transient-reveal keypress is retired here; it survives only on S13) |
 | S6 | Review — Edit mode (3.7) | tab n, `E` | `PUT /letter`, `/resume-text`, `/answers/{f}`, `POST /revise`, `/confirm-edit`; `GET /ledger` for live guard | `Ctrl+⏎`, `Esc` |
@@ -2266,9 +2301,11 @@ overflow) per UI §4 are required for each component.
 
 ### 14.3 Telemetry the UI must record
 
-`review_started_at` on opening a review; `review_seconds` on decision → Reports "Your review
-today" (median time, reject-reason distribution, UI §3.17) — the instrument for §9 "minutes not
-hours" and for detecting rubber-stamping (AC-NF-15). Callback rate from tracker `outcome`.
+`review_started_at` on opening a review; `review_seconds` on decision; **`tabs_reviewed` — which
+tabs were actually rendered, and for how long (M-22)** → Reports "Your review today" (median time,
+reject-reason distribution, UI §3.17) — the instrument for §9 "minutes not hours" and for detecting
+rubber-stamping (AC-NF-15). Recording the tab set turns AC-NF-15 from a stopwatch into something
+that can distinguish a fast reviewer from a reviewer who never opened the page where the risk was. Callback rate from tracker `outcome`.
 
 ### 14.4 FR → UI component map (FR-13.2)
 
@@ -2551,7 +2588,7 @@ R-3 is why the tailoring contract is narrowed.
 | D-1 | A-23 (three model stage keys) | Adds a fourth stage `judge`, defaulting to the `analyse` model, validated ≠ `generate` | AC-AF-08 requires an independent judge model; without a stage key it cannot be configured (TR-10) |
 | D-2 | AC-AF-06 whitelist permits `<li>` removal | Generator's `TailoringPlan` offers no removal op; FactGuard still accepts removal per the AC | Removal risks the one-page constraint and adds review load; the checker stays test-plan-exact so legitimate hand tailorings pass |
 | D-3 | FR-6.1 "where a resume upload is allowed" | Documents-only tailoring for discovery-only / unsupported-form jobs scoring ≥ 80 (`tailor_fallback_min_score`) | UI P-5: a by-hand list without prepared documents will not be used; the best Indian roles are on Naukri/LinkedIn. Costs review time; counted against the ceiling |
-| D-4 | UI §7 principle 4 "Telegram notify-only" | Telegram supports `/reject`, `/pause`, `/resume`; `/approve` behind an off-by-default flag | A-14 and AC-HL-10/11 require it; approve stays dashboard-only by default |
+| D-4 | UI §7 principle 4 "Telegram notify-only" | Telegram supports `/reject`, `/pause`, `/resume`. **`/approve` does not exist** (M-13) | A-14 wants inbound commands and the test plan requires Telegram *reject*; approve is a different matter. **This departs from AC-HL-10/11**, which describe an approve-over-Telegram path: those two ACs are amended to assert `/approve` returns a dashboard link and records nothing. The test plan was internally inconsistent here — AC-HL-26 forbids any setting that disables HITL-5 while AC-HL-10/11 describe one — and v2.3 resolves it in favour of AC-HL-26, which is the one carrying the safety property |
 | D-5 | UI §3.16 storage path under the repo | Default `data_dir = %LOCALAPPDATA%\JobAgent` | AC-NF-19 (not cloud-synced), C-6 (shallow paths); Desktop may be OneDrive-synced on Windows 11 |
 | D-6 | UI J2 / §3.13 "Promote to queue" for score < 70 | Promote allowed only for `tier3_gap` and `deferred_over_ceiling`; **not** for total < 70 | §9 success metric "below-threshold applications: zero" is a requirement; a < 70 override would violate it. Hard rules never promotable (unchanged) |
 | D-7 | FR-8.1 per-technology years | `years_by_technology` table filled by Avadh; deterministic; HITL-3 when absent; no LLM ever produces the number | G-C2 / analysis §5.3: the resume has no such figures; anything else is fabrication |
@@ -2639,7 +2676,7 @@ Carried from the analysis (§6) with the default this spec builds on; plus new o
 | Q-F | Relocation stance and earliest start date (O-2)? | HITL-3 when asked | Fewer halts |
 | Q-G | Hosted tracing acceptable? | No (local only) | Would ship resume/JD text to LangSmith |
 | Q-H | Hard-stop spend level? | $20 | — |
-| Q-I | Approve from Telegram? | Off (reject only) | One-tap approve is spot-checking by another name |
+| Q-I | Approve from Telegram? | **CLOSED 2026-09-15: No, and the capability is removed** (M-13). Not merely defaulted off — one-tap approve is spot-checking by another name, and a flag that can disable HITL-5 makes §12.5's central guarantee false | Re-opening it means re-opening AC-HL-26, and would need a DEPARTURE against FR-9.3 |
 | Q-J | Repost block window? | 180 days | — |
 | Q-K | Expected CTC in AED/EUR/CAD? | HITL-3 | Add per-currency answer-sheet keys |
 | Q-L | Auto-select "prefer not to say" on EEO? | Yes | — |
@@ -2679,6 +2716,8 @@ this document, not a plan to change it.
 | **M-15** | AC-AF-22 was enforced by a node, not by the database, unlike its sibling invariant | `BEFORE UPDATE OF status … WHEN NEW.status='SUBMITTING'` trigger requires a matching `fact_checks` row with status `pass` / `pass_with_confirmed_edits`; added to the §6.4 table | §6.4 |
 | **M-16** | `pass_with_confirmed_edits` overrode every fabrication class on a memorised constant phrase, and pre-flight re-checked only one of them | Overrides are scoped by class (§8.3): allowed for C9/C10/C12 and, per violation, C3; **never** for C1, C2, C4, C5, C6, C7, C8, C13, C14 — authorship is his, arithmetic and vocabulary are not. Confirmations become per-violation rows in a new `confirmations` table with a **generated** string naming the claim (*"I confirm: 5 years with LangChain"*) instead of a constant sentence. New pre-flight check **#13** recomputes C3/C4/C7 independently of `fact_checks.status`. Rolling override counts land in Reports | §8.3, §7.4, §6.3, §9.4, §13.5 |
 | **M-19** | Ledger and master snapshots were never in the NFR-3 bundle, so reconstruction degraded to unusable after any master edit | C-8 made the master and ledger durable; v2.2 puts them **in the bundle**: `GET /applications/{id}/bundle` now ships the `master_html` artefact, the `ledgers` row for that application's `master_hash`, and its `confirmations` rows. New AC: edit the master, export a bundle for an application tailored before the edit, and assert every provenance pointer still resolves from the bundle alone | §7.1, §10.6 |
+| **M-22** | The primary approve key advanced to the next application, chaining approvals and making the undo unreachable; nothing required the evidence to have been rendered | Bindings swapped — **`A` = Approve & stay**, `Shift+A` = Approve & next — and both defined in §14.2. `POST /decisions {approve}` returns **409 `tabs_unreviewed`** unless every tab with content was opened, with the tab set recorded on the decision row and surfaced in AC-NF-15 telemetry. The grace toast is addressed by `decision_id` and survives navigation, so `Z` works after advancing. Stated plainly as mitigation, not a fix: a `1`,`2`,`3`,`A` chord still defeats it, and R-3's residual stays Medium | §7.2, §14.2, §14.3, §6.3, §12.5 |
+| **M-13** | AC-HL-26 could not pass — §4.1's `telegram.approve_enabled` let `/approve` record `approved_without_review`, disabling HITL-5 by a setting, while §12.5 asserted no such setting existed | **`/approve`, `approve_enabled` and `approved_without_review` are removed**, not documented. Q-I closed as "No"; §12.5's row becomes true; D-4 records that this departs from AC-HL-10/11 and resolves the test plan's own internal conflict in favour of AC-HL-26, which is the AC carrying the safety property. `/approve` now returns a dashboard link and records nothing | §4.1, §4.14, §7.3, §12.5, §17, §19 |
 | *m-5* | The edit endpoints had no status guard — the path that made M-15 reachable | Edits require `status ∈ {PENDING_REVIEW, TAILORING_FAILED}`; anything later returns `409 not_editable`. Closed incidentally, because M-15's fix is incoherent without it | §7.4 |
 
 **One thing this revision deliberately does *not* do.** It does not accept a criticism it believes
@@ -2707,12 +2746,12 @@ the 19-screen SPA, which Release 1 cuts to four screens for what is a single-use
 
 ## 21. Findings not closed in v2
 
-The review raised 46 findings. v2 closes **17** of them — the ten CRITICALs, six MAJORs (M-1, M-2,
-M-3, M-15 in v2.0; M-16 and M-19 in v2.2) and one MINOR, all listed in §20. **The remaining 29 are
-open, not resolved**, and this section exists so that no reader mistakes a v2 badge for a clean
-bill of health. A re-review should assume every item below still stands.
+The review raised 46 findings. v2 closes **19** of them — the ten CRITICALs, eight MAJORs (M-1,
+M-2, M-3, M-15 in v2.0; M-16 and M-19 in v2.2; M-22 and M-13 in v2.3) and one MINOR, all listed in
+§20. **The remaining 27 are open, not resolved**, and this section exists so that no reader mistakes
+a v2 badge for a clean bill of health. A re-review should assume every item below still stands.
 
-**MAJOR, open (18).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
+**MAJOR, open (16).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
 one; `BudgetHardStop` and `PauseRequested` are retried three times before any handler fires — v2
 corrects the false *rationale* in §5.1 but not the contradiction) · M-5 (`is_pre_click_error`
 cannot key the dispatch marker to an application) · M-6 (the post-click `except` awaits during
@@ -2722,9 +2761,8 @@ partition it) · M-8 (a crash inside the 5-second grace window auto-submits on r
 (AC-ID-25 is silently weakened) · M-9a (`spawn_apps` can relaunch a thread already under review) ·
 M-10 (AC-SB-01's 60-second bound is unachievable with a serialised browser worker, and no
 throughput budget exists) · M-11 (AC-HL-13 contradicts LangGraph resume semantics) · M-12
-(AC-HL-17's "< 10% of forms halt" is unreachable under the spec's own defaults) · M-13 (AC-HL-26
-cannot pass, and §12.5 asserts the opposite) · M-14 (AC-NF-04 fails by design and the exception is
-untagged) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
+(AC-HL-17's "< 10% of forms halt" is unreachable under the spec's own defaults) · M-14 (AC-NF-04
+fails by design and the exception is untagged) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
 edit) · M-18 (a source that breaks silently is indistinguishable from a quiet day) · M-20 (phase
 exit gates cite acceptance criteria that
 later phases implement) · M-21 (the schedule is six to nine months for one person and never says
@@ -2740,18 +2778,20 @@ M-9, M-9a, M-10, M-11, M-14 and M-23 live in the submission protocol and the for
 which Release 1 does not build. They must be closed before Release 2 begins, and §15.0's entry
 trigger is the point at which that work becomes due.
 
-**Of the findings that sat in Release 1's own path, v2.2 closes the two in Phase 1** — M-16
-(FactGuard's override) and M-19 (NFR-3 reconstruction) — because Phase 1 is now the first thing
-built and shipping a known-defective verifier would defeat the point of the release order.
+**Every MAJOR that sat inside Release 1's own path is now closed**: M-16 and M-19 in v2.2
+(FactGuard's override and NFR-3 reconstruction, both Phase 1), M-22 and M-13 in v2.3 (the
+rubber-stamping pair, both in the review screen Release 1 builds). That was deliberate sequencing —
+each was cheaper to fix in the spec than in shipped code, and Phase 1 and the review screen are the
+first two things Release 1 builds.
 
-**Two remain in Release 1's path, and they are the honest weak spot: M-22 and M-13**, the
-rubber-stamping findings. They get *worse* under the thin-cut UI, not better: with fewer screens,
-Approve is fewer keystrokes away, and M-22's chaining behaviour — the primary approve key advancing
-to the next application — is exactly the motion a four-screen interface encourages. Release 1 is a
-documents-only product, so a rubber-stamped artefact is not sent anywhere by the machine; Avadh
-still has to send it himself, which is a real backstop v1 did not have. That is mitigation by
-release order, not a fix. **M-22 and M-13 are the next spec work**, and they should be closed
-before the review screen is built rather than after.
+**What is not fixed is the thing R-3 has always named.** M-22 removes the cheapest rubber-stamping
+path — approval without the evidence being rendered — and M-13 removes the flag that could disable
+HITL-5 outright. Neither makes a careful reviewer out of a tired one. A `1`,`2`,`3`,`A` chord still
+approves in four keystrokes, and under the thin-cut UI (§15.0) Approve is fewer keystrokes away than
+it was, not more. Release 1's real backstop is structural rather than behavioural: it is
+documents-only, so a rubber-stamped artefact is not sent anywhere by the machine — Avadh still has
+to send it himself. **That backstop disappears in Release 2**, which is the strongest argument in
+this document for not entering Release 2 casually.
 
 **The reviewer's structural objection, unanswered.** The review's sharpest point is not on this
 list, because it is not a defect to patch: *"The human cannot be made safe by measurement alone."*
