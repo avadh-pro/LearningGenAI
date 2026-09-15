@@ -4,10 +4,11 @@
 **Owner:** Avadh Dobariya
 **Inputs:** `docs/REQUIREMENTS.md` v0.5 (approved) · `docs/requirements-analysis.md` (assumption register §7 adopted; exceptions in §17) · `docs/test-plan.md` (277 acceptance criteria — every one must be satisfiable by this design) · `docs/ui-ux-design.md` (19 screens, FR→UI map) · `knowledge-base/` (LangChain 1.x / LangGraph API truth)
 **Status:** Phase 3 — specification for implementation by Sonnet/Opus
-**Version:** 2.1 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
+**Version:** 2.2 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
 **Revision:** v2.0 closed the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs
 the review required in the same pass (M-1, M-2, M-3, M-15). **v2.1 answers Q-S on measured
-evidence and re-cuts the plan into two releases (§15.0).** Changelog: §20. Findings *not* closed
+evidence and re-cuts the plan into two releases (§15.0). v2.2 closes M-16 and M-19, the two open
+MAJORs that sat inside Release 1's own path.** Changelog: §20. Findings *not* closed
 are listed in §21 — they are open, not resolved.
 
 > This document says **how**. Every LangChain/LangGraph symbol named here was grepped in
@@ -1209,7 +1210,7 @@ Constraint: `UNIQUE(job_id)` (AC-ID-17). FR-10.1 fields all present (AC-TK-01).
 
 **decisions** — `id, application_id, interrupt_kind, interrupt_id, type (approve|reject|regenerate|postpone|edit|hitl3_answer|hitl4_fix|continue|by_hand|abandon|confirmed_submitted|confirmed_not_submitted|i_submitted|approved_without_review), reason_code, reason_text, channel (dashboard|telegram|system), actor (session id | chat_id), artefact_hashes JSON, confirmation_text, at`. `UNIQUE(application_id, interrupt_id)` → second decision returns "already decided" (AC-HL-08, AC-ID-07).
 
-**preflight_results** — `id, application_id, version_id, run_at, check_name (12 enums), passed BOOL, evidence TEXT, phase (preview|gate|post_blocker)`. (AC-SB-01; `post_blocker` rows are the C-2 re-checks)
+**preflight_results** — `id, application_id, version_id, run_at, check_name (13 enums), passed BOOL, evidence TEXT, phase (preview|gate|post_blocker)`. (AC-SB-01; `post_blocker` rows are the C-2 re-checks)
 
 **page_commits** (new, C-1) — `application_id, attempt INT, page_index INT, url_hash, committed_at, PRIMARY KEY(application_id, attempt, page_index)`. One row written **before** each page-advancing POST in `fill_form` (§9.8). The row is the durable record that makes an intermediate POST replay-safe, exactly as `SUBMITTING` does for the final click.
 
@@ -1220,6 +1221,8 @@ Constraint: `UNIQUE(job_id)` (AC-ID-17). FR-10.1 fields all present (AC-TK-01).
 **transitions** — `application_id, from_status, to_status, at, by (node name | api | reconcile), detail JSON`. (TR-7, AC-TK-11)
 
 **fact_checks** — `id, application_id, version_id, artefact_hashes JSON, status (pass|fail|pass_with_confirmed_edits), violations JSON, judge_model, at`. Pre-flight requires a row whose `artefact_hashes` equal the current version's (AC-AF-22).
+
+**confirmations** (new, M-16) — `violation_id PRIMARY KEY, fact_check_id, application_id, version_id, check_name, claim_text, generated_text, typed_text, at, actor`. One row per overridden violation; `typed_text` must equal `generated_text`. A `fact_checks` row may be `pass_with_confirmed_edits` only if every violation it carries is overridable **and** has a row here — enforced in code and re-verified at pre-flight #13. Indexed on `(at, check_name)` for the override count in Reports.
 
 **company_watchlist** — `id, company_display, company_norm, ats (greenhouse|lever|workday|career_page), board_url, extraction_rule JSON, added_by (user|auto), enabled, last_ok_at`.
 
@@ -1309,7 +1312,7 @@ emits an event within 1 s (AC-UI-15).
 | Audit › Sources/Queries (3.9) | `GET /runs/{date}/sources`, `GET /runs/{date}/queries`, `POST /runs/{date}/sources/{source}/retry` |
 | Audit › Jobs (3.10) | `GET /runs/{date}/jobs?verdict&source&tier&geo&fallback_state&q` (paginated, < 1 s at 500 rows — AC-DS-12); `POST /jobs/{id}/fallback-state` `{state, note, applied_at?}` |
 | By hand (3.11) | `GET /fallback?state=pending&runs=all`; `POST /jobs/{id}/fallback-state`; `POST /jobs/{id}/prepare-documents` (spawns documents_only thread; returns cost estimate on `?estimate=1`); `POST /applications/{id}/resume-with-agent` (HITL-2 continue) |
-| Tracker (3.12) | `GET /applications?status&channel&tier&geo&from&to&follow_up_due`; `GET /applications/{id}` (expansion: URL, dates, versions, answers, key skills); `PATCH /applications/{id}` `{outcome?, notes?, follow_up_date?}`; `GET /applications/{id}/bundle` → NFR-3 reconstruction (zip of PDF, HTML, letter, answers with sources, form payload record, evidence, score, decisions); `GET /applications.csv` |
+| Tracker (3.12) | `GET /applications?status&channel&tier&geo&from&to&follow_up_due`; `GET /applications/{id}` (expansion: URL, dates, versions, answers, key skills); `PATCH /applications/{id}` `{outcome?, notes?, follow_up_date?}`; `GET /applications/{id}/bundle` → NFR-3 reconstruction (zip of PDF, HTML, letter, answers with sources, form payload record, evidence, score, decisions, **plus the `master_html` artefact and the `ledgers` row for this application's `master_hash`, and its `confirmations` rows** — M-16/M-19: without the master and ledger the archived letter's `[n]` markers cannot be resolved, and `element_text(html, key)` has no `html` to read); `GET /applications.csv` |
 | Job detail (3.13) | `GET /jobs/{id}` → score breakdown, hard rules with spans, dedup cluster, timeline, JD text with highlighted spans, scored-by/cost; `POST /jobs/{id}/promote` (soft rejections only — §17 D-6; `409` for hard rules); `POST /jobs/{id}/rescore` |
 | Settings › Answer sheet (3.14) | `GET /answer-sheet` (masked; usage counts; impact box `GET /answer-sheet/work-auth-impact`); `POST /answer-sheet/reveal` (returns values once; audited); `PUT /answer-sheet/{key}`; `GET/PUT /answer-sheet/years-by-technology` |
 | Settings › Targets, Models, Sources, Schedule, Notifications, Data (3.15–3.16) | `GET /settings`, `PUT /settings` (validated; `409` on version mismatch); `GET /settings/models/usage-today`; `GET/PUT /watchlist`, `POST /watchlist/import`; `POST /telegram/test`; `GET /data/summary`, `POST /data/export` |
@@ -1354,8 +1357,11 @@ PUT /applications/{id}/letter {claims}
   → validate claim schema (provenance present or kind=context)
   → FactGuard.check(letter=claims, tailored=current, answers=current)  (synchronous, judge model)
   → new application_versions row (created_by=edit) + artefacts + fact_checks row
-  → if fail: response includes violations; application flag `needs_confirmation`; Approve stays disabled
-     until POST /confirm-edit {confirmation_text == "I confirm this statement is true"} → fact_checks.status = pass_with_confirmed_edits (A-20, AC-AF-19)
+  → if fail: response includes violations, each with violation_id, class and its GENERATED confirmation string;
+     application flag `needs_confirmation`; Approve stays disabled until every overridable violation is confirmed:
+       POST /confirm-edit {violation_id, confirmation_text}   # text must equal the generated string verbatim
+     A violation in a non-overridable class (§8.3) cannot be confirmed: 409 {code: "not_overridable", check}.
+     When all violations are confirmed → fact_checks.status = pass_with_confirmed_edits (A-20, AC-AF-19, M-16)
 PUT /applications/{id}/resume-text {block_edits: [{element_key, new_text}]}
   → apply to tailored HTML (text nodes only; structure immutable) → render.py → ats_check → FactGuard → new version
 ```
@@ -1425,6 +1431,39 @@ class FactGuardResult(BaseModel): status: Literal["pass","fail","pass_with_confi
 - **Edits**: run synchronously (§7.4); failure → `needs_confirmation`; explicit confirmation
   text stored; status `pass_with_confirmed_edits` (A-20). Avadh is the authority on his facts,
   but the confirmation is logged and pre-flight shows it.
+
+**Which checks a confirmation may override, and which it may not (M-16).** v1 let one constant
+phrase — `"I confirm this statement is true"` — override *every* fabrication class, and pre-flight
+re-ran exactly one of them (#12, C13). So an edit that tripped C3 (an invented metric), C4 (a
+canary technology such as `Azure` or `TensorFlow`) or C7 (a years figure contradicting
+`years_by_technology`) shipped. T-1 is as absolute as T-3 — *"**Never** invent … technologies … or
+years of experience"* — and it is the class of lie a recruiter checks first. AC-AF-19's own worked
+example, *"5 years with LangChain"*, is a C7 violation, and v1's flow shipped it.
+
+The distinction v2.2 draws is **authorship versus fact**. Avadh is the authority on how his own
+achievements are worded. He is not an authority on whether a technology appears on his résumé, or
+on arithmetic over his own employment dates.
+
+| Class | Override | Why |
+| --- | --- | --- |
+| C9 provenance · C10 entailment · C12 filler | **Allowed** | Genuine authorship: the judge can be wrong about whether his own sentence is supported by his own résumé line |
+| C3 numbers | **Allowed, per violation** | He may legitimately know a figure the résumé does not carry — but the confirmation must name the figure, and pre-flight re-checks it (§9.4 #13) |
+| C1 structure · C2 immutables · C4 technologies/canaries · C5 organisations · C6 degrees/certs · C7 years · C8 scope verbs · C13 mandatory gaps · C14 claim kind | **Never** | None of these is a matter of authorship. A confirmation cannot make a technology appear on the résumé or change a date range |
+
+A `fact_checks` row may therefore reach `pass_with_confirmed_edits` **only** if every violation it
+carries is in an overridable class and has its own stored confirmation. One non-overridable
+violation means `fail`, and no amount of typing changes it.
+
+**Confirmations are per violation, and the text is generated, not memorised (M-16).** Each
+`Violation` gets a stable `violation_id` (check + artefact + location + sha256 of the text). The
+confirmation string is **generated from the violation** and must be typed verbatim — *"I confirm:
+5 years with LangChain"*, not a constant. A phrase that names the specific claim cannot become
+muscle memory the way a fixed sentence does by its third use, and it puts the disputed statement in
+front of the person confirming it.
+
+**Overrides are counted (M-16).** The evening report and the weekly summary carry a rolling count
+of confirmed overrides by class (§13.5). Three in a week is a signal — about the generator or about
+the reviewer — and either is worth surfacing rather than discovering later.
 - **Guard events**: every violation → `audit_events(kind='guard')` with job, rule, text,
   outcome (repaired / paused_hitl4 / rejected / confirmed_by_user) (AC-AF-23).
 
@@ -1626,8 +1665,18 @@ gate (1) returns immediately (AC-ID-06).
 | 10 | `contact_correct` | Profile fields to be filled equal §2 constants | `PREFLIGHT_FAILED` |
 | 11 | `location_acceptable` | Eligibility rules 10–12 recomputed from stored facts + current settings | `PREFLIGHT_FAILED` |
 | 12 | `no_false_mandatory_claim` | C13 recomputed against the job's `mandatory` list | `PREFLIGHT_FAILED` |
+| 13 | `no_unconfirmed_fabrication` | **C3, C4 and C7 recomputed from the artefacts, independently of `fact_checks.status` (M-16).** Any C4 or C7 violation is a hard fail — those classes are never overridable. A C3 violation passes only if a `confirmations` row exists for its `violation_id` | `PREFLIGHT_FAILED` |
 
-All 12 rows are stored with evidence (AC-SB-01). Pre-flight runs immediately before `fill_form`
+**Why #13 exists (M-16).** Check #7 accepts `pass_with_confirmed_edits` wholesale, and v1's #12
+was the *only* class recomputed at the gate. That was correct for T-3 and silently insufficient for
+T-1: a confirmed edit carrying an invented metric, a canary technology or a false years figure
+passed #7 and was never re-examined. #13 recomputes the three T-1 classes from the artefacts
+themselves, so the gate no longer trusts a status that a human could have waived. Together #12 and
+#13 mean the two absolute requirements — *never claim a qualification you lack*, *never invent
+technologies or years* — are both re-derived immediately before the irreversible act, not inherited
+from an earlier decision.
+
+All 13 rows are stored with evidence (AC-SB-01). Pre-flight runs immediately before `fill_form`
 (`fill_form` and `submit` follow; the browser worker queue is FIFO).
 
 **An unverifiable posting is a red, not an amber (C-4).** v1's closing rule was: *"Check 3 that
@@ -1673,7 +1722,8 @@ applied (§4.3 rule 4). Resolution:
 **The `confirmed_not_submitted` branch carries real friction (C-3).** §9.2 is explicit that this is
 the *only* route from a dispatched click back to another click, and gating it on a human is right.
 v1 then gave that decision no friction at all: **one click**, while editing a single sentence of a
-cover letter required typing *"I confirm this statement is true"* (§7.4, AC-AF-19). The friction
+cover letter required typing *"I confirm this statement is true"* (§7.4, AC-AF-19 — a constant that
+v2.2 has since replaced with a generated, claim-specific string, M-16). The friction
 gradient was inverted — the cheaper action was the irreversible one. Worse, the human was asked
 "did it land?" at the moment the evidence could not yet exist, since an ATS confirmation email
 routinely lags the POST by minutes, and "I don't see it" is the honest answer that produces the
@@ -1875,6 +1925,13 @@ row is inserted into `ledgers` (§6.3). Both are kept forever — §6.5 already 
 this is the record that makes the others meaningful. Provenance for an application is always
 resolved against the ledger row for *that application's* `master_hash`, never against the current
 file on disk.
+
+**And the bundle carries them (M-19).** C-8 made the master and ledger durable; M-19 is the
+separate requirement that NFR-3 reconstruction actually *includes* them. `GET /applications/{id}/bundle`
+therefore ships the `master_html` artefact and the `ledgers` row alongside the documents (§7.1).
+**AC (new, RT or AF group):** edit the master, then export a bundle for an application tailored
+before the edit, and assert every provenance pointer in the archived letter still resolves — from
+the bundle alone, with no access to the live master.
 
 ---
 
@@ -2111,6 +2168,13 @@ Alerts fire once per day per level (M7 again at $25 and $50 per UI §7.1).
 supervisor; threads resume on `/resume` via `ainvoke(None, config)` (AC-HL-25).
 
 ### 13.5 Observability (TR-7, NFR-6)
+
+**Confirmed-override counter (M-16).** The evening digest and the weekly summary carry a rolling
+count of `confirmations` rows by `check_name` over 7 days. A confirmation is a legitimate act — the
+human overruling a judge about his own wording — but a *rate* of them is diagnostic: several C9/C10
+overrides a week means the generator or the entailment judge is miscalibrated, and several C3
+overrides means numbers are being asserted that the résumé does not carry. Neither is visible from
+a per-application view, which is why it is a report rather than a flag.
 
 | Signal | Store | Surface |
 | --- | --- | --- |
@@ -2613,6 +2677,8 @@ this document, not a plan to change it.
 | **M-2** | The §6.5 checkpoint-pruning `[UNVERIFIED]` was false, and the instruction it justified was dangerous | Retention uses `await checkpointer.adelete_thread(thread_id)` (`checkpointers.md` §407, §544), falling back to `aprune`; hand-deletion from inferred tables removed; AC-NF-12 amended to assert the API was called | §6.5, §18 |
 | **M-3** | The §5.4 `ToolCallLimitMiddleware` `[UNVERIFIED]` was false, and the default `exit_behavior` meant the 60-call limit did not stop the mapper | `ToolCallLimitMiddleware(run_limit=60, thread_limit=120, exit_behavior="error")`, with `ToolCallLimitExceededError` handled as an `unsupported_form` fallback | §5.4, §18 |
 | **M-15** | AC-AF-22 was enforced by a node, not by the database, unlike its sibling invariant | `BEFORE UPDATE OF status … WHEN NEW.status='SUBMITTING'` trigger requires a matching `fact_checks` row with status `pass` / `pass_with_confirmed_edits`; added to the §6.4 table | §6.4 |
+| **M-16** | `pass_with_confirmed_edits` overrode every fabrication class on a memorised constant phrase, and pre-flight re-checked only one of them | Overrides are scoped by class (§8.3): allowed for C9/C10/C12 and, per violation, C3; **never** for C1, C2, C4, C5, C6, C7, C8, C13, C14 — authorship is his, arithmetic and vocabulary are not. Confirmations become per-violation rows in a new `confirmations` table with a **generated** string naming the claim (*"I confirm: 5 years with LangChain"*) instead of a constant sentence. New pre-flight check **#13** recomputes C3/C4/C7 independently of `fact_checks.status`. Rolling override counts land in Reports | §8.3, §7.4, §6.3, §9.4, §13.5 |
+| **M-19** | Ledger and master snapshots were never in the NFR-3 bundle, so reconstruction degraded to unusable after any master edit | C-8 made the master and ledger durable; v2.2 puts them **in the bundle**: `GET /applications/{id}/bundle` now ships the `master_html` artefact, the `ledgers` row for that application's `master_hash`, and its `confirmations` rows. New AC: edit the master, export a bundle for an application tailored before the edit, and assert every provenance pointer still resolves from the bundle alone | §7.1, §10.6 |
 | *m-5* | The edit endpoints had no status guard — the path that made M-15 reachable | Edits require `status ∈ {PENDING_REVIEW, TAILORING_FAILED}`; anything later returns `409 not_editable`. Closed incidentally, because M-15's fix is incoherent without it | §7.4 |
 
 **One thing this revision deliberately does *not* do.** It does not accept a criticism it believes
@@ -2641,12 +2707,12 @@ the 19-screen SPA, which Release 1 cuts to four screens for what is a single-use
 
 ## 21. Findings not closed in v2
 
-The review raised 46 findings. v2 closes 15 of them (the ten CRITICALs, four MAJORs and one MINOR
-listed in §20). **The remaining 31 are open, not resolved**, and this section exists so that no
-reader mistakes a v2 badge for a clean bill of health. A re-review should assume every item below
-still stands.
+The review raised 46 findings. v2 closes **17** of them — the ten CRITICALs, six MAJORs (M-1, M-2,
+M-3, M-15 in v2.0; M-16 and M-19 in v2.2) and one MINOR, all listed in §20. **The remaining 29 are
+open, not resolved**, and this section exists so that no reader mistakes a v2 badge for a clean
+bill of health. A re-review should assume every item below still stands.
 
-**MAJOR, open (20).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
+**MAJOR, open (18).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
 one; `BudgetHardStop` and `PauseRequested` are retried three times before any handler fires — v2
 corrects the false *rationale* in §5.1 but not the contradiction) · M-5 (`is_pre_click_error`
 cannot key the dispatch marker to an application) · M-6 (the post-click `except` awaits during
@@ -2658,11 +2724,9 @@ M-10 (AC-SB-01's 60-second bound is unachievable with a serialised browser worke
 throughput budget exists) · M-11 (AC-HL-13 contradicts LangGraph resume semantics) · M-12
 (AC-HL-17's "< 10% of forms halt" is unreachable under the spec's own defaults) · M-13 (AC-HL-26
 cannot pass, and §12.5 asserts the opposite) · M-14 (AC-NF-04 fails by design and the exception is
-untagged) · M-16 (`pass_with_confirmed_edits` overrides every fabrication class on a memorised
-constant phrase) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
-edit) · M-18 (a source that breaks silently is indistinguishable from a quiet day) · M-19 (ledger
-and master snapshots — *partially* addressed by C-8's `ledgers` table; the NFR-3 reconstruction
-path still needs re-deriving end to end) · M-20 (phase exit gates cite acceptance criteria that
+untagged) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
+edit) · M-18 (a source that breaks silently is indistinguishable from a quiet day) · M-20 (phase
+exit gates cite acceptance criteria that
 later phases implement) · M-21 (the schedule is six to nine months for one person and never says
 so) · M-22 (the primary approve key advances to the next application, chaining approvals and making
 the undo unreachable) · M-23 (the budget hard stop is a floor, not a ceiling).
@@ -2670,15 +2734,24 @@ the undo unreachable) · M-23 (the budget hard stop is a floor, not a ceiling).
 **MINOR, open (11).** m-1, m-2, m-3, m-4, m-6, m-7, m-8, m-9, m-10, m-11, m-12 — as listed in the
 review report.
 
-**What the Release 1 split does to this list.** It does not close a single finding, and must not be
+**What the Release 1 split does to this list.** The split itself closes nothing, and must not be
 read as doing so. What it does is move most of them out of the critical path: M-5, M-6, M-7, M-8,
 M-9, M-9a, M-10, M-11, M-14 and M-23 live in the submission protocol and the form-filling path,
 which Release 1 does not build. They must be closed before Release 2 begins, and §15.0's entry
-trigger is the point at which that work becomes due. The findings that **remain in Release 1's
-path** are the ones to fix next: **M-16** (`pass_with_confirmed_edits` overrides every fabrication
-class on a memorised constant phrase) and **M-19** (ledger and master snapshots for NFR-3
-reconstruction, only partly addressed by C-8) sit in FactGuard and the ledger, which are Phase 1;
-plus **M-22** and **M-13**, the rubber-stamping findings, which land in the thin-cut review screen.
+trigger is the point at which that work becomes due.
+
+**Of the findings that sat in Release 1's own path, v2.2 closes the two in Phase 1** — M-16
+(FactGuard's override) and M-19 (NFR-3 reconstruction) — because Phase 1 is now the first thing
+built and shipping a known-defective verifier would defeat the point of the release order.
+
+**Two remain in Release 1's path, and they are the honest weak spot: M-22 and M-13**, the
+rubber-stamping findings. They get *worse* under the thin-cut UI, not better: with fewer screens,
+Approve is fewer keystrokes away, and M-22's chaining behaviour — the primary approve key advancing
+to the next application — is exactly the motion a four-screen interface encourages. Release 1 is a
+documents-only product, so a rubber-stamped artefact is not sent anywhere by the machine; Avadh
+still has to send it himself, which is a real backstop v1 did not have. That is mitigation by
+release order, not a fix. **M-22 and M-13 are the next spec work**, and they should be closed
+before the review screen is built rather than after.
 
 **The reviewer's structural objection, unanswered.** The review's sharpest point is not on this
 list, because it is not a defect to patch: *"The human cannot be made safe by measurement alone."*
