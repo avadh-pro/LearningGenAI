@@ -5,3 +5,5 @@
 data/
 chroma_db_openai/
 chroma_db/
+.deepeval/
+Retrieval Augmented Generation (RAG)/notebook/models/
