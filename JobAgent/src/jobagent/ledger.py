@@ -46,6 +46,9 @@ class Ledger(BaseModel):
 # Leading qualifiers that weaken or bound the number that follows.
 _LEADING_QUALIFIERS = ("up to", "approximately", "approx", "about", "around", "over", "under", "~")
 
+#: Re-exported for FactGuard C3, so the text extractor and the ledger split agree.
+LEADING_QUALIFIERS_TEXT = _LEADING_QUALIFIERS
+
 
 def _soup(html: str) -> BeautifulSoup:
     return BeautifulSoup(html, "lxml")

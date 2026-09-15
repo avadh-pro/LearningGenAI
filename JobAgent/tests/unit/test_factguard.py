@@ -4,7 +4,13 @@ Deterministic checks only in this file; C10/C11 use a judge model and are tested
 against cassettes elsewhere.
 """
 
-from jobagent.factguard import Claim, check_claim_kind, check_provenance, check_technologies
+from jobagent.factguard import (
+    Claim,
+    check_claim_kind,
+    check_numbers,
+    check_provenance,
+    check_technologies,
+)
 from jobagent.ledger import build_ledger
 
 MASTER = """
@@ -14,6 +20,49 @@ MASTER = """
   <span class="v" id="skills.s1.qdrant">Qdrant</span>
 </div>
 """
+
+
+NUM_MASTER = """
+<p id="summary.p1">Architected <span class="n" id="summary.p1.n1">25+</span> deployments,
+cutting manual effort by <span class="n" id="summary.p1.n2">up to 80%</span>.</p>
+"""
+
+
+def test_a_number_the_master_does_not_contain_is_a_violation():
+    """C3/AF-02: numbers are the most checkable lie on a resume."""
+    ledger = build_ledger(NUM_MASTER)
+    claims = [Claim(text="Delivered 40 enterprise deployments", kind="self")]
+
+    violations = check_numbers(claims, ledger)
+
+    assert [v.check for v in violations] == ["C3"]
+
+
+def test_dropping_a_qualifier_is_a_violation_because_it_strengthens_the_claim():
+    """`up to 80%` is a ceiling. `80%` is an achievement. The resume supports one."""
+    ledger = build_ledger(NUM_MASTER)
+    claims = [Claim(text="Cut manual effort by 80%", kind="self")]
+
+    violations = check_numbers(claims, ledger)
+
+    assert [v.check for v in violations] == ["C3"]
+    assert "qualifier" in violations[0].detail
+
+
+def test_a_number_repeated_with_its_qualifier_passes():
+    ledger = build_ledger(NUM_MASTER)
+    claims = [Claim(text="Architected 25+ deployments", kind="self")]
+
+    assert check_numbers(claims, ledger) == []
+
+
+def test_a_year_in_a_letter_date_is_not_a_fabricated_number():
+    """A letter header carries the current year; that is not a claim about the
+    candidate and must not be flagged (§8.2 C3 exemption (c))."""
+    ledger = build_ledger(NUM_MASTER)
+    claims = [Claim(text="15 September 2026", kind="context")]
+
+    assert check_numbers(claims, ledger) == []
 
 
 PROV_MASTER = """

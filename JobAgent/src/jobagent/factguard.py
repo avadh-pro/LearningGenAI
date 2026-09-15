@@ -16,6 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .ledger import LEADING_QUALIFIERS_TEXT as _LEADING_QUALIFIERS_TEXT
 from .ledger import Ledger, element_text
 
 ClaimKind = Literal["self", "company", "context"]
@@ -53,8 +54,8 @@ class Violation(BaseModel):
     @property
     def violation_id(self) -> str:
         """Stable across re-runs of the same check on the same text."""
-        digest = hashlib.sha256(f"{self.check}|{self.claim_text}|{self.detail}".encode()).hexdigest()
-        return digest[:16]
+        seed = f"{self.check}|{self.claim_text}|{self.detail}"
+        return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
     @property
     def confirmation_prompt(self) -> str:
@@ -158,7 +159,8 @@ _STOPWORDS = frozenset(
 
 
 def _content_words(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z0-9+#.]+", text.casefold()) if w not in _STOPWORDS and len(w) > 2}
+    words = re.findall(r"[a-z0-9+#.]+", text.casefold())
+    return {w for w in words if w not in _STOPWORDS and len(w) > 2}
 
 
 def check_provenance(
@@ -344,6 +346,70 @@ def run_factguard(
     """
     corrected, violations = check_claim_kind(claims, max_context=max_context)
     violations = list(violations)
+    violations += check_numbers(corrected, ledger)
     violations += check_technologies(corrected, ledger, synonyms=synonyms)
     violations += check_provenance(corrected, master_html)
     return FactGuardResult(violations=violations)
+
+
+_QUALIFIER_ALT = "|".join(re.escape(q) for q in _LEADING_QUALIFIERS_TEXT)
+_NUMERAL_IN_TEXT = re.compile(
+    rf"(?:(?P<qual>{_QUALIFIER_ALT})\s+)?(?P<num>\d[\d,]*(?:\.\d+)?\s*%?)(?P<plus>\+)?",
+    re.IGNORECASE,
+)
+
+
+def _numerals_in(text: str) -> list[tuple[str, str | None]]:
+    """Pull (value, qualifier) pairs out of free text, mirroring the ledger's split."""
+    found: list[tuple[str, str | None]] = []
+    for m in _NUMERAL_IN_TEXT.finditer(text):
+        value = m.group("num").replace(" ", "")
+        qualifier = m.group("qual").lower() if m.group("qual") else None
+        if m.group("plus"):
+            qualifier = f"{qualifier} +".strip() if qualifier else "+"
+        found.append((value, qualifier))
+    return found
+
+
+def check_numbers(claims: list[Claim], ledger: Ledger) -> list[Violation]:
+    """C3 (AF-02, AF-07) — every numeral must match a ledger number *and its qualifier*.
+
+    The qualifier half is the part that matters in practice. A tailored sentence that
+    turns "up to 80%" into "80%" has not invented a number; it has quietly promoted a
+    ceiling into an achievement, which is the same lie in a form that survives a
+    careless read.
+    """
+    allowed = {(n.value.replace(" ", ""), n.qualifier) for n in ledger.numbers}
+    allowed_values = {value for value, _ in allowed}
+
+    violations: list[Violation] = []
+    for claim in claims:
+        if claim.kind == "context":
+            continue  # letter dates and salutations assert nothing about the candidate
+        for value, qualifier in _numerals_in(claim.text):
+            if (value, qualifier) in allowed:
+                continue
+            if value in allowed_values:
+                supported = sorted(
+                    {q or "(none)" for v, q in allowed if v == value}
+                )
+                violations.append(
+                    Violation(
+                        check="C3",
+                        claim_text=claim.text,
+                        detail=(
+                            f"{value!r} appears in the master only with qualifier "
+                            f"{', '.join(supported)} — dropping or changing the qualifier "
+                            "makes a stronger claim than the resume supports"
+                        ),
+                    )
+                )
+            else:
+                violations.append(
+                    Violation(
+                        check="C3",
+                        claim_text=claim.text,
+                        detail=f"{value!r} does not appear in the master",
+                    )
+                )
+    return violations
