@@ -167,4 +167,147 @@ Every question asked while working through this file gets logged here, numbered 
 - A concrete **analogy** carries the explanation, plus a comparison table when two concepts are being contrasted.
 - A bolded **One line:** summary closes the answer.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: How would you differentiate a RAG pipeline from an agent, and where would you use each?
+
+**RAG pipeline = fixed steps, decided by you. Agent = variable steps, decided by the LLM at runtime.**
+
+A RAG pipeline sends every query down the identical path — retrieve → (rerank) → generate → done. One retrieval, one answer, always the same shape. You wrote the sequence; the LLM just fills in the final text. An agent instead looks at the question, picks a tool, sees the result, and *then* decides what to do next — so different questions take different numbers of steps, and you don't know how many in advance.
+
+**Example — the same question to both: "Is our Q3 revenue above target?"**
+
+| | What happens |
+|---|---|
+| **RAG pipeline** | Searches the docs once, finds a chunk mentioning Q3 revenue, answers from it. If the target figure lives in a *different* document, it never finds it and answers incompletely — it only ever gets one shot. |
+| **Agent** | Queries the revenue database → sees the number → realises it still needs the target → queries the targets doc → compares → *then* answers. Three steps here; a simpler question might take one. |
+
+**Where each belongs:** RAG when the shape of the work is predictable (Q&A over documents, support-article lookup) — cheaper, faster, debuggable. Agent when you genuinely can't pre-plan the steps (multi-hop questions, several tools, retry-until-right loops). The rule of thumb is to reach for an agent only once a fixed pipeline has actually failed you, since agents are strictly more expensive, slower, and harder to debug.
+
+**One line:** RAG answers "what does my knowledge base say about X" with a fixed pipeline; an agent answers "go figure X out" by choosing its own steps — and an agent very often uses RAG as one of those steps.
+
+---
+
+### Q2: In a multi-agent system, could one agent be a RAG pipeline itself?
+
+**✅ Correct.** One specialist agent can be an entire RAG pipeline wrapped as a single node — the supervisor routes to it like any other agent, without caring that retrieval, reranking, and generation are all happening inside it.
+
+This is the same point as the LangGraph material in *LangChain.md* (Interview Q13 follow-up): a node can hide one LLM call *or* a whole compiled sub-graph, and the supervisor routes at node granularity either way. The Legal Query Resolution system from Week 3 is exactly this shape — RAG at its core, with agentic components (confidence-gated routing, query decomposition) layered on top, which is why it was described honestly as *"a RAG system with agentic components, not a fully autonomous agent."*
+
+**One line:** yes — from the supervisor's point of view a RAG pipeline is just one more node to route to, and hiding a whole pipeline behind a single node is the normal way multi-agent systems are built.
+
+---
+
+### Q3: In the four-component breakdown above, what does "learning is getting better at it next time" actually mean?
+
+**It means the agent changes its future behaviour based on how past attempts turned out** — the same request handled better the second time because the first attempt taught it something.
+
+**Example:** when ChatGPT shows two responses and asks *"which do you prefer?"*, that click is feedback. It does nothing for your current answer — it feeds a training loop so similar requests go better later. That's the learning component in action, and it's the same *critic* role described in the Learning Agent above.
+
+Contrast with the other three components, which are all about *this* request: perceive it, decide, act. Learning is the only one pointed at the *next* request.
+
+**⚠️ The honest caveat:** of the four components, learning is by far the weakest in real production agents. Most systems you'll actually build perceive, reason, and act — but don't genuinely learn, because they don't update weights between requests. What usually gets *called* learning in practice is much shallower: writing to memory so context carries forward, logging thumbs-down signals for humans to review, or a human retraining later on collected feedback.
+
+**One line:** learning is the only one of the four components aimed at future requests rather than the current one — real in research and feedback pipelines, but mostly aspirational in the agents you'd ship today.
+
+---
+
+### Q4: For an interview — is "fixed/deterministic path → RAG, non-deterministic path → agentic" the right framing?
+
+**✅ Correct, and it's the distinction interviewers are actually testing.** The *pieces* are predefined in both cases; what differs is **who decides the order** — you (pipeline) or the LLM at runtime (agent).
+
+Two sharpenings worth adding, since the concept is already right:
+
+- **Use the precise vocabulary:** static vs. **dynamic control flow**. A RAG pipeline is a **DAG** — it moves forward only, never loops back. An agent has **cycles and conditional branching**, which is exactly why it needs an explicit termination condition.
+- **Say "the *path* is deterministic," not "it's deterministic."** RAG's generation step is still stochastic; only the control flow is fixed.
+
+**One line:** the framing is right — just land it as "static vs. dynamic control flow, a DAG versus a stateful graph with cycles," which is the wording the interviewer is listening for.
+
+---
+
+### Q5: In a RAG system built on LangGraph, a conditional edge like "if relevance score < 0.6 → web search" — is that agentic, or still deterministic?
+
+**✅ Still deterministic — and spotting that is a genuinely sharp distinction.** Branching and adaptive-*looking*, but not agentic: a human picked 0.60, and the same score always routes the same way.
+
+The cleanest way to see it: **both cases use a conditional edge** — the difference is only *what's inside the routing function*.
+
+```
+Routing function contains:
+  if score < 0.6: return "web_search"     ← plain Python  = deterministic routing
+  else:           return "generate"
+
+  llm.invoke("which node next?")          ← an LLM call   = agentic routing
+```
+
+Same mechanism, same graph, same `add_conditional_edges`. Only the decision-maker changes — a coded rule, or a model reasoning about it. This is why "pipeline vs. agent" is a spectrum rather than a switch, and the Legal Query Resolution system's τ = 0.60 confidence gate is exactly the deterministic side of it.
+
+**Worth adding to the mental model:** even when the LLM *does* decide, it almost always picks from a **predefined list of nodes** via structured output — not open-ended invention. "The LLM decides" means it chooses among paths you already built, which is why the supervisor pattern returns a schema-constrained value rather than free text.
+
+**One line:** deterministic routing is a coded rule inside the conditional edge, agentic routing is an LLM call inside that same edge — and real systems mix both in one graph.
+
+---
+
+### Q6: What is CrewAI, and how is it different from LangGraph for building agents?
+
+**CrewAI = you describe a team; it runs them. LangGraph = you draw the flowchart; it follows it.**
+
+CrewAI is built around one metaphor — a *crew of coworkers*. You define **Agents** (each with a role, goal, and backstory), **Tasks** (what needs doing, and which agent does it), and a **Crew** (the team plus a process: sequential or hierarchical). Then `kickoff()` handles the handoffs.
+
+```python
+# CrewAI — you declare WHO and WHAT, not the flow
+researcher = Agent(role="Market Researcher", goal="Find EV market data", backstory="...")
+writer     = Agent(role="Report Writer",     goal="Turn findings into a report", backstory="...")
+
+t1 = Task(description="Research the EV market", agent=researcher)
+t2 = Task(description="Write a summary report", agent=writer)
+
+Crew(agents=[researcher, writer], tasks=[t1, t2], process=Process.sequential).kickoff()
+```
+
+Notice what's missing: you never wrote "after t1, go to t2." The process handles sequencing. LangGraph makes you draw every arrow — which is the whole point:
+
+```python
+# LangGraph — you declare the FLOW explicitly
+graph.add_node("research", research_fn)
+graph.add_node("write", write_fn)
+graph.add_edge("research", "write")
+graph.add_conditional_edges("write", check_quality, {"retry": "research", "done": END})
+```
+
+| | CrewAI | LangGraph |
+|---|---|---|
+| You define | Roles + tasks | State + nodes + edges |
+| Control flow | Framework decides handoffs | You decide, explicitly |
+| Loops / retries | Awkward | Native — cycles are the point |
+| Conditional routing (`if score < 0.6`) | Hard to express | Exactly what conditional edges are for |
+| Human-in-the-loop, resume after crash | Limited | Built in (checkpointers, interrupts) |
+| Speed to build | Fast | Slower, more verbose |
+| Debuggability | More opaque | State inspectable at every step |
+
+**Where each fits:** CrewAI when the shape genuinely *is* a team of specialists passing work along in order — the Market Research Copilot (planner → executor) and the blog generator are exactly this. LangGraph the moment you need cycles, retries, confidence-gated routing, or approval pauses — which is why Legal Query Resolution is LangGraph.
+
+**One line:** CrewAI trades control for speed by hiding orchestration behind a role/task metaphor; LangGraph trades speed for control by making you write the graph.
+
+---
+
+### Q7: If the flow is straight, why not just use LangChain instead of CrewAI?
+
+**"Straight flow" alone doesn't justify CrewAI — the missing variable is what happens *inside* each step.**
+
+- **LCEL chain:** straight flow, and each step is **one deterministic call** — prompt → model → parse. A step can't choose a tool or decide to try again.
+- **CrewAI:** straight flow *between* agents, but each agent is **autonomous inside** — it picks which tools to call, how many times, and when it's done.
+
+**Example — "research the EV market and write a report":** with an LCEL chain you must hardcode the research (run *these 3 searches*, feed results into a summarize prompt). If one topic needs 3 searches and another needs 8, the chain can't adapt — you baked the number in. With CrewAI, the researcher agent gets a *goal* and a search tool, and decides for itself how many queries to run and when it has enough. The handoff is straight; the work inside isn't.
+
+**So the ladder has four rungs, not two:**
+
+| Use | When |
+|---|---|
+| **LCEL chain** | Straight flow, every step is one fixed call — *summarize this document* |
+| **Single agent** (`create_agent`) | One worker that picks tools and loops — *answer this, using search + calculator* |
+| **CrewAI** | Several *specialists* handing off in order, each agentic internally — *research → analyze → write* |
+| **LangGraph** | The flow *between* them must loop back, branch on a condition, or pause for a human |
+
+**❌ One correction worth burning in, because it would draw a flag in an interview:** it is *wrong* to say "LangChain has no agents, it's just a pipeline." **LangChain has agents** — that's exactly what `create_agent` is (and `AgentExecutor` before it was deprecated). A LangChain agent picks its own tools, reads results, and loops until done. The valid contrast is **LCEL chain vs. CrewAI agent**, not *LangChain* vs. CrewAI.
+
+So what does CrewAI actually add over a LangChain agent? Not the reasoning — the **team abstraction**: roles, goals, backstories, and handoff plumbing between *several* agents. You could wire three `create_agent` calls together and get the same result with more boilerplate. That's ergonomics, not capability.
+
+**One line:** LCEL when each step is a fixed call; CrewAI when each step must be an autonomous specialist but the handoffs stay linear; LangGraph when the handoffs themselves need to branch or loop — and never claim LangChain can't do agents, because it can.
