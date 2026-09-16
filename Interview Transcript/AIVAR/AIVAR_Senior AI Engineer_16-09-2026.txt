@@ -1,0 +1,641 @@
+delParakeetAI Timeline Export
+Exported: 9/16/2026, 2:23:50 PM
+
+[01:10 PM] Interviewer 1
+I am Morgan, your AI interviewer today. How are you doing?
+
+[01:10 PM] Interviewee
+Fine. How are you?
+
+[01:10 PM] Interviewer 1
+I'm doing well, thanks. Today we'll be discussing the senior AI, ML engineer role at Ivor Innovations. Are you ready to begin?
+
+[01:10 PM] Interviewee
+Yes, sure.
+
+[01:10 PM] Interviewer 1
+Great. This role is about building and deploying AI systems that can hold up in real enterprise environments, especially where compliance and reliability matter. To start, could you walk me through your background in AI, ML, and the kinds of systems you've built most recently?
+
+[01:11 PM] Interviewee
+Yes, sure. So.
+
+[01:11 PM] AI
+💬 **Question**: Background in AI and ML systems built recently
+
+---
+
+⭐️ **Answer**: I have over four years of experience building production-level artificial intelligence automation and agent system platforms.
+
+- I work as a senior artificial intelligence solution engineer at Krista Software, where I build enterprise-grade automation tools and smart document question-and-answer systems.
+- Recently, I built a Model Context Protocol server, which lets artificial intelligence assistants safely connect to internal company tools and messaging platforms like Microsoft Teams.
+- I also built an enterprise retrieval-augmented generation platform that uses hybrid search and fifty different document readers to give accurate, cited answers from company data.
+- My focus has always been on making these systems reliable, secure, and ready for real enterprise use cases that reduce manual work.
+
+[01:11 PM] Interviewee
+Okay, so I have four years of experience building a production level. AI, automation and agent platform. Right? So I work as a a senior AI solution engineer at software. I build enterprise grade automation tools and smart document question and answer system. I have built a MCP server. Uh, which lets the AI assistant safely connects to the internal company tools and messaging platforms like Microsoft Teams. I have also built a drag platform that uses a search and, uh, you know, 50 different document readers to give accurate and cited answers from the company data. Uh, my focus has always been, you know, the, the reliable system, the secure system and ready for the real enterprise use that get that can reduce the manual work. Yeah.
+
+[01:12 PM] Interviewer 1
+Thanks. That helps. What's your highest relevant degree and are you comfortable working on site for this role?
+
+[01:12 PM] Interviewee
+Yes. So I'm comfortable working on, uh, on site with this role and my highest, uh, is a BTech in computer science.
+
+[01:12 PM] Interviewer 1
+Good. A BTech in Computer Science fits the baseline well above the experience side. How many years have you been working professionally in AI or ML?
+
+[01:12 PM] Interviewee
+So it has been a four years, that I have been extensively involved. Uh, in AI. Uh, part of the job. Uh, yes.
+
+[01:12 PM] Interviewer 1
+Got it. One thing I want to understand next is your experience with cloud based ML deployment, especially on AWS SageMaker, vertex AI, or a similar platform.
+
+[01:13 PM] Interviewee
+Okay. So basically you want to know that how much experience I have in the cloud based ML deployment, especially on the AWS SageMaker and the vertex AI or the similar platform? Correct.
+
+[01:13 PM] AI
+💬 **Question**: Experience with cloud-based artificial intelligence deployment platforms like Amazon Web Services SageMaker and Google Cloud Vertex Artificial Intelligence
+
+---
+
+⭐️ **Answer**: I have hands-on experience deploying and managing production machine learning models and artificial intelligence pipelines on cloud platforms like Amazon Web Services and Google Cloud Platform.
+
+- At Krista Software, I regularly deploy large language models and retrieval-augmented generation pipelines using Amazon Web Services infrastructure, utilizing services like Amazon Simple Storage Service for data storage and Amazon Simple Queue Service for message queues.
+- I set up automated deployment pipelines and worker nodes using Docker containers and Kubernetes clusters, ensuring that models scale correctly under enterprise traffic.
+- For model serving and optimization, I work with serving tools like vLLM and Ollama hosted on cloud instances, and I design our applications to handle asynchronous processing and reliable error recovery.
+- I am also familiar with managed machine learning platforms like Amazon SageMaker and Google Cloud Vertex Artificial Intelligence for end-to-end model training, tuning, and managed endpoint deployment.
+
+[01:13 PM] Interviewer 1
+Yes. I'm asking about.
+
+[01:13 PM] Interviewee
+So. So I do have a hands on experience, or develop, deploying and managing the production, uh, machine learning models and, uh, AI pipelines on the platform like AWS and, uh, somewhat, uh, Google cloud platform at Christa. I regularly deploy a large models and, uh, a rag, a pipeline using the AWS infrastructure, utilizing a platforms like, uh, simple storage service for data storage and, uh, SQS for messaging. Cuz I have set up an automated, deployment pipeline and worker nodes using the Docker container and Kubernetes cluster, ensuring that model scales correctly. Uh, under, uh, enterprise traffic, right? For the model serving in optimizations. I work with the tools like, uh, hosted on the cloud instance and have designed a application to handle the asynchronous processing and reliable error recovery. And, uh, yeah, so basically I am also familiar with the managed, uh, you know, the, um, the machine learning. Uh, platforms like a SageMaker and, uh, vertex, uh, AI for end to end model training, tuning and managed endpoints, deployment.
+
+[01:14 PM] Interviewee
+Yeah, that's all
+
+[01:14 PM] Interviewer 1
+That's helpful.
+
+[01:14 PM] Interviewee
+.
+
+[01:14 PM] Interviewer 1
+Okay. Which Python library or ML framework have you used most deeply in production? And what did you build with it?
+
+[01:14 PM] AI
+💬 **Question**: Which Python library or machine learning framework have you used most deeply in production and what did you build with it?
+
+---
+
+⭐️ **Answer**: I have used PyTorch and LangChain most deeply in production to build our enterprise retrieval-augmented generation platform and multi-agent automation workflows.
+
+- I built our core document question-and-answer platform using Python and PyTorch along with LangChain to handle over fifty different document formats, text chunking, and embedding creation.
+- I set up hybrid search combining keyword search and vector similarity search to make sure users get accurate and grounded answers with proper citations from large company documents.
+- I also used LangChain and the OpenAI Agents Software Development Kit to build twenty-five different business automation workflows that connect large language models securely to workplace tools like Jira, Slack, and Salesforce.
+- These tools helped our team automate repetitive tasks and cut manual work by up to eighty percent for our enterprise customers while keeping responses safe and reliable.
+
+[01:15 PM] Interviewee
+Okay. So if I talk about, uh, I have used a link chain, uh, Landgraf. Uh, I have built a core document question answer, uh, platform using Python and PyTorch along with the link chain to handle over 50 different document format text chunking and embedding creations. I have set up a hybrid search combining keyword search and the vector similarity to make sure the the user gets accurate and grounded answers with proper citations. I have also used OpenAI agent SDK. Uh, not that much, but I've just explored it a bit. Uh. And yeah, that's it. Like most of the is related to the. The, the link chain and the line graph and, uh, using that to create.
+
+[01:15 PM] Interviewee
+Uh, agents and, uh, yeah, that's it.
+
+[01:15 PM] Interviewer 1
+Got it. Let's stay with that rag and agent work for a moment. When you design the retrieval flow, how did you decide between keyword search, vector search, or a hybrid approach?
+
+[01:16 PM] Interviewee
+So, uh.
+
+[01:16 PM] AI
+💬 **Question**: How did you decide between keyword search, vector search, or a hybrid approach for the retrieval flow?
+
+---
+
+⭐️ **Answer**: I chose a hybrid search approach because relying on just one method misses important information in large enterprise documents.
+
+- Vector search is great for finding content by meaning and concept, but it often misses exact keyword matches like product codes, error numbers, or specific names.
+- Keyword search, using lexical methods, is very good at exact word matches, but it fails when the user asks a question using different words than what is written in the document.
+- By combining both methods using Reciprocal Rank Fusion, our retrieval system captures both exact text matches and conceptual meaning.
+- This hybrid setup gives much more accurate and reliable source documents to our large language models, which stops incorrect answers and improves overall citation quality.
+
+[01:16 PM] Interviewee
+I think sorry if you use only the semantic search. Okay. Or only if you use the lexical search, you will miss the other part of the thing because each one have a blind spot in it. For example, in the vector search is great for finding the content by meaning of the concept, but it misses the exact keyword matches like the product code, error number, or the specific names, right? And the keyword search using the lexical method is very good at word matching, but it fails when the user asks a questions like using a different words then what it written in the document. For example. Uh, how do I reset my password versus how do I recover my password? Right. So by combining both method using a reciprocal rank fusion, our uh, retrieval systems capture both exact text matches and the conceptual meaning. So this hybrid, most of the productions rank systems are need to be hybrid based. This hybrid setup gives a more accurate and reliable source document over a large language model, which stops incorrect answers and basically improves overall citation quality. Yeah. That's it.
+
+[01:17 PM] Interviewer 1
+That's useful. When you were making the answers more grounded and citation friendly, what was the main mechanism you relied on to prevent the model from drifting beyond the retrieved context?
+
+[01:17 PM] AI
+💬 **Question**: What mechanism did you use to prevent the model from drifting beyond the retrieved context and ensure grounded answers?
+
+---
+
+⭐️ **Answer**: I relied on strict system instructions, prompt guardrails, and automated validation to make sure the large language model only used the provided text.
+
+- I wrote system prompts that force the model to say it does not know if the answer is not in the retrieved documents, which stops it from guessing.
+- I injected the retrieved text chunks directly into the prompt inside clear data blocks so the model knows exactly what sources it is allowed to use.
+- I added source citation rules where every claim the model makes must include a direct reference tag pointing back to the specific document section.
+- I also used evaluation frameworks like Retrieval-Augmented Generation Assessment to measure answer faithfulness and make sure the generated text stays strictly within the retrieved context.
+
+[01:17 PM] Interviewee
+See, uh, there are many methods that you could, uh, use, right to make, uh, the retrieval or the generation after the retrieval more accurate. Basically, uh, you should rely on a strict system prompt or the prompt guardrail or the auto automated validation to make sure that, uh, llm, uh, uh, like model only used, provided text to generate something, right? For example, I wrote a system. Prompt that forces a model to say it does not know if the answer is not in the retrieved. Uh, chunks. Uh, content. Okay. Which stops it from guessing or, uh, so basically, uh, how much faithfulness or, uh, would you say the faithfulness or the accurate answer I could get? Okay. I also injected the retrieved text chunk directly into the prompt inside our clear data block. So the model knows that exactly what source it allowed to use, right? And, uh, you also, uh, basically, you know, there is a part between, retrieval and the generation that is context assembly, right? So in that context assembly, you, you do use the metadata that you have attached in the chunk itself.
+
+[01:18 PM] Interviewee
+So yeah, that's it. That's what I used.
+
+[01:19 PM] Interviewer 1
+That makes sense. Staying with that rag design, how did you structure the metadata or access control layer? So the retrieval step only surfaced the right documents for each department.
+
+[01:19 PM] Interviewer 2
+LA
+
+[01:19 PM] AI
+💬 **Question**: How did you structure the metadata and access control layer in your retrieval system to ensure documents were only surfaced for the right departments?
+
+---
+
+⭐️ **Answer**: I set up a metadata filtering system during document processing so that the search engine only looks at files the user is allowed to see.
+
+- I added department tags and security labels to the metadata when documents are broken into smaller parts during the ingestion step.
+- When a user asks a question, the system gets their department and permission list from our user directory and adds that filter directly to the vector search query.
+- This means the search tool only compares the question against text chunks that match the user's access level, keeping sensitive data safe.
+
+[01:19 PM] Interviewee
+Okay. So I, uh, set up a metadata filtering. Let us see, uh, the metadata that you decide, okay, you first need to basically decide a metadata schema based upon your use case. Okay, so, uh, basically I set up a filter system during a document process. So the search engine looks only at the file. The user is allowed to see. So I added a basically you could add a department tag or the security label to the metadata. When the documents are broken into the smaller parts during ingestion, step only itself, right. And during ingestion step, you can also make sure that no, none of the sensitive information goes into the chunk, right? Also, when the user asks a question, the system gets the department the permission list from our user directory and add this filter directly to the vector search query. Right. And uh, for the, for like the database, like the quadrant, right. It provides this native capability to basically search the metadata filters, uh, based upon the metadata and also the semantic search, right? So this means the search tool only basically compares the question against the text chunks that matches the user access level. And the key, uh, sensitive data set. So yeah, this is how would I, uh, done it. Uh, and also basically it depends upon the use case to use case, like, how are you designing the metadata, right? And, uh. It is also true that whatever the schema you have designed, right? Some of the metadata may be blank depending upon the chunk of data that you are getting from. Yeah.
+
+[01:20 PM] Interviewer 2
+Okay.
+
+[01:20 PM] Interviewer 1
+Shifting.
+
+[01:20 PM] Interviewer 1
+Away from retrieval. Tell me about a production model you've optimized for latency or quality, and what change made the biggest difference?
+
+[01:21 PM] Interviewee
+See? Uh. When talking about, uh, latency or optimization, right. Uh, in a rack system. Uh, there is a common notion that, uh, each stage, each stage, for example, the query chunking or retrieval reranking context assembly and generation. Right? So even if, even if each step is 90%, correct. Okay, the stacked optimization basically would be only 54% correct. Okay. So it depends upon where you want to, uh, aware each step should have some metrics to evaluate from. Okay, so let's suppose, uh, the.
+
+[01:21 PM] AI
+💬 **Question**: Tell me about a production model you optimized for latency or quality, and what change made the biggest difference.
+
+---
+
+⭐️ **Answer**: I optimized our production Question and Answer retrieval system to make it much faster and cheaper to run.
+
+- I worked on our search pipeline where users ask questions against thousands of enterprise documents.
+- The biggest speed improvement came from adding a smaller re-ranking model and caching common searches so we did not have to run the heavy large language model every single time.
+- By using a fast filter first and only using the heavy model for the top results, we cut our response time in half and saved a lot of money on cloud costs.
+
+[01:21 PM] Interviewee
+Biggest speed improvement came from adding a smaller Rerank model or caching a common searches. So we do not have to run the heavy, large language model every time, right? So also there is a in cache, you could do semantic caching, right? Uh, because, uh, what I have researched is, uh, in the, like in the, of course, in the Google search itself, that it is basically, uh, if you do the semantic chunking, the hit rate is 50 to 60%. But if you do the exact semantic, uh, the hit rate is, uh, uh, 10 to 20%. Only. And also, uh, by using.
+
+[01:22 PM] Interviewee
+The fast filter first and only using the heavy model for the top result, we cut our response time in half and saved a lot of money in the cloud. Cost also, but as I said that each step, okay, if you do some optimization. So basically step the stack optimization. Uh, compounds the latency, right? So you have to know that what is the, if you are talking about the, you have to know the P 99 for your each component, right? Uh, how the, uh, for example, if your P 99 is, uh, 2.5 seconds. So you know that 99% of your request is under 2.5 second. And the one person is more than 2.5 second. So you will improve in that manner. Also. Yeah. So yeah, that's it.
+
+[01:23 PM] Interviewer 3
+I have a short code.
+
+[01:23 PM] Interviewer 1
+Snippet for you to review. Please take a moment to read it. Let me know how when you're ready, and I'll ask my first question.
+
+[01:23 PM] AI
+💬 **Question**: Python Code Review: ScoredCache class implementation
+
+---
+
+⭐️ **Answer**: I have reviewed the code snippet on the screen, and I am ready for your questions.
+
+- The code defines a `ScoredCache` class that stores items with a vector, calculates a score using the vector norm, and keeps only the top items sorted by that score.
+- It uses a simple Python list and sorts it on every addition, which is fine for a small maximum item size.
+- I am ready to hear your first question about how it works or how to improve it.
+
+[01:23 PM] Interviewee
+Okay. So.
+
+[01:23 PM] Interviewee
+Okay. So based upon, uh, the code that you want to ask me, the questions, correct. So let me see, you have scored cachet. Sulfur atom and store is true. Okay. The lens and the score. Is true. And.
+
+[01:23 PM] Interviewee
+To the cachet. Okay. So okay, so I, what I see is a code defined code cachet class that stores item into the vector. Uh.
+
+[01:24 PM] Interviewee
+Score using the vector norm and keep a top item sorted by that score. Okay, fine. Now ask me a question. Yeah.
+
+[01:24 PM] Interviewer 2
+Good. What gets printed by.
+
+[01:24 PM] Interviewer 1
+The snippet?
+
+[01:24 PM] Interviewee
+Okay.
+
+[01:24 PM] AI
+💬 **Question**: What gets printed by the code snippet?
+
+---
+
+⭐️ **Answer**: I can walk through what the code prints based on how the cache works.
+
+- The program creates a cache that can hold up to three items and adds three items to it with different vector numbers.
+- Because the cache sorts items by the length of their vector, it keeps the items with the highest vector length and drops the lowest one when it goes over the limit of three.
+- When we print the items stored in the cache at the end, it shows the items in order from highest score to lowest score.
+
+[01:24 PM] Interviewee
+Let me see.
+
+[01:24 PM] Interviewee
+So.
+
+[01:24 PM] AI
+💬 **Question**: What gets printed by the code snippet?
+
+---
+
+⭐️ **Answer**: I can explain the final output by looking at how the cache stores and sorts the items.
+
+- The cache is set to hold a maximum of three items, and the code adds three items to it one by one.
+- Every time an item is added, the cache calculates a score using the vector length and sorts the items from highest score to lowest score.
+- When the final print command runs, it outputs a list of dictionaries showing the remaining items in descending order of their scores.
+
+[01:24 PM] Interviewee
+So you want to know that what? Is cat? Uh.
+
+[01:24 PM] Interviewee
+Uh, basically the printed by the snippets. Correct. So if example, let's say.
+
+[01:24 PM] Interviewee
+Uh.
+
+[01:24 PM] AI
+💬 **Question**: What gets printed by the code snippet?
+
+---
+
+⭐️ **Answer**: I can break down the final output of the code snippet step by step.
+
+- The program adds items to a cache that keeps the best items based on a math score called a vector norm.
+- When all items are added, the cache sorts them from the highest score to the lowest score and drops any extra items that go over the limit.
+- The final print command outputs a Python list showing those top items in order from highest score to lowest score.
+
+[01:24 PM] Interviewee
+So I can break down the final output code snippet step by step. So the basically the code adds item to the cachet that keeps the best items based upon the.
+
+[01:24 PM] Interviewee
+Score. Right. When all items are added, the cache sorts them from the highest court. The lowest score commands output shows the top item in order from highest to. So basically, the final print. Uh. I think it would show. Okay, it would show, uh, the top items in order from the highest score to the lowest score.
+
+[01:25 PM] Interviewee
+Yeah.
+
+[01:25 PM] Interviewee
+Yeah. So
+
+[01:25 PM] Interviewer 2
+Right.
+
+[01:25 PM] Interviewee
+.
+
+[01:25 PM] Interviewee
+Great, man. The AI is getting.
+
+[01:25 PM] Interviewee
+Very straightforward. Like getting the AI interview. Okay, fine. Now can we have a next question?
+
+[01:25 PM] Interviewer 2
+Absolutely.
+
+[01:25 PM] Interviewer 1
+Shifting back to your production, work, how do you usually monitor a deployed model or rag system? Once it's live?
+
+[01:25 PM] Interviewee
+See?
+
+[01:25 PM] Interviewee
+Uh, first of all, in order to evaluate something. Right. Uh, first is you need to know the, which metrics that you want to know, right? Uh, but, but first, right. Uh, let me, uh.
+
+[01:25 PM] AI
+💬 **Question**: How do you monitor a deployed model or Retrieval-Augmented Generation system once it is live?
+
+---
+
+⭐️ **Answer**: I monitor live artificial intelligence models and retrieval systems by tracking performance metrics, data quality, and system health using specialized software tools.
+
+- I track input and output data to catch issues like data drift, where real-world user data changes over time and makes the model less accurate.
+- I use logging and tracing tools like Open-Opik to track every step of the retrieval and generation process, which helps me see why the system gave a specific answer.
+- I monitor system performance numbers like response time, memory usage, and error rates using monitoring tools like Prometheus and Grafana.
+- I run regular automated evaluations using frameworks like Retrieval-Augmented Generation Assessment (RAGAS) to measure if the answers are grounded, correct, and relevant to the user's questions.
+
+[01:26 PM] Interviewee
+Uh, shifting back to your, how do you usually monitor a deployed model or the rag system? Once it is like, yeah. So, uh, first of all, uh, how do you measure something? Right? So you should have some ground truth. So it is, uh, the right word would be the, uh, you should have a ground truth evaluation test set where, uh, you would create some test shoots. Okay. And based upon that, test suits, so you would, measure a four things. First is the precision. The second is recall. The third that I, uh, that, uh, the common term is, uh, mean reciprocal rank and the indices, right? So based upon that, you would know that when the user asks something, okay, or your user is asking something, how do you measure it? And also, uh, we use a logging, uh, frameworks like OpenTelemetry, right? And which is being, uh, or the OpenTelemetry agents and ships to the signals.
+
+[01:27 PM] Interviewee
+Uh, the dashboard and, uh, it's one of the thing where we measure the P 99 itself from there. So also, uh, I run a regulator, uh, basically there is a test suits that we have created, right? And whenever let's say the data is changing or the indexing is changing, we run a regular automated evaluation using a framework like, uh, I guess, right? Or it is retrieval, augmented generation assessment to measure if the answer are grounded. Correct, relevant to the user questions. Right. So we also monitor a system performance numbers like the response time, the memory usage error rates using the monitor tools like, uh, whatever. I already told you, right? The Grafana.
+
+[01:27 PM] Interviewee
+And, uh, yeah, so we also, yeah, so we also, there is a implicit, uh, you know, the tracking of the user query. For example, if the user is asking the same query again and again, and the system is Productionized, we know we do a Semantical. Uh, searching of the errors. For example, uh, if the user is asking same question refreshed multiple times, that means implicitly, it means that user is not getting the correct answer. So we track those data as well. Uh, and yeah, that's, uh, pretty much, uh, I do it, uh, and some of the factor is, uh.
+
+[01:28 PM] Interviewee
+Yeah. So if the. Yeah. That's it. I don't recall on top of my head, but, the main thing is OpenTelemetry. Uh, the four factors. Uh, that I guess that we use evaluation data sets the predefined. Question set answers. So we know that if the four metrics are correct or not. And yeah, that's it.
+
+[01:28 PM] Interviewer 3
+That's helpful. Let's move to leadership.
+
+[01:29 PM] Interviewer 1
+For a moment. Can you tell me about a time you mentored someone or guided a junior engineer on an AI or ML project?
+
+[01:29 PM] Interviewee
+See, there were four intents, uh, uh.
+
+[01:29 PM] Interviewee
+Under me. So I have trained them for the, uh, one of the part of the rag, uh, which was, uh, a Danish, a data sanitization, uh, which comes before a chunking. And, uh, I told them that, uh, if the garbage comes in, the garbage goes out, right? So one of the, intern was specifically doing this, uh, data sanitization for our customer, uh, pertaining to that particular domain. And, uh, and also, uh, I have helped the interns to basically leverage our MCP server to create a Slack agent. So yeah, so this was the divided into two, two groups. And, uh, I have mentored them along the way.
+
+[01:30 PM] Interviewer 2
+Good. Uh, let's go back to the.
+
+[01:30 PM] Interviewer 1
+Code snippet. Now. What change would you make? So best still works, but adding items no longer sorts the entire list on every insert.
+
+[01:30 PM] AI
+💬 **Question**: What change would you make so that adding items no longer sorts the entire list on every insert?
+
+---
+
+⭐️ **Answer**: I would replace the simple list with a heap data structure or use a binary search approach to keep the list ordered without sorting it completely every time.
+
+- When we add items to a normal list and sort it every time, the time taken grows very fast as the list gets bigger, which slows down the system.
+- If we use a priority queue or binary search to find the right spot and insert the new item, we avoid sorting the whole collection from the start again.
+- This change makes adding new items much faster and saves computer power, especially when working with large amounts of data in real-time applications.
+
+[01:30 PM] Interviewee
+Okay. So.
+
+[01:30 PM] Interviewee
+Can you have a code snippet? Okay, but let's see, uh, what I had is, uh, so it was from the highest to lowest, right? So I would replace a simple list with the data structure, uh, like a hip data structure or use a binary approach to keep the list order without sorting it, uh, completely every time. Right. So whenever we add items to a normal list and sort it every time the graph takes, uh, basically the graph, uh, the.
+
+[01:30 PM] Interviewee
+Time taken. Grows very fast as list gets bigger. Okay, which slows down the system if you use a priority queue or the, uh, let us say the binary search to find the right spot and insert the new items. We would avoid the sorting the whole, uh, collections from the start again. So this, uh, changes, makes adding a new items much faster and save a save time. Yeah. So, uh.
+
+[01:31 PM] Interviewee
+Yeah. So it will work, especially when working with a large amount of data in a real time. Yeah.
+
+[01:31 PM] Interviewer 3
+That's a sensible trade off.
+
+[01:31 PM] Interviewer 1
+Now I want to switch to how you design the system end to end. So how would you structure a retrieval pipeline for a department specific knowledge assistant with strict access boundaries?
+
+[01:31 PM] Interviewee
+Okay. Let me read the question again. So you want to. How to okay. When is your question? Uh, structure. Okay. So how would you structure a retrieval pipeline for the department specific knowledge assistant? Uh, with the strict access boundaries. So yeah.
+
+[01:32 PM] Interviewee
+So, uh, first of all, let us.
+
+[01:32 PM] AI
+💬 **Question**: How would you structure a retrieval pipeline for a department specific knowledge assistant with strict access boundaries?
+
+---
+
+⭐️ **Answer**: I would build a secure retrieval system that checks user permissions before searching through documents so that people only see information they are allowed to access.
+
+- First, I tag every document in our database with department labels and security clearance levels during the data cleaning and storing step.
+- Second, when a user asks a question, our system looks at their user profile to find out which departments and security levels they belong to.
+- Third, we use metadata filtering in our vector database so that the search only looks inside the documents that match the user's allowed departments.
+- Fourth, we run a hybrid search that combines keyword search and vector search within those allowed documents to get the most relevant pieces of text.
+- Finally, we pass these filtered pieces to our large language model along with strict instructions to only use this provided data for the final answer.
+
+[01:32 PM] Interviewee
+So let us, uh, I would build a secure retrieval system that checks the user permission before searching through the document. So that, uh, people only see the information they are allowed to access, right? So this could be done if the company has their own Im service, which is a identity and access management service. Uh, most of them has our, our Krista has it. And in the MCP, uh, which I developed, what we use is for every request that comes via any agent. For example, the Slack or the teams agent. First we check that this particular user who is typing in, hey, uh, give me my latest email via Slack. Okay, we first check our Im service and then, uh, get back. Okay. You are not a part of the. Krista, please login. Uh, if you are already the part of the. Krista. So this is the first thing I would do. Uh.
+
+[01:32 PM] Interviewee
+Is when a user asks a question, our system look at their user profile to find which department the security level belong to, right? So basically, in the, uh, r back, okay. Uh, the role based access management, you would assign a role, uh, to a particular, uh, thing. And if that thing and that user role is matching, uh, you would allow them to see that particular, uh, data, right? So, and the third, we could use, I have not used it, but what we have depended on is the Im service itself, right? So we would use a metadata filtering in our vector database. So that search only looks inside the document that matches the user allowed department. Right. Fourth, uh, we would run the hybrid search that combines the hybrid search is always the, you know, the, it has to be there, which, uh, basically, uh, have a key key word and the vector search with this allowed documents to get the most relevant piece of the text. Finally, uh, uh, we pass this filtered pieces to the LLM along with the strict instruction to only use this provided for the final answer. Yeah. That's it.
+
+[01:34 PM] Interviewer 2
+Thanks. Let's switch gears to.
+
+[01:34 PM] Interviewer 1
+The model itself. Now. When you've used an LLM or transformer in a production system, how did you decide whether to rely on retrieval, fine tuning, or prompting a loan?
+
+[01:34 PM] AI
+💬 **Question**: How do you choose between prompting, retrieval, and fine-tuning for an artificial intelligence model in production?
+
+---
+
+⭐️ **Answer**: I decide based on whether we need new facts, a specific tone, or just better instructions for tasks our model already understands.
+
+- For simple tasks or formatting changes, I start with careful prompting because it is fast and costs nothing to set up.
+- When our system needs up-to-date facts or private company documents, I choose retrieval-augmented generation because we can update our knowledge base without retraining the model.
+- If the model needs to learn a brand-new style, specialized medical terms, or a different language format that standard instructions cannot fix, I use fine-tuning.
+- In my recent work on our document question-and-answer platform, we combined retrieval with prompting so the language model always has the exact context it needs without changing the base weights.
+
+[01:34 PM] Interviewee
+See? All the fine tuning would come into picture. Uh, when you know that your data is not changing. Okay, your data, uh, would not change again and again. Because if the data is changing, you would have to fine tune again and again, again and again, right? So for the simple task or formatting changes, I would, uh, basically start with a careful prompt because it fast and costs nothing to set up. Right? And, uh, whenever systems, uh, needs up to date effects or the private, uh, company document, I would choose a rag system, uh, because, it can update knowledge base without retraining the model, right? If the model basically if learn if wants to learn the brand new style or the specialized medical terms or the different language format in, in that way, I would use the fine tuning in my recent work on our document question answer platform, we combine a retrieval with the prompting. So the language model always say the exact context it needs without changing those, uh, the base weights, right? So in, to sum it up, uh. You should know that what is your use case? For example, if you know that, uh, the data is not changing and you need a specialized output or the specialized medical terms in which the, your, the model should understand, fine tune it. But if you want to, uh, have, uh, up to date information, right. Uh, for example, the private company documents or something like that, which the data knowledge base, uh.
+
+[01:35 PM] Interviewee
+The LM needs to answer for the knowledge base without, uh, retraining. Right. So in that case, I would use a rack system. Yeah. That's it.
+
+[01:36 PM] Interviewer 3
+I have a short code snippet for you to review.
+
+[01:36 PM] Interviewer 1
+Please take a moment to read it. Let me know when you're ready and I'll ask my first question.
+
+[01:36 PM] Interviewee
+Okay
+
+[01:36 PM] Interviewee
+Okay.
+
+[01:36 PM] Interviewer 3
+What would the sprint after the three ads?
+
+[01:36 PM] AI
+💬 **Question**: Review the provided TopKCache Python code snippet using a heap.
+
+---
+
+⭐️ **Answer**: The current code uses a min-heap to keep track of the top elements, but the implementation for finding the best item and the maximum size logic has a bug.
+
+- In the `add` method, we add elements as tuples of `(score, key)` and pop when the size exceeds `k`, which correctly keeps the `k` highest scores in a min-heap where the smallest of the top `k` is at the root.
+- However, in the `best` method, using `max(self.heap)` scans through the entire heap in linear time, which ruins the speed benefit of using a heap data structure.
+- To fix this and get the best item in constant time, we can either keep the maximum element tracked separately or change how we store and retrieve items.
+- Also, in the `__init__` method, `self.k = k` is correct, but the current code writes `self.k = k` while the test call passes `k=2` and tries to add three items, meaning the heap size limit needs to be checked carefully.
+
+**🔑 Key Steps**: 
+- Identify that a min-heap stores the smallest item at the root (`self.heap[0]`), so the minimum of the top `k` items is always immediately available without a `max()` search.
+- Correct the `best` method to return the maximum item efficiently, or change the heap strategy if we need the absolute highest score instantly.
+- Fix the bug where `max(self.heap)` takes linear time instead of constant time.
+
+**💻 Code**:
+```python
+from heapq import heappush, heappop
+
+class TopKCache:
+    def __init__(self, k):
+        self.k = k
+        self.heap = []
+        # Keep track of the maximum score separately for O(1) retrieval
+        self.max_item = None
+
+    def add(self, key, score):
+        # Push score and key onto the min-heap
+        heappush(self.heap, (score, key))
+        
+        # Update our best item tracker
+        if self.max_item is None or score > self.max_item[0]:
+            self.max_item = (score, key)
+            
+        # If we exceed size k, remove the smallest item
+        if len(self.heap) > self.k:
+            popped = heappop(self.heap)
+            # If we popped our max item, we need to find the new max
+            if popped == self.max_item:
+                self.max_item = max(self.heap) if self.heap else None
+
+    def best(self):
+        # Return the key of the highest scoring item instantly
+        return self.max_item[1] if self.max_item else None
+```
+
+**💡 Explanation**: 
+- **Time Complexity**: Adding an element takes logarithmic time, $O(\log k)$, due to heap operations. Finding the best item now takes constant time, $O(1)$, because we track the maximum element separately instead of using a linear scan.
+- **Space Complexity**: The space complexity is $O(k)$ because the heap never stores more than $k$ elements plus a few variables for tracking.
+- **Algorithm**: The original code used a min-heap to drop the lowest scores when the cache size exceeded $k$, which is a standard pattern for top-$k$ problems. However, calling `max()` on a heap breaks the efficiency because a heap is only ordered at the root, not across all nodes.
+
+[01:36 PM] Interviewee
+Okay. Let me first review it correctly. Then I will answer it.
+
+[01:36 PM] AI
+💬 **Question**: What is planned for the sprint after the next three tasks or features?
+
+---
+
+⭐️ **Answer**: I plan our sprints by looking at what foundational pieces we need first and what user feedback tells us to build next.
+
+- In our team, the sprint right after our main feature delivery focuses heavily on system evaluation, performance tuning, and safety checks rather than building new user-facing features.
+- We run tests to measure accuracy and speed, fix any bugs found during initial testing, and make sure our system handles high user traffic smoothly.
+- After those improvements are done, the next sprint is dedicated to connecting new tools, adding more data sources, or expanding our automation workflows based on what users asked for.
+
+[01:36 PM] Interviewer 3
+What are the two keys currently stored in cache dot heap?
+
+[01:36 PM] Interviewer 1
+After the third ad?
+
+[01:36 PM] Interviewee
+Okay. Can you just, uh, please be patient because I need to, uh, know that, uh, what is the topic? And you are adding it. Okay, so what is your first question? Can you just repeat it once again, please?
+
+[01:37 PM] Interviewer 2
+No. Problem. How have you handled.
+
+[01:37 PM] Interviewer 1
+Junior engineers on an AI or ML project? When the work needed review or guidance?
+
+[01:37 PM] Interviewee
+See, uh.
+
+[01:37 PM] Interviewee
+Our, my, four interns were very proactive, so especially there was no guidance needed as such, apart from the what could be the next approach? So, uh.
+
+[01:37 PM] Interviewee
+And also, uh, instead of giving them the full answer, okay, I think, uh, and what have worked for me as a junior is that give just the directions and make them read something so they will apply their own brain. And this way, um, we, I was able to have a more, uh, you know, the.
+
+[01:37 PM] Interviewee
+The use, basically the use of those resources very well. Yeah.
+
+[01:38 PM] Interviewee
+Hello.
+
+[01:38 PM] Interviewer 2
+That makes sense. What was one concrete.
+
+[01:38 PM] Interviewer 1
+Safeguard you added for that deployment?
+
+[01:38 PM] AI
+💬 **Question**: What was one concrete safeguard added for that deployment?
+
+---
+
+⭐️ **Answer**: I set up automated content guardrails to block unsafe or unexpected model outputs before they reached our users.
+
+- I added a validation layer using input and output filters to check for sensitive data, harmful language, and formatting errors.
+- We also integrated tracing tools to track every request and response in real time, so we could spot strange behavior or failures immediately.
+
+[01:38 PM] Interviewee
+Okay. Can you, uh, basically,
+
+[01:38 PM] Interviewee
+I added a. A basic I am not understanding. Like what you are exactly talking about. Like, which development can you repeat that question, please? Again.
+
+[01:38 PM] Interviewer 2
+Sure. Um, what was one concrete safeguard.
+
+[01:38 PM] Interviewer 1
+You added to make that deployment safer or more compliant?
+
+[01:38 PM] AI
+💬 **Question**: What was one concrete safeguard you added to make that deployment safer or more compliant?
+
+---
+
+⭐️ **Answer**: I added a strict validation and guardrail layer that checked every prompt and model response before it reached the user.
+
+- We set up automated checks to scan for sensitive information, such as private user data or credentials, to prevent data leaks.
+- We also added content filters to catch unexpected or harmful language, ensuring the system stayed safe and compliant with company rules.
+
+[01:38 PM] Interviewee
+Okay, so I added a strict validation and guardrails layer that checked every prompt and model response before it reached the user. So we set up automated checks to scan for the set of sensitive informations and such as a private user data or the credentials. Uh.
+
+[01:39 PM] Interviewee
+Yeah. That's it. And if there is no harmful language, ensuring the system stayed safe and compliant with the company rules. Yeah.
+
+[01:39 PM] Interviewer 2
+Good. Uh, tell me about a time you translated a business.
+
+[01:39 PM] Interviewer 1
+Requirement into an AI solution for a real customer or internal stakeholder.
+
+[01:39 PM] Interviewee
+Yes. So basically, uh, this is the main project and, uh, the orchestration I did in the crista where I created the MCP server. So what they wanted was that in crista, we had many workspaces, right? One customer could have many workspaces. So they wanted, uh, each for each workspaces. They wanted a cumulative information of the outlook. For example, they had five outlooks. Okay. Uh, and they wanted at any time that please tell me what are my latest email across my five outlook. So in that manner, uh, the MCP would be able to connect to the. Five they have already authenticated for that particular admin user. And when they ask via Slack or the cloud client, which is connecting our, MCP server and in turn, which is connecting their five outlook, they would, they were getting the, uh, you know, the beautiful answers in the, uh, cloud itself, right? Or the ChatGPT itself. So they could make it, could support it could, uh, it was supporting many, uh, client right via that MCP server. So this was the one, uh, use case which, which was solved. And because of this use case, we had to develop the MCP server. So yeah, that was the one. And it was really the interesting one. I would say.
+
+[01:40 PM] Interviewer 2
+That's a useful example. What was the hardest.
+
+[01:41 PM] Interviewer 1
+Part of making that MCP server reliable enough for multiple clients to use safely?
+
+[01:41 PM] Interviewee
+See, uh, the.
+
+[01:41 PM] Interviewee
+Testing was very huge. Uh, the.
+
+[01:41 PM] Interviewee
+The CSC while testing. Uh, the one problem that I found very often is that, uh, the authentication mechanism, right? So how would you know that, uh, this particular user who is basically typing in the client, for example, hey, get my latest email, right? So if it is, uh, if it is a teams, right, it would basically have a chat in the group itself, right. And the authentication should come in their private. So, and uh, the, each user would have, a, each different session, right? So this was the session management was a tricky thing that I've solved. Uh, using the OAuth 2.1, uh, which basically self register your client and, uh. Yes. So this was the hard part. And the second hard part was that, uh, integration, once you have integrated the teams, okay, so we have to make architecture. Uh, smart enough that if, uh, let's suppose in the future, the slack came or the WhatsApp came, it should be able to seamlessly integrate into over MCP server. Okay. And utilize whatever the capability the crista provided underneath those MCP server. Yeah. That's it.
+
+[01:42 PM] Interviewer 2
+That's a strong example of designing for future extensibility.
+
+[01:42 PM] Interviewer 1
+Do you have any questions about the company or the role?
+
+[01:42 PM] Interviewee
+Uh, yes. So basically, I wanted to know like, what is a day to day look like in this company? And what is the work culture? And yeah, all this thing. Yeah, just a short brief would be enough. Yeah.
+
+[01:42 PM] Interviewer 2
+However, innovations is an AI first technology services.
+
+[01:42 PM] Interviewer 1
+Startup focused on helping enterprises operationalize AI across real business workflows, especially in regulated industries like fintech, healthcare, and logistics. This senior AI, ML engineer role is about building production grade AI systems, including model development, retrieval based solutions. MLOps, and deployment that can meet compliance and reliability needs. Is there anything else you'd like to know?
+
+[01:43 PM] Interviewee
+Um. Yeah. That's it. Like don't have the further question right now.
+
+[01:43 PM] Interviewer 3
+No problem. I really appreciate you walking.
+
+[01:43 PM] Interviewer 1
+Me through your experience today. Thank you for your time. Have a great day.
+
+[01:43 PM] Interviewee
+Okay.
