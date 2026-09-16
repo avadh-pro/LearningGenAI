@@ -272,19 +272,35 @@ graph.add_edge("research", "write")
 graph.add_conditional_edges("write", check_quality, {"retry": "research", "done": END})
 ```
 
-| | CrewAI | LangGraph |
-|---|---|---|
-| You define | Roles + tasks | State + nodes + edges |
-| Control flow | Framework decides handoffs | You decide, explicitly |
-| Loops / retries | Awkward | Native — cycles are the point |
-| Conditional routing (`if score < 0.6`) | Hard to express | Exactly what conditional edges are for |
-| Human-in-the-loop, resume after crash | Limited | Built in (checkpointers, interrupts) |
-| Speed to build | Fast | Slower, more verbose |
-| Debuggability | More opaque | State inspectable at every step |
+| | CrewAI **Crews** | CrewAI **Flows** | LangGraph |
+|---|---|---|---|
+| You define | Roles + tasks | `@start` / `@listen` / `@router` steps | State + nodes + edges |
+| Control flow | Framework decides handoffs | Event-driven, you route explicitly | You decide, explicitly |
+| Loops / retries | Awkward | ✅ `@router` | Native — cycles are the point |
+| Conditional routing (`if score < 0.6`) | Hard to express | ✅ `@router` | Exactly what conditional edges are for |
+| Durable pause / resume after crash | ✗ — `human_input=True` is a blocking prompt | ✅ `HumanFeedbackPending` + `resume()` | ✅ checkpointers + interrupts |
+| State persistence | — | ✅ SQLite by default, pluggable | ✅ SQLite / Postgres / Redis |
+| Speed to build | Fast | Medium | Slower, more verbose |
 
-**Where each fits:** CrewAI when the shape genuinely *is* a team of specialists passing work along in order — the Market Research Copilot (planner → executor) and the blog generator are exactly this. LangGraph the moment you need cycles, retries, confidence-gated routing, or approval pauses — which is why Legal Query Resolution is LangGraph.
+> ⚠️ **Correction — an earlier version of this answer was wrong.** It claimed CrewAI has only "limited" human-in-the-loop and that loops and conditional routing are awkward in it. That is true of **Crews**, but *not* of **Flows**, which CrewAI added as its answer to exactly this gap. The honest modern framing isn't "CrewAI vs. LangGraph" — it's **Crews vs. Flows vs. LangGraph**:
+>
+> - **Crews** — the role/task team abstraction shown above. Great for linear relays, genuinely weak at branching and pausing.
+> - **Flows** — event-driven and stateful, built from `@start`, `@listen`, and `@router` decorators, with `@persist` for state. This is architecturally much closer to LangGraph than to Crews.
+> - **LangGraph** — still the most explicit and controllable, and still the reference implementation for cyclic stateful graphs.
+>
+> Concretely, a CrewAI **Flow** can pause and resume durably: `kickoff()` returns `HumanFeedbackPending` when the flow pauses, state is **automatically saved** at that moment (`SQLiteFlowPersistence` by default), and you continue with `flow.resume()` — or `await flow.resume_async()` inside an async framework like FastAPI, since calling the sync version from a running event loop raises `RuntimeError`. The `@human_feedback` decorator requires **CrewAI ≥ 1.8.0**.
+>
+> **Practical gotcha:** put `@persist` on a single *terminal* step rather than on the whole Flow class — class-level persist saves after every method, and `load_state` reads the latest row, which can be a mid-run snapshot that misses handler updates from the same turn.
 
-**One line:** CrewAI trades control for speed by hiding orchestration behind a role/task metaphor; LangGraph trades speed for control by making you write the graph.
+**Where each fits:** **Crews** when the shape genuinely *is* a team of specialists passing work along in order — the Market Research Copilot (planner → executor) and the blog generator are exactly this. **Flows** when you need branching, retries, or a durable pause but want to stay inside CrewAI. **LangGraph** when you want maximum explicit control over the graph, or you're already invested in the LangChain ecosystem — which is why Legal Query Resolution is LangGraph.
+
+**One line:** Crews trade control for speed by hiding orchestration behind a role/task metaphor, LangGraph trades speed for control by making you write the graph explicitly, and CrewAI Flows sit deliberately in between — so the real question is *Crews or Flows*, not *CrewAI or LangGraph*.
+
+**Sources for the Flows capabilities above:**
+- [Human Feedback in Flows — CrewAI docs](https://docs.crewai.com/en/learn/human-feedback-in-flows)
+- [Debugging State Persistence: When Does @persist Save Flow State? — CrewAI Community](https://community.crewai.com/t/debugging-state-persistence-when-does-persist-save-flow-state/5884)
+- [How to save Flow state and restart from checkpoint? — CrewAI Community](https://community.crewai.com/t/how-to-save-flow-state-and-restart-from-checkpoint/4640)
+- [CrewAI Flows: Production Multi-Agent Guide 2026](https://www.jahanzaib.ai/blog/crewai-flows-production-multi-agent-guide)
 
 ---
 
@@ -305,6 +321,8 @@ graph.add_conditional_edges("write", check_quality, {"retry": "research", "done"
 | **Single agent** (`create_agent`) | One worker that picks tools and loops — *answer this, using search + calculator* |
 | **CrewAI** | Several *specialists* handing off in order, each agentic internally — *research → analyze → write* |
 | **LangGraph** | The flow *between* them must loop back, branch on a condition, or pause for a human |
+
+> Note: since CrewAI **Flows** landed, that last rung is no longer LangGraph-only — a Flow can branch, loop, and pause durably too. See the correction in Q6; the choice there is about how much explicit control you want over the graph, not about raw capability.
 
 **❌ One correction worth burning in, because it would draw a flag in an interview:** it is *wrong* to say "LangChain has no agents, it's just a pipeline." **LangChain has agents** — that's exactly what `create_agent` is (and `AgentExecutor` before it was deprecated). A LangChain agent picks its own tools, reads results, and loops until done. The valid contrast is **LCEL chain vs. CrewAI agent**, not *LangChain* vs. CrewAI.
 
