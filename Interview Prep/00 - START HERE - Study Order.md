@@ -1,6 +1,6 @@
 # Interview Prep — Study Order
 
-*Eight topic documents, 79 interview questions plus 24 follow-ups, roughly 34,500 words total. This file exists to answer one question: **what do I read first?***
+*Eight topic documents, 79 interview questions plus 24 follow-ups, roughly 34,500 words total. This file exists to answer one question — what do I read first?*
 
 The short version: **do not read these alphabetically, and do not start with the most impressive-sounding one.** Each document assumes you already have specific vocabulary from the ones before it. Read out of order and you'll hit answers that casually say "the cross-encoder reranks the RRF-fused candidates" before anything has told you what any of those three words mean.
 
