@@ -531,3 +531,109 @@ AWS's side of the deal is purely the **runtime**: it stores your function, watch
 **Is it "inside the application code"?** Usually it's a **separate small codebase**, often its own folder in the same repo (`/lambdas/ingest-pdf/`) rather than woven into the main app — because it gets packaged and deployed as its own unit with its own dependencies.
 
 **One line:** the Lambda function is ordinary code you write and version-control yourself; AWS just supplies the environment that runs it on demand — you're renting execution, not authorship.
+
+---
+
+### Q5: I'd use EC2 for the whole application, but write Lambda functions for specific jobs inside it — PDF parsing, photo resizing — each self-contained with its own dependencies. That reduces overall cost, correct?
+
+**✅ The architecture is right and genuinely common. Two things need sharpening.**
+
+**Sharpening 1 — "the Lambda functions would be in the application code."** They live in your **repo**, but they are *not* part of your running app. The EC2 app doesn't call them like a normal in-process function — it invokes them **over the network**, or an event (an S3 upload) triggers them directly. Separate deploy, separate dependencies, separate logs. *Same house, different rooms — not the same room.*
+
+**Sharpening 2 — "this reduces cost" is conditional, not automatic.** It depends entirely on how often the task runs.
+
+**When it genuinely saves money — bursty work:**
+> A doc-Q&A app runs on a `t3.small` (~$15/mo). PDFs arrive maybe 200 times a month, each needing 30 seconds of heavy CPU. To absorb those bursts on EC2 alone you'd size up to a `t3.large` (~$60/mo) purely for occasional spikes. Offload to Lambda instead: keep the `t3.small` + roughly $1 of Lambda = **~$16/mo instead of ~$60**.
+
+**When it doesn't — constant work:**
+> Same app, but PDFs stream in all day, every day. Now Lambda fires nonstop and you're paying per-invocation **on top of** an EC2 box that's already running. Cheaper to size the EC2 correctly and do it in-process.
+
+**The argument that's actually stronger than cost — spike absorption:**
+> 100 PDFs land at once. On EC2 they queue, the box maxes out, and web requests start timing out because parsing is eating the CPU. With Lambda, 100 functions run in parallel and the EC2 doesn't notice. **Isolation** — a heavy background job can't degrade what users are looking at.
+
+**The cost you're adding:** complexity — network hops, IAM permissions, a second deploy pipeline, harder local testing, and cold starts on the first call.
+
+**One line:** EC2 runs the always-on application; bursty or CPU-heavy side jobs split out into Lambdas — separate deployables in the same repo, triggered by events — and it saves money when those jobs are infrequent, but the better reason is keeping a spike in background work from degrading the main app.
+
+---
+
+### Q6: So EC2 and Lambda work side by side, each expert at its own thing — like a Big Billion Day sale with heavy traffic. EC2 is one deployment, all the Lambdas another, triggered by events, with separate deployment cycles. Correct?
+
+**Mostly right — the resume-parsing instinct is excellent. Two corrections.**
+
+**✅ Right:** EC2 and Lambda as complementary specialists; **resume parsing is a textbook Lambda case** (200 resumes land at 9am, nothing at 3am); memory/CPU configured per function (128 MB → 10 GB, CPU scaling with memory); and **separate deployment cycles** — you can redeploy the PDF parser without touching the main app.
+
+**❌ Correction 1 — Big Billion Day is the wrong example for Lambda.** Two different things got mixed: **infrequent** and **spiky-then-idle**. A big sale is neither — it's **sustained peak**, 10x traffic for five days straight.
+
+| | Shape | Right tool |
+|---|---|---|
+| Resume uploads | Burst at 9am, idle overnight | **Lambda** |
+| Big Billion Day storefront | 10x traffic, sustained for days | **EC2 auto-scaling** |
+
+At sustained volume Lambda gets *expensive* — you're paying per invocation for millions of continuous requests. Cheaper to spin up 20 EC2 instances for five days and scale back down.
+
+> Lambda still has a place during that sale, just not for the storefront: the *side jobs* fit perfectly — generating invoice PDFs, sending order-confirmation emails, resizing new product images. Event-triggered and bursty even while main traffic is steady.
+
+**❌ Correction 2 — it's not "one deployment for all the Lambdas."** Each Lambda is typically **its own deployment unit** with its own package and dependencies. You can *group* them in one infrastructure-as-code stack (Terraform, AWS SAM) so they deploy together, but that's convenience — they remain independent functions you can update one at a time. Practically: `/lambdas/parse-resume/` and `/lambdas/send-email/` are two packages, not one bundle.
+
+**One line:** EC2 runs the always-on application while bursty event-triggered side jobs become individual Lambdas, each its own deployable with its own memory config and release cycle — but sustained high traffic like a sale event belongs on auto-scaling EC2, not Lambda.
+
+---
+
+### Q7: EC2 is always up, but Lambda isn't — it sits in a kind of hibernated mode, needs a cold start when a request arrives, and the process is killed once execution finishes. Correct?
+
+**✅ Correct, and "hibernated" is a good instinct — with one refinement.**
+
+It isn't that *your* function is asleep and wakes up. **Nothing of yours exists at all** until a request arrives. AWS then builds an environment from scratch, loads your code into it, and runs it.
+
+```
+Request arrives
+   │
+   ├─ Is there a warm environment already running?
+   │
+   ├─ NO  → COLD START: AWS provisions a micro-container,
+   │        loads your runtime (Python), imports your code
+   │        and dependencies, THEN runs your function   ← the 1-3s delay
+   │
+   └─ YES → run immediately (~milliseconds)
+```
+
+**❌ The one correction — AWS does not kill it immediately after execution.** It keeps the environment **warm** for a while (roughly 5-15 minutes; AWS doesn't guarantee the number) in case another request arrives. Only after real idleness is it torn down.
+
+> **Example — the resume parser.** First upload of the morning: 3 seconds (container built, Python loaded, PDF libraries imported). The next nine resumes that hour: ~400 ms each, because the environment is still warm and it just reruns your function. Come back after lunch: 3 seconds again.
+
+So "hibernated" is close, but more precisely: **the environment is recycled, not your process resumed.** Every invocation starts with fresh memory — which is exactly why Lambda is stateless. A global variable set in one run *might* survive into the next if it lands on the same warm container, but you can never rely on it.
+
+**Worth knowing for an interview:** you can pay for **provisioned concurrency** to keep N environments permanently warm and eliminate cold starts — but you're then paying for idle capacity, which is precisely what Lambda was supposed to save you from. That trade-off is a neat summary of the whole model.
+
+**One line:** EC2 is always on; Lambda has nothing running until a trigger arrives, pays a 1-3 second cold start to build an environment, then keeps it warm for a few minutes of follow-up requests before discarding it — so state never survives reliably between runs.
+
+---
+
+### Q8: So a PDF-parsing Lambda carries all its own parsing dependencies inside its own package, because it's deployed and run independently?
+
+**✅ Correct.** That Lambda ships with its own PDF-parsing dependencies bundled into its own package, because it's deployed and run independently in its own container with no access to whatever the EC2 app has installed.
+
+**One line:** each Lambda is self-contained — its own code, its own dependencies, its own package — because nothing else is in the container with it.
+
+---
+
+### Q9: Does Lambda need an EC2 instance running? And is EC2 also serverless?
+
+**❌ No on both counts.**
+
+**Lambda is completely independent of EC2** — you can have Lambda functions with zero EC2 instances in your account. They appeared together above only because *that* architecture had a long-running app plus bursty side jobs; the pairing is a design choice, not a requirement.
+
+> Plenty of real systems are 100% Lambda with no EC2 anywhere: a resume-parsing site could be S3 for the frontend, API Gateway for requests, Lambda for parsing, DynamoDB for storage — nothing running when nobody's using it. The reverse holds too: run everything on EC2 and never touch Lambda.
+
+**And EC2 is the opposite of serverless** — it *is* the server. You pick its size, patch its OS, keep it running, and pay by the hour whether anyone uses it or not.
+
+| | EC2 | Lambda |
+|---|---|---|
+| You manage the machine | Yes | No |
+| Running when idle | Yes (and billing) | Nothing exists |
+| Billing unit | Per hour | Per request + ms |
+
+**The nuance worth knowing:** AWS *does* run Lambda on physical machines underneath (Firecracker micro-VMs) — but that's **Amazon's** infrastructure, never yours. You don't see, configure, or pay for it when idle. That's the whole meaning of "serverless": servers exist, they're just not your problem.
+
+**One line:** Lambda needs no EC2, and EC2 is not serverless — serverless means the servers are Amazon's concern, not that no servers exist.
