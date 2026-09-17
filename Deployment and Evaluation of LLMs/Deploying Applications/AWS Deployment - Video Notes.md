@@ -416,4 +416,118 @@ Every question asked while working through this file gets logged here, numbered 
 - A concrete **analogy** carries the explanation, plus a comparison table when two concepts are being contrasted.
 - A bolded **One line:** summary closes the answer.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: If we learn AWS deployment, does it transfer to GCP, Azure, or any other cloud?
+
+**✅ Correct at the concept level, ❌ not at the command level.** The mental model transfers almost completely; almost none of the specific names or commands do.
+
+**What genuinely transfers — the shape:**
+- Rent a machine → SSH in → install your runtime → run the app → open a port. Identical everywhere.
+- The building blocks are the same six on every cloud: **compute, storage, networking, identity, secrets, logs**.
+- The two "why isn't it reachable" bugs — binding to `localhost` instead of `0.0.0.0`, and the firewall rule not being open. Every cloud, same two bugs.
+- The container workflow: build image → push to a registry → run it on an orchestrator.
+- Cost instincts: billed per hour, and *stopped* ≠ *deleted* (you still pay for the disk).
+
+**What doesn't transfer — every proper noun:**
+
+| Concept | AWS | GCP | Azure |
+|---|---|---|---|
+| Virtual machine | EC2 | Compute Engine | Virtual Machines |
+| Image registry | ECR | Artifact Registry | ACR |
+| Run containers | ECS / Fargate | Cloud Run / GKE | Container Apps |
+| Firewall rule | Security Group | VPC firewall rule | Network Security Group |
+| Permissions | IAM | Cloud IAM | Entra ID + RBAC |
+| Secrets | Secrets Manager | Secret Manager | Key Vault |
+| Logs / metrics | CloudWatch | Cloud Logging | Azure Monitor |
+
+**⚠️ One caveat the session's claim glosses over:** the *easiest path* differs per cloud. GCP's Cloud Run is genuinely simpler than AWS's ECS/Fargate — you hand it a container and it runs. Someone who learned the AWS way can end up over-engineering on GCP, building cluster/service/task-definition scaffolding that Cloud Run doesn't need. It's not a clean 1:1 mapping; some clouds have a meaningfully shorter route.
+
+**And the thing that actually makes you portable isn't the AWS knowledge — it's Docker.** A container image runs unchanged on any of the three. The container is the portable artifact; the cloud is just where you point it.
+
+**One line:** learning AWS deployment means you'll know *what to look for* on GCP or Azure within an hour of reading their docs — but you'll be looking up every command, because the concepts are shared and the vocabulary isn't.
+
+---
+
+### Q2: What is an EC2 instance, in one line?
+
+**An EC2 instance is a computer you rent from Amazon by the hour** — you pick the CPU/RAM/GPU size, it boots in the cloud, and you SSH into it and use it like any Linux machine.
+
+**Example:** instead of your FastAPI app running on your laptop at `localhost:8000` — where only you can reach it, and it dies when you close the lid — it runs on an EC2 instance with a public IP: always on, reachable by anyone you give the link to.
+
+**One line:** it's a rented Linux box in Amazon's data centre, billed by the hour, that you treat exactly like a normal server.
+
+---
+
+### Q3: Explain Lambda ("serverless compute") well enough to discuss it in an interview.
+
+**Lambda means you don't rent a computer at all — you hand AWS a function, AWS runs it only when something triggers it, then it disappears. You pay per run, measured in milliseconds.**
+
+**🚗 The analogy:** EC2 is **buying a car** — yours, parked outside, costing you money whether you drive it or not. Lambda is **calling an Uber** — it appears when you need it, it's gone when you're done, and you pay per trip.
+
+**Worked example — a Slack bot answering questions with an LLM.** The function does three things: receive the message → call the LLM API → post the reply. It runs about 2 seconds.
+
+| | EC2 | Lambda |
+|---|---|---|
+| Running when nobody messages | A server, idling, billing you | Nothing |
+| Cost for ~10k messages/month | ~$15/mo (always-on t3.small) | Cents |
+| Spike to 500 at once | You scale it yourself | Scales automatically, no config |
+| Who patches the OS | You | Nobody — there's no OS you own |
+
+**More real-world cases** — the pattern is always *something happens → Lambda wakes up → does one short job → disappears*:
+
+- **Thumbnail generation** — photo uploaded to S3 → Lambda resizes it → saves it back. 1,000 uploads at once spawn 1,000 parallel runs with zero configuration.
+- **RAG document ingestion** *(most relevant to this repo)* — a PDF lands in S3 → Lambda extracts text, chunks it, calls the embedding API, writes vectors to Qdrant/Pinecone. Event-driven, seconds long, and bursty — 50 uploads at 10am, nothing until Thursday.
+- **Scheduled daily report** — 8:00am trigger → query the DB, have an LLM summarise it, email the team. Thirty seconds of work per day.
+- **Payment webhook** — Stripe posts "payment succeeded" → Lambda updates the DB and sends the receipt.
+- **Slack slash command** — `/summarize` → Lambda → LLM → reply posted back.
+
+**The limits — knowing these is what makes the answer sound used rather than read:**
+1. **Cold starts.** If the function hasn't run recently, AWS spins the environment up first — a 1-3 second delay on that first request. Fine for a Slack bot, painful for a user watching a spinner.
+2. **15-minute maximum runtime.** Long jobs can't live here.
+3. **No GPU**, plus tight package-size limits.
+
+**Where Lambda is the wrong tool:**
+
+| Task | Why it fails |
+|---|---|
+| Fine-tuning a model | Takes hours; Lambda caps at 15 minutes, and there's no GPU |
+| Serving your own Llama weights | Weights exceed the package limit, no GPU, and cold-starting gigabytes per request is brutal |
+| WebSocket chat server | Lambda is request-in/response-out — it can't hold a connection open |
+| Steady 24/7 traffic | At constant load Lambda costs *more* than simply renting an EC2 box |
+
+That last row is the nuance interviewers like: **Lambda isn't automatically cheaper.** It wins on *bursty* traffic.
+
+**🎯 The GenAI-specific point worth landing in an interview:** *"Lambda is great for **calling** an LLM and wrong for **hosting** one. A thin function that takes a request, hits the OpenAI or Bedrock API, and returns the answer is a perfect Lambda — short, bursty, stateless. But serving your own model weights there doesn't work: no GPU, the model won't fit the package limits, and the cold start would mean loading gigabytes of weights before answering. That's when you move to EC2 with a GPU, or a managed endpoint."*
+
+**One line:** EC2 is a computer you rent by the hour; Lambda is a function AWS runs on demand and bills by the millisecond — use Lambda for the glue around a model, EC2 or a managed endpoint for the model itself.
+
+---
+
+### Q4: So Lambda is for stateless, quick tasks — correct? And where is the Lambda function written: in the application code, or inside AWS?
+
+**✅ Correct on the first part, with one addition: the trigger matters as much as the speed.** Lambda suits work that's **event-triggered, stateless, and fast** (hard ceiling: 15 minutes). *Stateless* is the load-bearing word — each run starts fresh knowing nothing about the last one, so anything that must be remembered goes to a database, S3, or a cache.
+
+**On where it's written: you write it as ordinary code in your own repo. AWS is only where it *runs*.**
+
+```python
+# handler.py — lives in YOUR repo, YOUR editor, YOUR git
+def lambda_handler(event, context):
+    file = event["Records"][0]["s3"]["object"]["key"]   # what triggered it
+    text = extract_text(file)
+    embed_and_store(text)
+    return {"statusCode": 200, "body": "indexed"}
+```
+
+Then you **ship it to AWS** one of three ways:
+1. **Zip upload** — zip the folder and upload it (console or CLI)
+2. **Container image** — package as Docker and push to ECR (up to 10 GB, which is how bigger dependencies get in)
+3. **Infrastructure-as-code** — Terraform, AWS SAM, CDK, or Serverless Framework, which is what real teams use
+
+AWS's side of the deal is purely the **runtime**: it stores your function, watches for the trigger, and calls `lambda_handler` when it fires.
+
+**The contract worth knowing:** AWS calls *one* named function, handing it two arguments — `event` (what happened: the S3 object, the HTTP body, the schedule tick) and `context` (runtime info such as time remaining). Writing that single entry point is your job.
+
+> You *can* type code straight into the AWS console's inline editor, but that's for throwaway experiments — no version control, no dependencies, no tests. Nobody ships that way.
+
+**Is it "inside the application code"?** Usually it's a **separate small codebase**, often its own folder in the same repo (`/lambdas/ingest-pdf/`) rather than woven into the main app — because it gets packaged and deployed as its own unit with its own dependencies.
+
+**One line:** the Lambda function is ordinary code you write and version-control yourself; AWS just supplies the environment that runs it on demand — you're renting execution, not authorship.
