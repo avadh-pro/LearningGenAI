@@ -585,4 +585,298 @@ Every question asked while working through this file gets logged here, numbered 
 - A concrete **analogy** carries the explanation, plus a comparison table when two concepts are being contrasted.
 - A bolded **One line:** summary closes the answer.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: Explain the Dockerfile — and this creates the image, correct?
+
+**✅ Correct — the Dockerfile is the recipe, and `docker build` executes it to produce the image.**
+
+Line by line:
+
+| Instruction | What it does |
+|---|---|
+| `FROM python:3.12-slim` | Start from minimal Linux + Python 3.12. `slim` strips docs and build tools (~150 MB vs ~1 GB) — **and has no `curl`**, which is exactly why the ECS health check uses Python instead |
+| `ENV PYTHONUNBUFFERED=1` | **The important one.** Python buffers output by default; in a container that means logs sit in memory and *vanish on crash*. This forces them out so CloudWatch actually receives them |
+| `ENV PYTHONDONTWRITEBYTECODE=1` | Skip `.pyc` files — pointless in a disposable container |
+| `ENV PIP_NO_CACHE_DIR=1` | Don't keep pip's download cache, which would only bloat the image |
+| `WORKDIR /app` | Every later command runs from `/app` |
+| `RUN groupadd … useradd … app` | Create a **non-root** user. Containers run as root by default, so an exploited app would have root inside the container |
+| `COPY requirements.txt .` then `RUN pip install` | ⭐ See below — this ordering is deliberate |
+| `COPY --chown=app:app app ./app` (+ `frontend`, `data`) | Copy source, owned by `app` not root. Note what's **not** copied: `tests/`, `.env`, `docs/` — secrets never enter the image |
+| `USER app` | Switch to the unprivileged user; the app runs as `app` |
+| `EXPOSE 8000 8501` | **Documentation only.** Declares which ports the image listens on — it opens no firewall and publishes nothing |
+| `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", …]` | The *default* startup command. `0.0.0.0` = listen on all interfaces, without which nothing outside the container could reach it |
+
+**⭐ Why `requirements.txt` is copied alone, before the code:** Docker caches each instruction as a layer and reuses the cache when inputs haven't changed.
+
+```
+Edit app/main.py       → requirements.txt unchanged → pip layer CACHED → build ~2s
+Edit requirements.txt  → pip install re-runs                          → build ~60s
+```
+
+Copy code and requirements together and **every one-character code edit reinstalls every dependency.** This is a classic interview question.
+
+**One line:** the Dockerfile is a build recipe — base image, container-appropriate env settings, a non-root user, dependencies cached separately from code, and a default command — and `docker build` runs it to produce the image.
+
+---
+
+### Q2: Are we creating two images, one for the backend and one for the frontend? And could it have been two?
+
+**❌ One image, not two — that's the central trick of this lab. ✅ But yes, it could have been two, and production often does exactly that.**
+
+```
+        ONE `docker build`
+               │
+               ▼
+     openai-llm-app:latest          ← a single image, pushed to ECR once
+               │
+       ┌───────┴───────┐
+       ▼               ▼
+  container "api"   container "frontend"
+  uses the CMD →     overrides it →
+  uvicorn :8000      streamlit :8501
+```
+
+**Why it works:** the image contains *both* codebases — `COPY app ./app` **and** `COPY frontend ./frontend`. Everything for either role is already inside; the only runtime difference is which command you give it.
+
+**🧰 Analogy:** one toolbox holding both a hammer and a screwdriver. Hand the same box to two workers, tell one "hammer" and the other "screwdriver."
+
+You can see it in `docker-compose.yml` — both services point at the same `image:`, and only `frontend` sets a `command:`. On ECS it's identical: two containers in the task definition with the **same ECR URI**, and only the frontend gets a Command value.
+
+**Could it have been two?** Yes — two Dockerfiles, two ECR repos, two builds. The trade-off the guide is honest about: this one image carries Streamlit into the API container and FastAPI into the UI container, neither of which uses the other. Production systems whose components **release or scale independently** normally build two separate, smaller images.
+
+**One line:** one image built and pushed once, run twice with different commands — because the image holds both halves and `CMD` is only a default you can override; two images would be the production choice when the halves need to ship independently.
+
+---
+
+### Q3: Does docker-compose expose the frontend to the world but keep the API internal to the Docker network only?
+
+**❌ Not in docker-compose — locally *both* are published. That's only true on AWS.**
+
+```yaml
+api:
+  ports:
+    - "8000:8000"      ← published to your laptop
+frontend:
+  ports:
+    - "8501:8501"      ← published to your laptop
+```
+
+Locally this is deliberate: exposing 8000 lets you open the FastAPI `/docs` page and curl `/health` while developing — which is exactly what the README tells you to do.
+
+| | Local (compose) | AWS (ECS) |
+|---|---|---|
+| Port 8501 | published, reachable | allowed inbound from your IP only |
+| Port 8000 | **published, reachable** | **no inbound rule — unreachable** |
+
+The `API_BASE_URL: http://api:8000` line *is* internal container-to-container traffic on Docker's network — but that's separate from whether the port is also published to the host.
+
+**One line:** both ports are open on your laptop by design (so you can inspect the API directly); only on AWS does the security group open 8501 alone and leave 8000 private.
+
+---
+
+### Q4: Why is the frontend's `API_BASE_URL` set to `http://api:8000` — why port 8000, and why `api`?
+
+**Port 8000 because that's where FastAPI listens; `api` because that's Docker Compose's DNS name for the service.**
+
+```yaml
+services:
+  api:          ← this service name becomes the hostname
+    ...
+  frontend:
+    environment:
+      API_BASE_URL: http://api:8000
+                        ↑      ↑
+                   service   port uvicorn
+                    name     binds to
+```
+
+The Dockerfile's `CMD` ends with `--port 8000`, so that's where uvicorn binds. Docker Compose gives every service an internal DNS name equal to its service name, so `api` resolves to that container.
+
+**The subtle part:** this traffic never uses the published `"8000:8000"` mapping. That mapping exists so *you* can reach the API from your laptop. The frontend talks **container-to-container** on Docker's internal network, straight to the container's own port.
+
+**And the symmetry with AWS:**
+
+| | Hostname | Port | Why |
+|---|---|---|---|
+| **Docker Compose** | `api` | 8000 | Two separate containers on a shared network → address by service name |
+| **ECS Fargate** | `localhost` | 8000 | Two containers in *one task* sharing one network namespace → same machine |
+
+**One line:** `API_BASE_URL` is the only thing wiring the frontend to the backend — `8000` is where FastAPI listens, `api` is Compose's DNS name for it, and on ECS the same variable becomes `http://localhost:8000` because both containers then share one network namespace.
+
+---
+
+### Q5: What does `ports: - "8501:8501"` mean?
+
+**It's `HOST_PORT : CONTAINER_PORT` — "take port 8501 on my laptop and forward it into the container's port 8501."** That forwarding is what makes `http://localhost:8501` reach the app at all; without it the container still listens internally but nothing on your machine could get in.
+
+The two numbers need not match. `"9000:8501"` would mean you browse to `localhost:9000` while the container still runs on 8501 internally. **Left number = yours, right number = the container's.**
+
+**One line:** left is the port on your machine, right is the port inside the container, and the colon is the forwarding between them.
+
+---
+
+### Q6: How is it all connected when I run locally with Docker, and how does that differ on AWS?
+
+**Same two processes, same ports — only the hostname between them and the source of the API key change.**
+
+**LOCAL — `docker compose up`**
+
+```
+  YOUR LAPTOP
+  ┌──────────────────────────────────────────────────┐
+  │   Browser ──localhost:8501──┐                    │
+  │   Browser ──localhost:8000──┼──► (you can hit    │
+  │                             │     /docs too)     │
+  │        ┌─── docker network ─┴──────────────┐     │
+  │        │  [frontend]────►[api]             │     │
+  │        │   :8501   http://api:8000         │     │
+  │        │                  :8000            │     │
+  │        └───────────────────────────────────┘     │
+  │              key from  .env file                 │
+  └────────────────────────────┼─────────────────────┘
+                               ▼ HTTPS
+                          OpenAI API
+```
+
+Two separate containers, found by **service name**, both ports open to you.
+
+**AWS — ECS Fargate**
+
+```
+  INTERNET
+      │  http://PUBLIC_IP:8501
+      ▼
+  ┌── Security Group ── allow :8501, MY IP only ──────┐
+  │   ┌───── ONE task · ONE network interface ────┐   │
+  │   │  [frontend]────────────►[api]             │   │
+  │   │   :8501  http://localhost:8000            │   │
+  │   │                         :8000  ✗ no inbound   │
+  │   └───────────────────────────────────────────┘   │
+  │            key from  Secrets Manager              │
+  └────────────────────────────┼──────────────────────┘
+                               ▼ HTTPS
+                          OpenAI API
+```
+
+Two containers in **one task**, sharing one network stack, found by **`localhost`**. Only 8501 reachable, only from your IP.
+
+**The four differences:**
+
+| | Local | AWS |
+|---|---|---|
+| Frontend finds API at | `http://api:8000` | `http://localhost:8000` |
+| Containers are | 2 containers, 1 network | 2 containers, **1 task** |
+| Port 8000 | open to you | closed to everyone |
+| Key comes from | `.env` file | Secrets Manager |
+
+**One line:** locally the two containers sit on a shared Docker network and address each other by service name; on AWS they sit inside one Fargate task sharing a single network interface and address each other over localhost.
+
+---
+
+### Q7: Which deployment architecture was used for this deployment?
+
+**Option 5 from the deck: `ECR + ECS Fargate`.**
+
+```
+Docker image → ECR (registry) → ECS (orchestrator) → Fargate (compute)
+```
+
+The deck's own row for it: **best fit** — managed container orchestration without managing hosts; **main trade-off** — more AWS concepts than one VM, and **no GPU task support**.
+
+**Why the session chose it:** the repo already had a Dockerfile and two container processes; ECR gives a private IAM-controlled image source; ECS gives orchestration **without requiring Kubernetes**; a service keeps desired count at 1 and replaces a failed task; Secrets Manager and CloudWatch integrate directly; and the same image can be promoted into a stronger architecture later.
+
+**What it explicitly does *not* give you:** HTTPS, stable DNS, user authentication, high availability, autoscaling, immutable release tags, CI/CD, budgets, or alarms — plus **no GPU**, so it's right for this CPU-only API tier but not for serving your own model weights.
+
+**Where it sits on the evolution slide:**
+
+| Concern | Simple EC2 | ECR + EC2 | **ECR + ECS Fargate** |
+|---|---|---|---|
+| Packaging | files copied to server | container image | container image |
+| Server patching | your job | your job | **AWS's job** |
+| Recovery if it dies | build it yourself | build it yourself | **ECS replaces the task** |
+| GPU | available | available | **not supported** |
+
+**One line:** ECR + ECS Fargate — containerized, orchestrated, serverless at the host level, chosen to teach real orchestration without Kubernetes or server management, with no GPU as the main limitation.
+
+---
+
+### Q8: With `ECR + EC2` we'd need Kubernetes, correct? And was Fargate chosen mainly to avoid Kubernetes?
+
+**❌ No on the first — that's backwards. `ECR + EC2` has the *least* orchestration, not the most. ✅ Partly on the second.**
+
+With `ECR + EC2` you SSH into a normal EC2 box and run `docker pull` + `docker run` yourself. **No orchestrator at all** — you are the orchestrator. If the container dies, nothing restarts it unless you wire that up (systemd, a cron check).
+
+**Kubernetes only appears at option 7, Amazon EKS:**
+
+| Option | Orchestrator | Who manages the host |
+|---|---|---|
+| `ECR + EC2` | **none** — you run `docker run` | you |
+| `ECR + ECS Fargate` | ECS | AWS |
+| `ECS on EC2` | ECS | you |
+| **Amazon EKS** | **Kubernetes** | you (or AWS-managed nodes) |
+
+**On "was it to avoid Kubernetes":** that's one reason, but not the bigger one. Avoiding Kubernetes explains why not **EKS**. Avoiding *server management* explains why not **ECS on EC2**. Fargate was the option that dodged **both** — no EC2 provisioning, no SSH, no AMI choice, no host patching, no capacity management — while still giving self-healing, desired count, and rolling deploys.
+
+**One line:** `ECR + EC2` means no orchestrator whatsoever; ECS adds orchestration without Kubernetes; Kubernetes only arrives with EKS — and Fargate was picked to avoid Kubernetes *and* servers at the same time.
+
+---
+
+### Q9: So ECR pushes the image, ECS creates the container, and Fargate runs it? And ECS creates the task from the task definition while Fargate reads what ECS hands over?
+
+**✅ Right shape, with one precision: ECS doesn't build or create the container — it *decides and instructs*. Fargate does the physical work.**
+
+```
+   YOU
+    │  docker push
+    ▼
+┌─────────┐
+│   ECR   │   image on a shelf
+└─────────┘
+    ▲
+    │ pull
+┌───────────────────────────────────────────────┐
+│  TASK DEFINITION          the blueprint       │
+│  • image URI   • 0.5 vCPU / 1 GB              │
+│  • 2 containers • secret ARN • log group      │
+└───────────────────┬───────────────────────────┘
+                    │ reads
+                    ▼
+┌───────────────────────────────────────────────┐
+│  ECS              the brain 🧠                │
+│  "I need 1 task running"                      │
+│  watches forever · restarts if it dies        │
+└───────────────────┬───────────────────────────┘
+                    │ hands over the spec
+                    ▼
+┌───────────────────────────────────────────────┐
+│  FARGATE          the muscle 💪               │
+│  ① get compute                                │
+│  ② attach network interface (public IP)       │
+│  ③ pull image from ECR ──────────────┐        │
+│  ④ fetch key from Secrets Manager    │ uses   │
+│  ⑤ start both containers             │ exec   │
+│  ⑥ pipe logs → CloudWatch            │ role   │
+└───────────────────┬──────────────────┴────────┘
+                    ▼
+        PROVISIONING → PENDING → RUNNING
+                    │
+                    ▼
+            ┌───────────────┐
+            │  frontend:8501│ ◄── your browser
+            │  api:8000     │ ──► OpenAI
+            └───────────────┘
+```
+
+| | Role | Four words |
+|---|---|---|
+| **ECR** | storage | stores the image |
+| **Task definition** | blueprint | declares what runs |
+| **ECS** | control plane | decides and watches |
+| **Fargate** | data plane | provisions and runs |
+
+**🍽️ Restaurant version:** ECR is the pantry, ECS is the head chef who says what to cook and notices when a dish is dropped, Fargate is the kitchen and cooks doing the actual work.
+
+**Two refinements worth keeping:**
+- "ECS creates the task" is true in the *decision* sense — it creates the task record and schedules it. The task doesn't physically exist until Fargate has provisioned compute, attached an ENI, pulled the image, and started the processes. That's what `PROVISIONING → PENDING → RUNNING` is showing you.
+- It's the **Fargate agent** — not ECS, not your application code — that uses `openaiLlmEcsTaskExecutionRole` to pull from ECR, fetch the secret, and write logs. That's precisely why that role exists separately from your own identity.
+
+**One line:** ECR stores, the task definition declares, ECS decides and keeps it alive, and Fargate physically provisions, pulls, and runs — using the execution role to authenticate those startup steps.
