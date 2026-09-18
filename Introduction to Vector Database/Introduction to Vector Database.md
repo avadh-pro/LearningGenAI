@@ -365,7 +365,7 @@ Short version: HNSW when the memory budget allows it and top accuracy matters mo
 |---|---|---|
 | **Pinecone** | A small team needs vector search live fast, without hiring anyone to manage servers — e.g. a startup adding AI search to its app in a week, not months. | You're extremely cost-sensitive at huge scale (managed convenience costs more), or rules require keeping all data strictly on your own infrastructure. |
 | **Milvus** | A large company needs to search billions of vectors — e.g. a big e-commerce site searching product images — and already has engineers comfortable running complex infrastructure. | A small team with no dedicated infrastructure/DevOps engineers — the operational complexity becomes a burden, not a benefit. |
-| **Qdrant** | You need fast, real-time search and want to self-host without Milvus's full complexity — e.g. a fraud-detection system checking transactions against known patterns instantly. | You want zero operational ownership at all (Pinecone fits better), or you specifically need Weaviate's built-in hybrid search out of the box. |
+| **Qdrant** | You want strong performance and rich filtering while self-hosting a single binary, without Milvus's distributed complexity — e.g. a fraud-detection system checking transactions against known patterns instantly. | You want zero operational ownership at all (Pinecone fits better), or you specifically need Weaviate's built-in hybrid search out of the box. |
 | **Weaviate** | You need *both* keyword and meaning-based search combined automatically — e.g. an internal company search where people sometimes type an exact product code and sometimes a vague description. | You only ever need pure semantic search with no keyword-matching need — the extra hybrid machinery is unnecessary overhead. |
 | **FAISS** | You're building your own app or research prototype and want vector search baked directly into your own code, no separate server at all. | You need a full production system with saved data, multiple users over a network, or built-in filtering — FAISS gives raw building blocks, not a ready-made service. |
 
@@ -377,6 +377,65 @@ Short version: HNSW when the memory budget allows it and top accuracy matters mo
 - **Hybrid search, BM25 (Weaviate):** hybrid search means combining keyword search (exact word matching) with vector search (meaning-based matching) into one result. BM25 is the classic keyword-ranking method being combined here — it scores a document by how often, and how uniquely, your search words appear in it.
 - **Reciprocal Rank Fusion, or RRF (Weaviate) — here's the correction on your guess:** RRF is *not* a search algorithm like ANN. ANN is what actually *finds* candidates by searching through vectors. RRF's job only starts *after* two separate searches (a keyword search and a vector search) have each already produced their own ranked list — RRF's entire job is *merging those two lists into one final ranking*, nothing more. **How it actually works, simply:** every item gets a score based on where it ranked on *each* list, and those scores get added together — so something that ranks highly on *both* lists ends up with a strong combined score, even if it wasn't the literal #1 result on either one individually. **Everyday example:** imagine two friends each hand you their own top-10 restaurant list. A restaurant that's #2 on one friend's list and #3 on the other's would score very well under RRF — even though it was never anyone's single top pick — because being highly ranked by *both* friends is a stronger signal of it actually being good than being #1 for just one friend while the other never mentions it at all.
 - **"Library, not a database" (FAISS):** this means FAISS is code you import and call directly inside your own program — like a toolbox — rather than a separate, always-running service that other systems can also connect to over a network.
+
+---
+
+**🔁 Interview Q5 (follow-up 1):** "Both Milvus and Qdrant are self-hosted. So what actually separates them — and does Milvus not do real-time search?"
+
+**⚠️ First, a correction to the table above:** describing Qdrant as the "real-time" option is imprecise, and it wrongly implies Milvus isn't. **Milvus serves low-latency queries perfectly well.** The honest differences are operational footprint and write-path behaviour.
+
+**"Self-hosted" is not one thing — that's the real gap:**
+
+| | What self-hosting actually means |
+|---|---|
+| **Qdrant** | One binary, or one Docker image. `docker run qdrant` and you're operating. |
+| **Milvus** | A distributed microservice system — root coordinator, query nodes, data nodes, index nodes, proxy, **plus etcd and MinIO**. That's **7-10 services**, and even "standalone" mode needs a 3-container minimum. Cold start on a fresh cluster takes minutes, and without Kubernetes experience the overhead is significant. |
+
+**The defensible version of the "real-time" claim:** Qdrant is written in **Rust (no garbage collector)**; Milvus is **Go + C++ (GC pauses)**. Under heavy *concurrent write* load, Milvus can show GC-related latency spikes that Qdrant structurally cannot. So for a workload that is write-heavy *and* latency-critical at once — fraud detection being the classic case — Qdrant has a genuine architectural edge. That is different from, and much narrower than, "Milvus isn't real-time."
+
+**So why would anyone choose Milvus?** Two honest reasons: (1) you are genuinely at **hundreds of millions to billions** of vectors, where Milvus's separated compute/storage is built to scale and Qdrant's distributed story is simpler and less battle-tested; and (2) you want its **wider range of index types and tuning levers**, and already have the Kubernetes muscle to absorb the cost. Below roughly 100M vectors, that complexity buys nothing.
+
+**One line:** Milvus is a distributed system with a real infrastructure cost, Qdrant is a single binary — so default to Qdrant and only move to Milvus once vector count genuinely outgrows a simple deployment and you have the ops capacity to run it.
+
+---
+
+**🔁 Interview Q5 (follow-up 2):** "If I'm comfortable implementing hybrid search and RRF myself, and Qdrant already gives me metadata filtering natively — should I just use Qdrant instead of Weaviate?"
+
+**✅ Yes.** Weaviate's headline differentiator is that **hybrid search is built in** — BM25 plus vector search, fused with RRF, as a single query. The moment you're willing to own that fusion layer yourself, that advantage stops being a reason to switch.
+
+**And it's not even "build it from scratch":** Qdrant supports **sparse vectors natively**, so you can store dense and sparse as two named vectors in one collection and fuse them with RRF — which is exactly what the Legal Query Resolution pipeline does. Weaviate's edge narrows to *convenience*, not capability.
+
+**The honest remaining trade:** Weaviate saves you writing and tuning the fusion layer. If a team would rather not own that code, that's a small but real argument. If you're happy owning it, Qdrant wins on lighter footprint and stronger filtering.
+
+**One line:** pick Weaviate when hybrid search must be native and you don't want to own the fusion code; otherwise Qdrant does the same job with less machinery.
+
+---
+
+**🔁 Interview Q5 (follow-up 3):** "Where do FAISS and ChromaDB actually fit, then?"
+
+**FAISS is not a database — it's a library you import.** No server, no persistence, no network layer, no metadata filtering. You hand it vectors in memory and it finds nearest neighbours very fast; everything else you build yourself.
+
+- **Use it for:** research and prototypes, vector search embedded inside a single application, or offline batch work (deduplicating a million records, clustering embeddings once).
+- **Don't, when:** data must survive a restart, multiple services query it over a network, you need metadata filtering, or you need live inserts and deletes.
+- *Example:* testing whether HNSW or IVF gives better recall on 200k research embeddings — FAISS in a notebook, twenty lines, done in an afternoon. The moment users log in and query it, you move to Qdrant.
+
+**ChromaDB sits between FAISS and Qdrant** — the "just works for prototyping" option. `chromadb.PersistentClient(path="./db")` is the entire setup: no Docker, no service, but you still get persistence and metadata filtering, which FAISS makes you build.
+
+- **Use it for:** learning and prototyping (which is why this course used it), small local projects, notebooks and demos.
+- **Graduate off it when:** you pass roughly a million vectors, need real concurrency, or need production features like sharding, replication, and high write throughput.
+
+**Where all six land:**
+
+| | Setup cost | Persistence | Metadata filtering | Production scale |
+|---|---|---|---|---|
+| **FAISS** | Import a library | ✗ (manual save/load) | ✗ | ✗ |
+| **Chroma** | One line | ✓ | ✓ | ✗ |
+| **Qdrant** | `docker run` | ✓ | ✓ strong | ✓ |
+| **Weaviate** | `docker run` | ✓ | ✓ | ✓ |
+| **Milvus** | Kubernetes (7-10 services) | ✓ | ✓ | ✓ billions |
+| **Pinecone** | None — managed API | ✓ | ✓ | ✓ (you pay for it) |
+
+**One line:** FAISS when vector search is a *function inside your program*, Chroma when you want persistence and filtering with zero ops, Qdrant as the production default, Weaviate when native hybrid matters, Milvus at billion-scale with the team to run it, and Pinecone when you'll pay to own no infrastructure at all.
 
 ---
 
