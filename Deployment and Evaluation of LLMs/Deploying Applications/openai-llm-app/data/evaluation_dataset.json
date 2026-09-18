@@ -1,0 +1,66 @@
+[
+  {
+    "message": "My package was supposed to arrive yesterday, but tracking has not updated.",
+    "expected": {
+      "category": "ORDER",
+      "intent": "DELIVERY_DELAY",
+      "priority": "MEDIUM"
+    }
+  },
+  {
+    "message": "Can you tell me where order 10492 is right now?",
+    "expected": {
+      "category": "ORDER",
+      "intent": "ORDER_STATUS",
+      "priority": "LOW"
+    }
+  },
+  {
+    "message": "Please cancel the order I placed this morning before it ships.",
+    "expected": {
+      "category": "ORDER",
+      "intent": "CANCEL_ORDER",
+      "priority": "MEDIUM"
+    }
+  },
+  {
+    "message": "I returned my order two weeks ago and still have not received the refund.",
+    "expected": {
+      "category": "ORDER",
+      "intent": "REFUND_REQUEST",
+      "priority": "HIGH"
+    }
+  },
+  {
+    "message": "My card keeps being declined even though the bank says it is active.",
+    "expected": {
+      "category": "PAYMENT",
+      "intent": "PAYMENT_FAILED",
+      "priority": "MEDIUM"
+    }
+  },
+  {
+    "message": "I cannot sign in and the password reset email never arrives.",
+    "expected": {
+      "category": "ACCOUNT",
+      "intent": "ACCOUNT_ACCESS",
+      "priority": "HIGH"
+    }
+  },
+  {
+    "message": "Does this laptop support two external monitors?",
+    "expected": {
+      "category": "PRODUCT",
+      "intent": "PRODUCT_QUESTION",
+      "priority": "LOW"
+    }
+  },
+  {
+    "message": "I would like to share a suggestion about your website.",
+    "expected": {
+      "category": "OTHER",
+      "intent": "OTHER",
+      "priority": "LOW"
+    }
+  }
+]

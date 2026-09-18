@@ -1,0 +1,12 @@
+fastapi>=0.116.0,<1.0.0
+httpx>=0.28.0,<1.0.0
+openai>=1.68.0,<3.0.0
+pydantic>=2.10.0,<3.0.0
+pydantic-settings>=2.7.0,<3.0.0
+requests>=2.32.0,<3.0.0
+streamlit>=1.42.0,<2.0.0
+uvicorn[standard]>=0.34.0,<1.0.0
+
+# Test and lint dependencies for this teaching codebase.
+pytest>=8.3.0,<10.0.0
+ruff>=0.9.0,<1.0.0

@@ -1,0 +1,160 @@
+{
+  "model": "gpt-4.1-mini",
+  "examples": 8,
+  "field_accuracy": 0.875,
+  "exact_match_accuracy": 0.625,
+  "results": [
+    {
+      "message": "My package was supposed to arrive yesterday, but tracking has not updated.",
+      "expected": {
+        "category": "ORDER",
+        "intent": "DELIVERY_DELAY",
+        "priority": "MEDIUM"
+      },
+      "predicted": {
+        "category": "ORDER",
+        "intent": "DELIVERY_DELAY",
+        "priority": "MEDIUM",
+        "reply": "I'm sorry to hear that your package hasn't arrived yet and the tracking information hasn't updated. Sometimes there can be delays in the shipping process. Could you please provide your order number or tracking number so I can look into this for you?"
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": true
+      }
+    },
+    {
+      "message": "Can you tell me where order 10492 is right now?",
+      "expected": {
+        "category": "ORDER",
+        "intent": "ORDER_STATUS",
+        "priority": "LOW"
+      },
+      "predicted": {
+        "category": "ORDER",
+        "intent": "ORDER_STATUS",
+        "priority": "MEDIUM",
+        "reply": "Thank you for reaching out about order 10492. To provide you with the current status, I will need to check our system. Please hold on while I look into this for you or alternatively, you can check your order status via your account dashboard or the tracking link sent to your email."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": false
+      }
+    },
+    {
+      "message": "Please cancel the order I placed this morning before it ships.",
+      "expected": {
+        "category": "ORDER",
+        "intent": "CANCEL_ORDER",
+        "priority": "MEDIUM"
+      },
+      "predicted": {
+        "category": "ORDER",
+        "intent": "CANCEL_ORDER",
+        "priority": "HIGH",
+        "reply": "We understand you wish to cancel your order placed this morning. To assist you promptly, please provide your order number or any related details so we can proceed with the cancellation before it ships."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": false
+      }
+    },
+    {
+      "message": "I returned my order two weeks ago and still have not received the refund.",
+      "expected": {
+        "category": "ORDER",
+        "intent": "REFUND_REQUEST",
+        "priority": "HIGH"
+      },
+      "predicted": {
+        "category": "ORDER",
+        "intent": "REFUND_REQUEST",
+        "priority": "HIGH",
+        "reply": "I'm sorry to hear that you haven't received your refund yet. Could you please provide your order number and the date you returned the item? This will help us investigate the issue and assist you further."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": true
+      }
+    },
+    {
+      "message": "My card keeps being declined even though the bank says it is active.",
+      "expected": {
+        "category": "PAYMENT",
+        "intent": "PAYMENT_FAILED",
+        "priority": "MEDIUM"
+      },
+      "predicted": {
+        "category": "PAYMENT",
+        "intent": "PAYMENT_FAILED",
+        "priority": "HIGH",
+        "reply": "I'm sorry to hear your card is being declined despite being active. Please double-check with your bank for any holds or restrictions, ensure your billing information matches exactly, and try using a different payment method if possible. If the issue persists, feel free to reach out with more details so we can assist further."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": false
+      }
+    },
+    {
+      "message": "I cannot sign in and the password reset email never arrives.",
+      "expected": {
+        "category": "ACCOUNT",
+        "intent": "ACCOUNT_ACCESS",
+        "priority": "HIGH"
+      },
+      "predicted": {
+        "category": "ACCOUNT",
+        "intent": "ACCOUNT_ACCESS",
+        "priority": "HIGH",
+        "reply": "I'm sorry to hear you're having trouble signing in and not receiving the password reset email. Please check your spam or junk folder to see if the email was filtered there. If you still don't receive it, please provide the email address associated with your account so we can assist you further."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": true
+      }
+    },
+    {
+      "message": "Does this laptop support two external monitors?",
+      "expected": {
+        "category": "PRODUCT",
+        "intent": "PRODUCT_QUESTION",
+        "priority": "LOW"
+      },
+      "predicted": {
+        "category": "PRODUCT",
+        "intent": "PRODUCT_QUESTION",
+        "priority": "LOW",
+        "reply": "Thank you for your question about the laptop's capabilities. To confirm if it supports two external monitors, could you please provide the specific model number or name of the laptop? This will help us give you accurate information."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": true
+      }
+    },
+    {
+      "message": "I would like to share a suggestion about your website.",
+      "expected": {
+        "category": "OTHER",
+        "intent": "OTHER",
+        "priority": "LOW"
+      },
+      "predicted": {
+        "category": "OTHER",
+        "intent": "OTHER",
+        "priority": "LOW",
+        "reply": "Thank you for reaching out with your suggestion about our website. We appreciate your feedback and would love to hear more details so we can consider it carefully. Please feel free to share your ideas with us."
+      },
+      "matches": {
+        "category": true,
+        "intent": true,
+        "priority": true
+      }
+    }
+  ]
+}

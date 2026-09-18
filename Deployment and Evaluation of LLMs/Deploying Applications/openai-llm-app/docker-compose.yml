@@ -1,0 +1,55 @@
+services:
+  api:
+    build: .
+    image: openai-llm-app:local
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local-docker
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    image: openai-llm-app:local
+    env_file:
+      - .env
+    environment:
+      API_BASE_URL: http://api:8000
+    command:
+      - streamlit
+      - run
+      - frontend/streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
