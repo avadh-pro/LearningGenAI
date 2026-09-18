@@ -552,6 +552,39 @@ Shard 3  ──── │  Warehouse  │ ──── Replica (backup copy)
 
 ---
 
+**🔁 Interview Q10 (follow-up):** "Break down each of those distributed-systems terms in plain language, with an example — sharding, replication, consistency, backpressure, and failure recovery."
+
+**Keeping the same retail-warehouse picture throughout:**
+
+**1. Sharding — split the data because it won't fit on one machine.**
+A billion vectors won't fit in one machine's RAM, so you split into 10 shards of 100M each, across 10 machines. A query goes to **all 10**, each returns its own local top-10, and those get merged into a final top-10.
+> *Warehouse:* no single warehouse holds all your stock, so you spread inventory across ten.
+
+**2. Replication — duplicate the same data onto more machines.**
+Each shard gets 2 copies on different machines. If one dies the copy keeps serving, and read traffic spreads across copies so you handle more queries per second.
+> *Warehouse:* every warehouse has a backup holding identical stock. One floods, business continues.
+
+**Sharding divides, replication duplicates** — the cleanest way to keep the two apart.
+
+**3. Consistency — after an insert, how soon can *every* copy return it?**
+- **Strong:** the write isn't confirmed until all replicas have it. Never stale, but every write is slower.
+- **Eventual:** write confirmed instantly, replicas catch up over milliseconds to seconds. Faster, but a query right after an insert might miss it.
+
+> *The real bug this causes:* a user uploads a document, immediately searches for it, and gets **"no results."** The document exists — their query just hit a replica that hadn't caught up yet.
+
+**4. Backpressure — what happens when writes arrive faster than you can index them.**
+You normally ingest 100 docs/min, then someone bulk-uploads a million. Without backpressure the internal queue grows until memory runs out and the service **crashes**. With it, the system pushes back — rejects, throttles, or spills to disk — effectively saying *"slow down, I'm full."*
+> *Warehouse:* twenty trucks arrive at a loading bay built for two. Either you queue and turn trucks away, or the bay gets buried and stops working entirely.
+
+**5. Failure recovery — a machine dies; then what?**
+Shard 3's machine dies. The system has to detect it, route queries to shard 3's replica, and rebuild a fresh copy in the background.
+
+> **The part worth saying out loud in an interview:** without this, queries don't *error* — they **silently return incomplete results**. You get a top-10 merged from 9 of your 10 shards, and the actual best match was sitting on the dead one. No exception, no warning, just quietly worse answers nobody notices.
+
+**One line:** sharding is about *capacity*, replication about *survival and read throughput*, consistency about *when new data becomes visible*, backpressure about *not dying under a write spike*, and failure recovery about *not silently returning half an answer* — all problems that exist no matter how good your ANN algorithm is.
+
+---
+
 **🎙️ Interview Q11:** "Retrieval recall quietly dropped after a deploy last week, and nobody noticed until a customer complained. Where do you even start looking?"
 
 **✅ Strong answer:** "The same way you'd debug a GPS app that suddenly stopped finding the right route to a place you drive every week.
