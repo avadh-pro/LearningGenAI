@@ -209,6 +209,16 @@ The practical reading: guardrails are what let you *ship* an LLM into a context 
 
 ---
 
+## Official References
+
+- **[Guardrails Hub](https://guardrailsai.com/hub)** — the official validator catalogue. Browse what already exists before writing your own; each entry shows its install command (`guardrails hub install hub://guardrails/<name>`), parameters, and example usage.
+- **[The Guard — concepts](https://guardrailsai.com/guardrails/docs/concepts/guard)** — how a Guard wraps validators, where they run (input vs. output), and the on-fail actions.
+- **[Guardrails AI docs](https://guardrailsai.com/docs)** — full documentation.
+- **[guardrails-ai/guardrails — GitHub](https://github.com/guardrails-ai/guardrails)** — source, issues, and release notes.
+- **[Hub API keys](https://hub.guardrailsai.com/keys)** — where the token from Section 5 comes from.
+
+---
+
 ## Q&A
 
 Every question asked while working through this file gets logged here, numbered sequentially as `### Q1:`, `### Q2:` … Each answer follows the same shape used across this repo's other Video Notes files:
