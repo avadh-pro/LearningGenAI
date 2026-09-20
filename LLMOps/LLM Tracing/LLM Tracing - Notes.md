@@ -199,4 +199,42 @@ Every question asked while working through this file gets logged here, numbered 
 - A concrete **analogy** carries the explanation, plus a comparison table when two concepts are being contrasted.
 - A bolded **One line:** summary closes the answer.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: What's the difference between LangSmith, Opik, and Langfuse, and when would you prefer each?
+
+**The one-liner for each:**
+
+- **LangSmith** — LangChain's own tool. Zero-setup if you're inside LangChain/LangGraph, but proprietary and by far the most expensive at scale.
+- **Langfuse** — the open-source, framework-agnostic default. Broadest integrations, cheapest to run.
+- **Opik** — open-source too, but bets on **automated evaluation and prompt optimisation** rather than just logging.
+
+**The cost difference is what actually decides it** (figures as of 2026):
+
+| | Licence | Self-host | Free tier | ~1M traces/month |
+|---|---|---|---|---|
+| **LangSmith** | Proprietary | Enterprise plan only | 5k traces | **~$2,514/mo** |
+| **Langfuse** | MIT | Free | 50k units/mo | **~$101/mo** |
+| **Opik** | Apache-2.0 | Free | — | self-host cost only |
+
+Roughly a **25× gap** between LangSmith and Langfuse at a million traces. Irrelevant for a hobby project; the whole conversation for anything real.
+
+**What each is genuinely best at:**
+
+- **LangSmith** — you're committed to LangChain/LangGraph and want it to *just work*. Tracing turns on with `LANGSMITH_TRACING=true` (see Section 4), plus Prompt Hub and annotation queues with zero assembly. The catch: proprietary, so self-hosting requires Enterprise, and cost climbs steeply with volume.
+- **Langfuse** — mixed stack, or you want to own your data. MIT-licensed with genuinely free self-hosting and the broadest integration surface. Backed by ClickHouse (the database company) as of January 2026, which matters for infrastructure confidence. Prompt management is manual — versioning and dashboards, not auto-tuning.
+- **Opik** — you want the tool to *improve* things, not just record them. Its differentiator is a built-in **Agent Optimizer with seven optimisation algorithms**, plus online evaluation on live production traffic (see the sibling `Opik/Opik - Notes.md`). A genuinely different pitch from the other two.
+
+**The decision rule:**
+
+1. **All-in on LangChain/LangGraph, modest volume?** → LangSmith. The zero-assembly convenience is real.
+2. **Mixed stack, or cost/data-ownership matters?** → Langfuse. The safe default.
+3. **Want automated prompt/agent tuning, not just observability?** → Opik.
+
+This refines the session's own simpler rule from Section 2 — *"LangSmith if you're in the LangChain ecosystem, Opik or Langfuse if you're not"* — which is right as far as it goes, but doesn't separate Opik from Langfuse. The separator is that **Opik optimises, Langfuse observes.**
+
+**One line:** LangSmith buys convenience inside the LangChain ecosystem at a steep price, Langfuse is the open-source framework-agnostic default that's ~25× cheaper at scale, and Opik is the one that actively tunes prompts and agents rather than only recording what happened.
+
+**Sources:**
+- [Langfuse vs LangSmith (2026): Pricing Math, Self-Host, and Lock-In Settled — Morph](https://www.morphllm.com/comparisons/langfuse-vs-langsmith)
+- [Opik vs Langfuse: Self-Hosted LLM Observability in 2026 — AgenticWire](https://www.agenticwire.news/article/langfuse-vs-opik)
+- [LangSmith Alternatives (2026): Open Source, Self-Host, and Cost at Scale — Morph](https://www.morphllm.com/comparisons/langsmith-alternatives)
+- [LangSmith Alternative: Langfuse vs. LangSmith — Langfuse](https://langfuse.com/faq/all/langsmith-alternative)
