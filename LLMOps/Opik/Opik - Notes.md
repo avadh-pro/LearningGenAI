@@ -23,6 +23,34 @@ The reading splits Opik's value by *when* you use it.
 | **LLM-as-a-Judge Metrics** | Built-in metrics — hallucination detection, moderation, relevance |
 | **CI/CD Integration** | Run evaluations in your pipeline via the **PyTest integration** |
 
+**What each of those six actually means, in plain terms:**
+
+**1. Tracing — the flight recorder.**
+Records every step of one request: the prompt, each LLM call, tool calls, timings, tokens, cost. Same idea as the sibling `LLM Tracing/` folder, just Opik's implementation of it.
+> *Example:* a user complains an answer was wrong. You open that one request's trace and see the retrieval returned the wrong document — so it's a retrieval bug, not a model bug. Without it, both look identical from outside.
+
+**2. Annotations — writing a score onto a specific trace.**
+A way to attach a judgment to one recorded run: thumbs up/down, a 1–5 rating, or a free-text note. You can do it by hand in the UI, or programmatically from the SDK.
+> *Example:* a domain expert reviews 50 real answers in the UI and marks 12 as wrong. Those 12 annotated traces become your labelled test set — the ground truth you otherwise had to build from scratch. This is exactly the "LLM-drafted, human-verified" shortcut discussed in the Week 3 notes, except the drafts are real production answers.
+
+**3. Prompt Playground — a scratchpad for prompts.**
+Edit a prompt, swap the model, re-run, and compare outputs side by side, without touching your codebase or redeploying.
+> *Example:* your summariser is too verbose. Instead of editing code and re-running the app five times, you paste the prompt into the playground, try three phrasings against the same input, and see which one actually shortens the output. Then you change the code once.
+
+**4. Automated Evaluation — your test suite, for answers instead of code.**
+Store a fixed set of test cases (question + expected answer), run your app against all of them, and get scores back. Exactly what `DeepEval_RAG_Evaluation.ipynb` does in the RAG folder, just inside Opik.
+> *Example:* 50 stored questions. You change the chunk size, re-run the suite, and see faithfulness drop from 0.94 to 0.71 — so you revert. That's the difference between knowing and guessing whether a change helped.
+
+**5. LLM-as-a-Judge Metrics — an AI grading the answers.**
+Some qualities can't be checked with a formula. "Is this answer faithful to the context?" needs judgment, so another LLM reads the context and the answer and scores it. Opik ships these built in — hallucination, moderation, relevance — so you don't write the judge prompts yourself.
+> *Example:* the context says *"refunds within 30 days."* The answer says *"refunds within 30 days, and you'll get email confirmation."* No formula catches that; a judge does — the email bit was invented. (Full metric list in Section 3.)
+
+**6. CI/CD Integration — the tests run themselves on every change.**
+Via the PyTest integration, your evaluation suite runs in the build pipeline like ordinary unit tests, and a quality regression **fails the build**.
+> *Example:* a teammate tweaks the system prompt and opens a PR. CI runs the eval suite, faithfulness drops below the 0.8 threshold, and the PR goes red — caught before merge rather than by a customer next week.
+
+**How the six fit together:** tracing records what happened, annotations let humans label it, the playground is where you try fixes, automated evaluation scores them at scale, judge metrics do the scoring where no formula exists, and CI/CD makes it all run automatically on every change. In short — **observe → label → experiment → measure → automate.**
+
 ### Production monitoring
 
 | Feature | What it does |
