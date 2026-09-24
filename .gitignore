@@ -1,9 +1,24 @@
 .idea/
 .DS_Store
+.playwright-mcp/
 
-# Notebook run artifacts (downloaded PDFs + persisted vector stores)
+# ── SECRETS — this repo is PUBLIC. Never commit these. ──
+.env
+.env.*
+!.env.example
+*accessKeys*.csv
+*credentials*.csv
+aws_details.txt
+*.pem
+*.key
+credentials.json
+.aws/
+
+# Notebook / run artifacts
 data/
-chroma_db_openai/
 chroma_db/
+chroma_db_openai/
 .deepeval/
-Retrieval Augmented Generation (RAG)/notebook/models/
+models/
+__pycache__/
+*.pyc
