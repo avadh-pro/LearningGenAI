@@ -150,4 +150,82 @@ Every question asked while working through this file gets logged here, numbered 
 - A concrete **analogy** carries the explanation, plus a comparison table when two concepts are being contrasted.
 - A bolded **One line:** summary closes the answer.
 
-*(No questions logged yet — the first one asked will be added below as `### Q1:`.)*
+### Q1: For creating an agent we need role, goal and backstory — for creating a Task, what are the mandatory components?
+
+*(Source: `AI Agents/notebooks/Multi AI Agent Blog Generator using CrewAI.ipynb`)*
+
+**✅ Only two are truly mandatory: `description` (what to do) and `expected_output` (what "done" looks like).** `agent` is technically optional — the crew will assign the task itself if omitted — but in practice it is always set, and all five tasks in the blog-generator notebook set it.
+
+| Field | Mandatory? | What it is for |
+| --- | --- | --- |
+| `description` | ✅ Yes | The instruction. *"Perform extensive research on X and compile a research document."* |
+| `expected_output` | ✅ Yes | The finish line. *"A well-organized research document about X."* |
+| `agent` | Optional (always use it) | Who does the work. |
+| `tools` | Optional | Overrides the agent's own tools for this task — `task_search` passes `web_tool`. |
+| `context` | Optional | Feeds another task's output in explicitly. |
+
+**Why `expected_output` matters more than it looks:** an LLM has no natural sense of "finished," so without a stated target it either stops too early or writes forever. It is the task's acceptance criterion.
+
+**The clean parallel:** the **Agent** answers *"who are you?"* (role, goal, backstory); the **Task** answers *"what should be done, and how do I know it's done?"* (description, expected_output).
+
+**⚠️ Bug spotted in the notebook:** `task_search` passes `max_inter=2` — a typo for `max_iter`, and `max_iter` is not a Task parameter anyway (it belongs on Agent). Older CrewAI silently ignored unknown kwargs; current versions validate with Pydantic and will reject it.
+
+**One line:** `description` + `expected_output` are mandatory; everything else on a Task is optional.
+
+---
+
+### Q2: You would use CrewAI when prototyping, when you want to move fast and the thing is not complicated — correct?
+
+**⚠️ Mostly right, with one correction: it is not about *simple* work, it is about *predictable* work.** CrewAI handles genuinely complex multi-agent pipelines fine — what it wants is the *shape* of the workflow known upfront.
+
+The blog generator is exactly the right case: five agents, five tasks, always the same order. That is complex work with a fixed shape.
+
+Reach for LangGraph instead when the path has to be decided at runtime — loops, branching, retries, or human approval mid-run.
+
+**One line:** CrewAI is for predictable shapes, not simple problems.
+
+---
+
+### Q3: So the `Crew(agents=[...], tasks=[...], process=Process.sequential)` block is the predefined shape, correct?
+
+**✅ Exactly — `process=Process.sequential` plus the *order of the `tasks` list* is the shape:** task 1 → 2 → 3 → 4 → 5, every run, decided at write-time rather than runtime.
+
+Two things that make it concrete:
+
+- **Swap the list order and the workflow is redesigned.** No routing logic anywhere decides what runs next — the list *is* the plan.
+- **There is no way to express "if the reviewer rejects it, go back to the generator."** That is a loop, and a sequential list cannot hold one.
+
+**⚠️ One caveat in this notebook:** `generator` is created with `allow_delegation=True`, which lets it hand work to another agent mid-task. So the *task order* is fixed, but *who does the work* retains some runtime freedom — the one crack in the "fully predefined" picture.
+
+**One line:** The ordered task list plus `Process.sequential` is the entire workflow definition.
+
+---
+
+### Q4: Is there any way to go back and loop it in CrewAI?
+
+**❌ Not with `Process.sequential` — ✅ but yes with CrewAI Flows,** where a `@router` can send execution back to an earlier step. That is precisely the looping construct Crews lack.
+
+The ladder:
+
+1. **Crew** — fixed ordered list, no loops.
+2. **Flow** — `@router` for loops and branching, plus durable pause/resume and SQLite persistence.
+3. **LangGraph** — full state machine with conditional edges, checkpointing, time-travel.
+
+**One line:** Crews cannot loop; Flows can, via `@router`.
+
+---
+
+### Q5: So Crew is like LangChain and CrewAI Flows is like LangGraph, correct?
+
+**⚠️ Roughly right as a mental model, with one caveat: Crew is *more* than a LangChain chain** (it is multi-agent; LangChain chains are single-path), **and Flows is *less* than LangGraph** (routing and loops, but not LangGraph's full state machine with checkpointing and time-travel).
+
+The analogy holds where it matters: in both pairs, the first is fixed-shape and the second lets the path be decided at runtime.
+
+| | Fixed shape | Runtime routing |
+| --- | --- | --- |
+| **LangChain / LangGraph** | LCEL chain | LangGraph `StateGraph` |
+| **CrewAI** | Crew (`Process.sequential`) | Flows (`@router`) |
+
+**Keep straight for interviews:** these are not interchangeable pairs. LangChain and LangGraph are one family — `create_agent` runs on LangGraph underneath. Crew and Flows are another. And you can call a **Crew from inside a Flow**, which is the common production pattern: the Flow handles branching, Crews do the work at each step.
+
+**One line:** Right on the fixed-vs-runtime axis, wrong if read as a strict equivalence.
