@@ -1,22 +1,24 @@
 .idea/
 .DS_Store
+.playwright-mcp/
 
-# Secrets — never commit. This repo is public.
+# ── SECRETS — this repo is PUBLIC. Never commit these. ──
 .env
-*.env
+.env.*
 !.env.example
-**/aws_details.txt
+*accessKeys*.csv
+*credentials*.csv
+aws_details.txt
+*.pem
+*.key
+credentials.json
+.aws/
 
-# Python build artifacts and local environments
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.pytest_cache/
-.ruff_cache/
-
-# Notebook run artifacts (downloaded PDFs, persisted vector stores, model checkpoints)
-data/chroma_db/
+# Notebook / run artifacts
+data/
 chroma_db/
 chroma_db_openai/
 .deepeval/
+models/
+__pycache__/
+*.pyc
