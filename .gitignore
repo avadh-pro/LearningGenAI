@@ -1,13 +1,18 @@
 .idea/
 .DS_Store
+.playwright-mcp/
 
-# Secrets — never commit. This repo is public.
+# ── SECRETS — this repo is PUBLIC. Never commit these. ──
 .env
 .env.*
 !.env.example
+*accessKeys*.csv
+*credentials*.csv
 aws_details.txt
 *.pem
+*.key
 credentials.json
+.aws/
 
 # Notebook / run artifacts
 data/
