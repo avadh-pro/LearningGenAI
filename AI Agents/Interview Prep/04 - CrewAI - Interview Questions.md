@@ -87,17 +87,29 @@ And they compose — that's the production pattern people miss. You don't choose
 
 **✅ Strong answer:** "Roughly, on the axis that matters — **in both pairs, the first is fixed-shape and the second decides the path at runtime.** But it's not a strict equivalence and I'd say so:
 
-- **Crew is *more* than a LangChain chain.** A chain is single-path with one model doing every step; a Crew is genuinely multi-agent with distinct roles and tools per step. It's still a straight path — more workers, same single lane.
-- **Flows is *less* than LangGraph.** You get routing and loops, but not LangGraph's full typed state machine with reducers, checkpointing and time-travel.
+- **Crew is *more* than a LangChain chain.** A chain step is a function call — input in, output out — and while you *can* swap models per step (`prompt1 | gpt4 | prompt2 | claude`), you can't give a step an identity, its own tool set, or the right to delegate. A Crew agent is a persistent entity with `role`, `goal`, `backstory` and its own tools, able to loop internally before producing output. It's still a straight path — more workers, same single lane.
+- **Flows is *narrower* than LangGraph, not simply less.** Flows genuinely maintains state (`self.state` with an auto UUID), genuinely checkpoints **after every method** via `@persist` (default `SQLiteFlowPersistence`), and resumes by UUID. The two real gaps are **reducers** — LangGraph declares per-field merge rules, Flows mutates state directly — and **checkpoint-history rewind**: Flows resumes from the *latest* snapshot, LangGraph can rewind to any past checkpoint and branch.
 
 | | Fixed shape | Runtime routing |
 |---|---|---|
 | **LangChain / LangGraph** | LCEL chain | `StateGraph` |
 | **CrewAI** | Crew (`Process.sequential`) | Flows (`@router`) |
 
+And the honest Flows-versus-LangGraph breakdown, since 'Flows is weaker' is the lazy version of this answer:
+
+| | CrewAI Flows | LangGraph |
+|---|---|---|
+| Branching / loops | ✅ `@router` | ✅ conditional edges |
+| State across steps | ✅ `self.state` | ✅ typed schema |
+| Save after every step | ✅ `@persist` | ✅ checkpointer |
+| Resume after crash | ✅ by UUID | ✅ by `thread_id` |
+| Human-in-the-loop pause | ✅ | ✅ `interrupt` |
+| **Per-field merge rules** | ❌ direct mutation | ✅ reducers |
+| **Rewind to any past step** | ❌ latest snapshot only | ✅ full checkpoint history |
+
 One thing to keep straight: they're not interchangeable pairs across families. LangChain and LangGraph are one family — `create_agent` runs on LangGraph underneath. Crew and Flows are another."
 
-**🎯 Standard Interview Answer:** "The analogy holds on the static-versus-runtime control-flow axis but not as an equivalence. A Crew exceeds an LCEL chain in that it provides role-differentiated multi-agent execution with per-agent tooling, while remaining acyclic. Flows falls short of LangGraph in lacking a typed state schema with configurable reducers, per-superstep checkpointing, and time-travel over checkpoint history. The families are also internally coupled in a way the analogy obscures — `create_agent` is implemented on LangGraph, so LangChain and LangGraph share a runtime, whereas Crews and Flows are distinct constructs within CrewAI."
+**🎯 Standard Interview Answer:** "The analogy holds on the static-versus-runtime control-flow axis but not as an equivalence. A Crew exceeds an LCEL chain in providing role-differentiated agents with persistent identity, per-agent tooling and internal iteration, while remaining acyclic — note that per-step model heterogeneity is *not* the differentiator, since LCEL composes arbitrary models across a chain. Flows differs from LangGraph more narrowly than commonly stated: it provides durable state, per-method checkpointing via `@persist`, and UUID-keyed resumption, so state management and crash recovery are comparable. The genuine divergences are the absence of a typed state schema with configurable per-field reducers, and resumption semantics restricted to the latest snapshot rather than arbitrary rewind over checkpoint history. The families are also internally coupled in a way the analogy obscures — `create_agent` is implemented on LangGraph, so LangChain and LangGraph share a runtime, whereas Crews and Flows are distinct constructs within CrewAI."
 
 ---
 

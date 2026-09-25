@@ -217,9 +217,30 @@ The ladder:
 
 ### Q5: So Crew is like LangChain and CrewAI Flows is like LangGraph, correct?
 
-**⚠️ Roughly right as a mental model, with one caveat: Crew is *more* than a LangChain chain** (it is multi-agent; LangChain chains are single-path), **and Flows is *less* than LangGraph** (routing and loops, but not LangGraph's full state machine with checkpointing and time-travel).
+**⚠️ Roughly right as a mental model, with two caveats: Crew is *more* than a LangChain chain, and Flows is *narrower* than LangGraph rather than simply weaker.**
 
 The analogy holds where it matters: in both pairs, the first is fixed-shape and the second lets the path be decided at runtime.
+
+**⚠️ Correction (logged after checking the CrewAI docs).** This answer originally said two things that are wrong, both worth knowing because they are the common lazy version of this comparison:
+
+1. *"LangChain chains are single-path with one model doing every step."* — The single-path part is right; the one-model part is not. LCEL composes arbitrary models across a chain (`prompt1 | gpt4 | prompt2 | claude`). The real difference is that a chain step is a **function call**, whereas a Crew agent is a **persistent entity** with `role`, `goal`, `backstory`, its own tools, and the ability to iterate internally before producing output.
+2. *"Flows has routing and loops but not state, checkpointing or time-travel."* — Flows **does** maintain state (`self.state`, with an auto-generated UUID) and **does** checkpoint **after every method** via `@persist`, backed by `SQLiteFlowPersistence` by default, resuming with `kickoff(inputs={"id": <uuid>})`. State management and crash recovery are genuinely comparable to LangGraph.
+
+The two gaps that actually survive:
+
+| | CrewAI Flows | LangGraph |
+| --- | --- | --- |
+| Branching / loops | ✅ `@router` | ✅ conditional edges |
+| State across steps | ✅ `self.state` | ✅ typed schema |
+| Save after every step | ✅ `@persist` | ✅ checkpointer |
+| Resume after crash | ✅ by UUID | ✅ by `thread_id` |
+| Human-in-the-loop pause | ✅ | ✅ `interrupt` |
+| **Per-field merge rules** | ❌ direct mutation | ✅ reducers |
+| **Rewind to any past step** | ❌ latest snapshot only | ✅ full checkpoint history |
+
+So: **Flows matches LangGraph on state, persistence and resume; it differs on typed merge semantics (reducers) and checkpoint-history rewind.** Flows gives you "continue where it stopped"; LangGraph gives you "go back to any point and branch."
+
+*Sources: [Flows — CrewAI Docs](https://docs.crewai.com/en/concepts/flows), [When does @persist save Flow state?](https://community.crewai.com/t/debugging-state-persistence-when-does-persist-save-flow-state/5884)*
 
 | | Fixed shape | Runtime routing |
 | --- | --- | --- |
