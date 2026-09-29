@@ -1,5 +1,7 @@
 # Data, Platform & In-Environment Deployment — Interview Questions
 
+> **⚡ In plain words:** "Inside the firewall" = the AI runs inside the client's *own* cloud; data never leaves. So you **bring the AI to the data**, not data to the AI — which is exactly why a local model exists (so sensitive data never reaches OpenAI). Decision order: **residency first, then capability, then cost.** Integrate SAP/Oracle/Databricks/Snowflake by hiding each behind clean "typed tools" so agents don't learn 4 systems' quirks (SAP/Oracle = system of record, write carefully; Databricks/Snowflake = the data lake, analyse there; the ontology reconciles their different names for the same thing). **SOC 2** = security/audit standard (your traces are the audit evidence). **GDPR** = EU data law: keep data in-region *and* give a right to human review of automated decisions — which is the *same* human-in-the-loop you built for reliability. One design, two wins.
+
 *JD pillar: "Architect integration with SAP, Oracle, Databricks, and Snowflake, and deployment inside the client firewall on Azure and AWS under SOC 2 / GDPR," plus "locally deployed, domain-tuned engines that keep client data in-environment."*
 
 *This is the "integration thinking" half of a forward-deployed role — not algorithmic optimisation, but making systems talk under real enterprise constraints. Two layers per answer.*

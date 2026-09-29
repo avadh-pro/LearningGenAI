@@ -1,5 +1,7 @@
 # Nablon — AI Engineer II (L3, Forward-Deployed) — Interview Prep
 
+> ⏱️ **Short on time? Open `CHEAT SHEET - Skim Before Interview.md` first** — every concept in these files, in plain words, skimmable in ~10 minutes. Come back here for the study order and detail.
+
 *Built from the actual JD (`Nablon_JD_L3_AI_Engineer_II.docx`) plus extensive 2026 web research on every stack term the JD names. Calibrated to a **senior, forward-deployed L3** bar — this is not a recall test, it's judgment, architecture, and client leadership under real constraint.*
 
 ---

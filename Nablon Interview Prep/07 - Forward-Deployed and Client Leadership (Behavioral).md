@@ -1,5 +1,7 @@
 # Forward-Deployed & Client Leadership — Behavioral Interview Questions
 
+> **⚡ In plain words (HALF the job):** Use **STAR** (Situation, Task, Action, Result) and prepare **6–8 real stories.** Have ready: (1) an ambiguous call you owned end-to-end, (2) a hard client conversation, (3) a failure you owned + the systemic fix, (4) mentoring that outlasted you, (5) a decision under pressure with incomplete info. **Hard-conversation win:** hold the technical truth *and* keep trust — "here's the constraint, here are options with trade-offs, here's my pick, your call" (not caving, not steamrolling). **Disagree with a founder:** understand → make the case with data → if overruled, commit fully. **Why Nablon:** production not pilots, the compounding loop, real ownership — and you *want* the client-facing ambiguity, not just tolerate it. The trap: being an IC who lights up on architecture but goes quiet on clients.
+
 *Roughly half of a forward-deployed loop is not code — it's customer-facing judgment and reasoning through ambiguity. The JD is emphatic: you're "the technical face to client leadership," you "manage expectations under pressure," you "mentor L1 and L2," and the "not a fit" list explicitly rejects strong ICs who avoid clients and people leadership. The **Final & Founder round** lives here too.*
 
 *Use the **STAR** structure (Situation, Task, Action, Result) with real stories. Below: the question, **what they're probing**, and **how to shape the answer**. Prepare 6–8 real stories you can flex across these.*

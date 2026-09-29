@@ -1,5 +1,7 @@
 # Take-Home Assignment & Case Study — Prep
 
+> **⚡ In plain words:** They test *how you think, structure, and deliver* — not feature count. A clean, honest **70% beats a sprawling 100%** with no evals. Always: (1) restate the problem + **list your assumptions**, (2) name trade-offs on every choice, (3) treat it as a **production system** (evals, failure modes, verification) not a demo, (4) focus on the **bottleneck**, (5) keep it **readable**, (6) state limitations + next steps. **Biggest trap:** charging in without clarifying — always frame and assume first. In the **live case round**, silence is worse than imperfect thinking-aloud.
+
 *JD stage 2: "A short, focused exercise that reflects real work. No trick questions — we want to see how you think, structure, and deliver." Plus the signature FDE case-study round (Technical Round 1/2), which across the industry has the lowest pass rate and highest weight of any stage.*
 
 *You can't know the exact prompt, so this file preps the **approach** — what a strong deliverable looks like and the traps that sink candidates.*

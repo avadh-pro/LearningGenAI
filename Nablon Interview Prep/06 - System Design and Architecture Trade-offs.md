@@ -1,5 +1,7 @@
 # System Design & Architecture Trade-offs — Interview Questions
 
+> **⚡ In plain words:** They grade *how you think*, not the final answer — so **think out loud.** The 4 trade-offs (reliability, cost, latency, maintainability) can't all be maxed; usually **reliability is fixed** (it's the contract) and you trade the other 3 against it. **Recipe for any design prompt:** clarify the ambiguity out loud → state assumptions → find the *bottleneck* → split deterministic vs agentic → ground in the ontology → add verification + escalation → say how you'll measure success → name your trade-offs → sequence for value in weeks. **Agent vs workflow test:** *can I draw the flowchart in advance?* Yes → workflow/function; No → agent. And weight **maintainability** — the clever system only you understand is a liability, because you're hired to set standards others maintain.
+
 *This is where **Technical Round 2** is won — "Architecture, trade-offs, and depth. We test your ability to reason under constraints and defend your approach." The JD's hardest-trade-offs list is explicit: reliability, cost, latency, maintainability.*
 
 *These are open-ended design prompts. The grading is on how you reason, decompose, and defend — not on a single right answer. Each has a **✅ How to structure the answer** and a **🎯 Senior signal**.*

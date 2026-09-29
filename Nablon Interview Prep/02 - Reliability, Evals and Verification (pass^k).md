@@ -1,5 +1,7 @@
 # Reliability, Evals & Verification — Interview Questions
 
+> **⚡ In plain words (MOST IMPORTANT FILE):** **pass@k** = succeeds *at least once* in k tries (can it ever?). **pass^k** = succeeds on *every* one of k tries (is it reliable?). At 70%/run, pass@3 ≈ 97% but pass^3 = **34%** — same agent, opposite story. The JD says "pass^k bar," so 99.99% means *consistent every run*, which you hit by **removing AI steps and adding gates**, not by prompting. The **eval control plane** = a quality-control factory: a grading rubric, hard blocks on critical rules, drift alerts, and an automatic pass/fail **gate** that stops bad releases ("quality built in, not bolted on"). A **decision trace** = the full recorded story of one run — it's your audit trail, your eval cases, *and* your training data. Watch out: the AI judge is biased (favours the first option, its own family, longer answers) — swap order, require agreement, calibrate against humans.
+
 *JD pillars: "Own the eval, verification, and decision-trace strategy that gets the system to 99.99%" and "Own rubric scoring, tiered policy enforcement, drift detection, and production gating to a **pass^k** reliability bar."*
 
 > **This is the highest-signal file in the pack.** The JD literally names *pass^k*. Most candidates will discuss *pass@k* and quietly get it backwards. Getting this right is the single clearest way to read as the senior they're hiring.

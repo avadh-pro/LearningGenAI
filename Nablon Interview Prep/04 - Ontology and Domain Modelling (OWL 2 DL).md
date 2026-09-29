@@ -1,5 +1,7 @@
 # Ontology & Domain Modelling — Interview Questions
 
+> **⚡ In plain words:** An **ontology** is a formal rulebook of the business — what things are, how they relate, what's allowed. It's the *grammar*; the knowledge graph is the *facts*. Without it, an agent can find facts but can't enforce rules → hallucination; with it, the agent literally *can't* assert something illegal (one study: 63% → 1.7% hallucination). **OWL 2 DL** is the standard language — "DL" means it's expressive *but guaranteed to finish*, so a **reasoner** can reliably check for contradictions before an action. **Killer example:** agent about to pay a vendor who's "on hold" — the rules say "paid" and "on-hold" can't coexist, so the reasoner *blocks it*; the LLM alone would've paid. This is **neurosymbolic**: LLM handles language, ontology enforces rules that must never break. Building it is a *client conversation* — you formalise their tacit rules (and often find contradictions in their own policy).
+
 *JD pillar: "Own the domain ontology (**OWL 2 DL**) — entities, constraints, KPIs, and policy — that every agent reasons over."*
 
 *Most AI engineers have never touched formal ontologies, so depth here is a genuine differentiator. Two layers per answer.*

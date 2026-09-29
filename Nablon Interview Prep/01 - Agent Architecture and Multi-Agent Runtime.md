@@ -1,5 +1,7 @@
 # Agent Architecture & Multi-Agent Runtime — Interview Questions
 
+> **⚡ In plain words:** This is the "engine room" that runs your agents. The golden rule: make as *little* as possible actually AI — anything with fixed rules becomes plain code (100% reliable); use an agent only when the steps genuinely depend on the input. **Checkpoint** = autosave after every step (so you can resume, pause for a human, and keep an audit trail). **Escalation** = when unsure or risky, pause and hand to a human — designed on purpose, not as an error handler. **Model routing** = sensitive data → local model, hard reasoning → OpenAI/Anthropic, easy stuff → cheapest. The nightmare to prevent: a *silent, confident, wrong answer* — caught by verification gates + traces, never by "a better prompt."
+
 *JD pillar: "Design the multi-agent runtime — orchestration, queues, checkpoints, and escalation paths — for an entire engagement."*
 
 *Two layers per answer: **✅ Strong answer** (what you say) and **🎯 Senior signal** (the L3 trade-off/failure-mode framing). Calibrated to someone architecting the stack, not using it.*

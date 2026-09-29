@@ -1,5 +1,7 @@
 # Reinforcement Learning & the Compounding Loop — Interview Questions
 
+> **⚡ In plain words:** The **compounding loop** is the flywheel: runs → traces → eval cases + training data → a better local model → better runs. Nablon's whole pitch ("each deployment compounds"). **GRPO** is how the local model is trained — generate several answers, keep the ones better than the group average, no separate "critic" model needed → cheaper and runs inside the client's firewall; best when the reward is *verifiable* (passed the test? matched the record?). **Reward design** = defining "good"; the danger is **reward hacking** (a sloppy reward gets gamed). **Simulator** = a safe fake copy of the client's systems so the agent can practise thousands of times without touching real SAP. **Offline → shadow → production** = train offline, then run live but *don't execute* (watch what it *would* do), then go live — because offline always looks better than reality. Don't use RL if prompting already works.
+
 *JD pillar: "Turn decision traces into eval cases and RL environments — reward design, workflow simulators, and offline-to-shadow policy rollouts," plus "locally deployed, domain-tuned (**GRPO**) engines that keep client data in-environment."*
 
 *This is the specialist depth that separates a real architect from someone who's only wired up LangGraph. Two layers per answer.*
