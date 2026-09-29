@@ -36,6 +36,33 @@ For a Fortune 500 engagement I'd usually land on **event-driven at the macro lev
 
 **🎯 Senior signal:** "The honest trade is failure-recovery, which research consistently flags as the least reliable capability of both DAG and ReAct architectures at enterprise scale. Event-driven with durable queues isolates failure best but costs observability complexity — you need distributed tracing across the event bus or you can't debug it. So I'd tie the pattern choice to the maturity of the observability I can stand up, not just the workflow shape."
 
+**🔁 Q2 (follow-up): "Explain event-driven and the nesting simply, with an example."**
+
+**✅ Plain-words version:** "Event-driven means nothing runs on a fixed schedule — things happen *in reaction* to something occurring. Like an office mailroom: nobody sits in a loop asking 'any work yet?'; instead, when a purchase-order status changes in SAP, that *fires an event*, and the agent that subscribed to PO-changes wakes up and handles it. Agents listen for events and emit their own when done; the queue carries those events between them. Because there's no single central controller, if one agent dies the others keep reacting — no single point of failure. That's why it's the resilient, enterprise-scale pattern.
+
+The nesting is like a company org chart for one invoice arriving:
+
+```
+EVENT-DRIVEN  (the whole company)
+  📄 Invoice lands → fires an event
+        │
+        ▼
+SUPERVISOR / ROUTER  (a department head)
+  "Standard invoice or disputed?" → routes to the right specialist
+        │
+        ▼
+SEQUENTIAL  (one employee, step by step)
+  read invoice → match to PO → check vendor not on hold → approve
+```
+
+- **Macro = event-driven:** the system reacts to real enterprise events (SAP changes, documents landing).
+- **Inside one task = supervisor/router:** a boss agent decides *which* specialist handles this case.
+- **Inside one worker = sequential:** that specialist does its steps in a fixed order.
+
+You nest instead of picking one because each layer then stays simple — the top doesn't care *how* an invoice is processed, the worker doesn't care *what else* the company is doing. Simple layers stacked = a system you can build, debug, and hold to 99.99%."
+
+**🎯 Senior signal (one line to say):** "Event-driven at the macro level so the system reacts to real enterprise events with no single point of failure, a supervisor routing within a bounded task, and plain sequential steps inside each worker — nesting keeps every layer simple enough to verify."
+
 ---
 
 **🎙️ Q3: "What does a checkpoint actually contain, and why is durable execution non-negotiable here?"**
