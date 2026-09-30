@@ -69,6 +69,8 @@ class Ledger(BaseModel):
     numbers: list[NumberFact] = Field(default_factory=list)
     #: Byte-exact strings C2 holds identical in every tailored version.
     immutable: dict[str, str] = Field(default_factory=dict)
+    #: alias -> canonical skill value, derived from the master (see _synonyms_for).
+    synonyms: dict[str, str] = Field(default_factory=dict)
     #: Technologies deliberately absent from the resume, used as tripwires (config).
     canaries: set[str] = Field(default_factory=set)
     #: verb -> scope rank; a reworded sentence may never increase it (C8, AC-AF-09).
@@ -138,6 +140,30 @@ def element_text(html: str, key: str) -> str:
     return el.get_text(" ", strip=True)
 
 
+def _synonyms_for(value: str) -> set[str]:
+    """Aliases a skill value legitimately answers to, derived from the value itself.
+
+    Two shapes, both present in the master and both deterministic:
+      "Model Context Protocol (MCP)"  -> MCP
+      "Kubernetes / Helm"             -> Kubernetes, Helm
+
+    This replaces an earlier substring heuristic that was quietly too generous: it
+    would have accepted a claim to "JAX" because the resume lists "JAX-RS / Jersey",
+    which is a different technology entirely. §8.2 C4 asks for ledger + synonym table,
+    matched exactly, and deriving the table from the document keeps it versioned with it.
+    """
+    aliases: set[str] = set()
+    paren = re.search(r"\(([A-Za-z][\w.+#-]{1,20})\)\s*$", value.strip())
+    if paren:
+        aliases.add(paren.group(1))
+        aliases.add(value[: paren.start()].strip())
+    for part in re.split(r"\s*/\s*", re.sub(r"\s*\([^)]*\)\s*$", "", value)):
+        part = part.strip()
+        if part and part != value:
+            aliases.add(part)
+    return {a for a in aliases if len(a) > 1}
+
+
 def _organisation_from_heading(text: str) -> str:
     """The employer's name, without the parenthetical gloss or the location."""
     return re.split(r"\s+[-–—]\s+|\s*\(", text.strip(), maxsplit=1)[0].strip()
@@ -168,10 +194,13 @@ def build_ledger(html: str, *, canaries: set[str] | None = None) -> Ledger:
 
     # --- technologies: one per declared skill value -------------------------
     technologies: set[str] = set()
+    synonyms: dict[str, str] = {}
     for el in soup.select(".skill span.v[id]"):
         value = el.get_text(strip=True)
         if value:
             technologies.add(value)
+            for alias in _synonyms_for(value):
+                synonyms[alias] = value
             add("technology", value, el["id"])
 
     # --- immutables: what C2 holds byte-exact -------------------------------
@@ -268,6 +297,7 @@ def build_ledger(html: str, *, canaries: set[str] | None = None) -> Ledger:
         organisations=organisations,
         projects=projects,
         numbers=numbers,
+        synonyms=synonyms,
         immutable=immutable,
         canaries=canaries or set(),
         scope_verbs=dict(DEFAULT_SCOPE_VERBS),

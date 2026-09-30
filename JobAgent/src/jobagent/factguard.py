@@ -202,7 +202,14 @@ def check_provenance(
             except KeyError:
                 unresolved.append(key)
                 continue
-            if len(claim_words & _content_words(source)) >= min_shared_words:
+            source_words = _content_words(source)
+            # Two shared words, OR the whole source appears in the claim. The second
+            # rule is what lets a claim point at a single skill value: "Built retrieval
+            # pipelines on Qdrant" -> `skills.s3.qdrant` shares exactly one word, and
+            # requiring two would make every technology pointer unusable.
+            if len(claim_words & source_words) >= min_shared_words or (
+                source_words and source_words <= claim_words
+            ):
                 supported = True
                 break
 
@@ -261,7 +268,7 @@ def check_technologies(
     about them, not a claim about the candidate. That exemption is why C11 checks
     company claims against a JD span fetched this run.
     """
-    synonyms = synonyms or {}
+    synonyms = {**ledger.synonyms, **(synonyms or {})}
     allowed = {t.casefold() for t in ledger.technologies}
     allowed |= {canonical.casefold() for canonical in synonyms.values()}
     allowed |= {alias.casefold() for alias in synonyms}
@@ -376,15 +383,15 @@ _NUMERAL_IN_TEXT = re.compile(
 )
 
 
-def _numerals_in(text: str) -> list[tuple[str, str | None]]:
-    """Pull (value, qualifier) pairs out of free text, mirroring the ledger's split."""
-    found: list[tuple[str, str | None]] = []
+def _numerals_in(text: str) -> list[tuple[str, str | None, tuple[int, int]]]:
+    """Pull (value, qualifier, span) triples out of free text, mirroring the ledger."""
+    found: list[tuple[str, str | None, tuple[int, int]]] = []
     for m in _NUMERAL_IN_TEXT.finditer(text):
         value = m.group("num").replace(" ", "")
         qualifier = m.group("qual").lower() if m.group("qual") else None
         if m.group("plus"):
             qualifier = f"{qualifier} +".strip() if qualifier else "+"
-        found.append((value, qualifier))
+        found.append((value, qualifier, m.span()))
     return found
 
 
@@ -398,12 +405,21 @@ def check_numbers(claims: list[Claim], ledger: Ledger) -> list[Violation]:
     """
     allowed = {(n.value.replace(" ", ""), n.qualifier) for n in ledger.numbers}
     allowed_values = {value for value, _ in allowed}
+    # A numeral attached to "years" is an experience claim, which C7 owns and judges
+    # against the resume dates and the years_by_technology table. Flagging it here too
+    # would report one fabrication as two, and send the repair loop to the wrong check.
+    years_numeral = re.compile(
+        r"\d[\d,.]*\s*\+?\s*(?:years?|yrs?)\b", re.IGNORECASE
+    )
 
     violations: list[Violation] = []
     for claim in claims:
         if claim.kind == "context":
             continue  # letter dates and salutations assert nothing about the candidate
-        for value, qualifier in _numerals_in(claim.text):
+        years_spans = [m.span() for m in years_numeral.finditer(claim.text)]
+        for value, qualifier, span in _numerals_in(claim.text):
+            if any(a <= span[0] < b for a, b in years_spans):
+                continue
             if (value, qualifier) in allowed:
                 continue
             if value in allowed_values:
@@ -694,12 +710,24 @@ def check_mandatory_gap(
         f.value.casefold() for f in ledger.facts if f.klass in ("degree_cert", "technology")
     )
 
+    # Only credential words and technology names are evidence of a CLAIM to hold the
+    # qualification. v1 tokenised the whole requirement, so "AWS Certified Solutions
+    # Architect" put "Solutions" on the watch list and flagged "enterprise AI automation
+    # solutions" - an ordinary sentence from the resume itself. A check that fires on
+    # true statements trains the reviewer to click through violations, which is the one
+    # habit this design cannot afford.
     tokens: set[str] = set()
     for requirement in mandatory:
         for word in re.findall(r"[A-Za-z.+#]{3,}", requirement):
-            if word.casefold() in _MANDATORY_STOPWORDS:
+            folded = word.casefold()
+            if folded in _MANDATORY_STOPWORDS:
                 continue
-            tokens.add(word)
+            is_credential = _CERT_PATTERN.fullmatch(word) is not None
+            is_technology = any(
+                word.casefold() == t.casefold() for t in DEFAULT_TECH_VOCABULARY
+            )
+            if is_credential or is_technology:
+                tokens.add(word)
 
     violations: list[Violation] = []
     for claim in claims:
