@@ -125,7 +125,8 @@ def migrate(html: str) -> tuple[str, list[str]]:
         contact = header.find(class_="contact")
         if contact:
             put(contact, "hdr.contact")
-            for name, span in zip(CONTACT_ORDER, contact.find_all("span", class_="nw")):
+            spans = contact.find_all("span", class_="nw")
+            for name, span in zip(CONTACT_ORDER, spans, strict=False):
                 put(span, f"hdr.contact.{name}")
 
     # --- sections, keyed by their heading ---------------------------------
@@ -197,7 +198,7 @@ def main() -> int:
     before, after = normalised_text(original), normalised_text(migrated)
     if before != after:
         # Show the first divergence rather than a wall of text.
-        for i, (a, b) in enumerate(zip(before, after)):
+        for i, (a, b) in enumerate(zip(before, after, strict=False)):
             if a != b:
                 print(f"TEXT CHANGED at char {i}:\n  before: ...{before[max(0,i-60):i+60]}...\n"
                       f"  after:  ...{after[max(0,i-60):i+60]}...", file=sys.stderr)
