@@ -4,11 +4,12 @@
 **Owner:** Avadh Dobariya
 **Inputs:** `docs/REQUIREMENTS.md` v0.5 (approved) · `docs/requirements-analysis.md` (assumption register §7 adopted; exceptions in §17) · `docs/test-plan.md` (277 acceptance criteria — every one must be satisfiable by this design) · `docs/ui-ux-design.md` (19 screens, FR→UI map) · `knowledge-base/` (LangChain 1.x / LangGraph API truth)
 **Status:** Phase 3 — specification for implementation by Sonnet/Opus
-**Version:** 2.3 · 2026-09-15 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
+**Version:** 2.4 · 2026-09-30 (supersedes v1.0, REJECTED by CTO review 2026-09-15)
 **Revision:** v2.0 closed the ten CRITICAL findings (C-1..C-8, C-10, C-11) and the four MAJORs
 the review required in the same pass (M-1, M-2, M-3, M-15). **v2.1 answers Q-S on measured
-evidence and re-cuts the plan into two releases (§15.0). v2.2 closes M-16 and M-19, and v2.3 closes
-M-22 and M-13 — every MAJOR that sat inside Release 1's own path.** Changelog: §20. Findings *not* closed
+evidence and re-cuts the plan into two releases (§15.0). v2.2 closes M-16 and M-19, v2.3 closes
+M-22 and M-13, and **v2.4 closes the remaining 27 findings — the review's full 46 are now
+addressed.** Changelog: §20. Findings *not* closed
 are listed in §21 — they are open, not resolved.
 
 > This document says **how**. Every LangChain/LangGraph symbol named here was grepped in
@@ -44,7 +45,7 @@ are listed in §21 — they are open, not resolved.
 18. Knowledge-base verification table
 19. Open questions
 20. Changelog — what v2 changed, and which finding it closes
-21. Findings not closed in v2
+21. Status of the review's 46 findings
 
 ---
 
@@ -372,7 +373,17 @@ async def resolve(posting, page) -> tuple[Job, bool]   # (job, created)
 4. **Applied block**: if the tracker holds an application for the same `(company_norm,
    title_family)` with status in {SUBMITTED, MANUAL, UNKNOWN_OUTCOME, SUBMITTING,
    REJECTED_BY_USER} within 180 days → verdict `already_applied` / `duplicate_repost`, never
-   queued (AC-HR-11, AC-ID-22, AC-DD-09, AC-HL-03). After 180 days with similarity < 0.85 →
+   queued (AC-HR-11, AC-ID-22, AC-DD-09, AC-HL-03).
+4a. **In-flight block (M-9a)**: the set above omits every *active* status, so a job carried over
+   from yesterday at `PENDING_REVIEW` was not blocked — it was re-fetched, re-scored, re-ranked,
+   consumed a ceiling slot, and reached `spawn_apps`. `UNIQUE(job_id)` protects the row and nothing
+   else: the thread id **is** the application id, so the supervisor would invoke the graph with
+   fresh input on a thread already holding a pending `await_review` interrupt, discarding the
+   human's review, re-running tailor/render/letter/factguard at full model cost, and leaving Approve
+   returning 409 against an interrupt id that no longer exists. AC-ID-16 fails against that design.
+   v2.4 adds `{PREPARING, PENDING_REVIEW, APPROVED_GRACE, APPROVED, PREFLIGHT_OK, FILLING, BLOCKED,
+   HANDOFF}` with verdict **`already_in_flight`**, mirrored in eligibility rule 1 and in pre-flight
+   #5's applied-class definition. After 180 days with similarity < 0.85 →
    `possible_repost`, surfaced, neither auto-queued nor auto-rejected (AC-DD-11).
 5. Same requisition posted for two locations with identical JD → one **position family**;
    the higher-priority location is the application target; the other is stored in
@@ -538,8 +549,12 @@ def rank(scored: list[ScoredJob], settings) -> list[ScoredJob]  # total desc →
 
 **Behaviour.**
 - Structured output via `model.with_structured_output(Score, include_raw=True)` (verified,
-  `models.md`); Pydantic validators cap each dimension and reject totals ≠ sum (AC-SC-01).
-  `include_raw=True` returns the `AIMessage` whose `usage_metadata` feeds the spend ledger.
+  `models.md` §718). Pydantic validators cap each dimension and reject totals ≠ sum (AC-SC-01).
+  **`include_raw=True` returns the parsed value *and* the raw message as a pair, not an `AIMessage`
+  (m-6)** — so the retry branches on the parse-failure field of that pair, not on a caught
+  exception, and it is the pair's `raw.usage_metadata` that feeds the spend ledger. The precise
+  failure-path semantics of `include_raw=True` are **[UNVERIFIED — not documented in the knowledge
+  base; confirm against the installed package at build time]**.
 - The prompt embeds the **ledger facts** (never the answer sheet) and the JD text; it instructs
   sub-score reasoning to cite JD phrases; AC-SC-13 is checked by asserting every technology
   named in reasoning ∈ ledger ∪ synonyms ∪ JD vocabulary.
@@ -706,7 +721,9 @@ restarted for the next application (AC-FM-13).
 class GuardedModel:                      # wraps the BaseChatModel returned by init_chat_model
     def __init__(self, inner, stage: Stage, guard: PromptGuard, budget: BudgetGate, tracer: Tracer): ...
     async def ainvoke(self, messages, *, thread_id, node, **kw) -> AIMessage
-    def with_structured_output(self, schema, include_raw=True) -> "GuardedModel"
+    def with_structured_output(self, schema, include_raw=True) -> "GuardedStructuredModel"
+class GuardedStructuredModel:            # m-6: include_raw=True returns a PAIR, not an AIMessage
+    async def ainvoke(self, messages, **kw) -> dict   # {"parsed": Schema | None, "raw": AIMessage, "parsing_error": Exception | None}
 class PromptGuard:
     def assert_clean(self, messages) -> None   # raises SensitiveLeakError if any answer-sheet value / secret pattern appears
 class BudgetGate:
@@ -731,8 +748,11 @@ class SpendLedger:                             # table spend_ledger; per call: r
 - `PromptGuard.assert_clean` renders the messages to text and scans for every current
   answer-sheet value and its formatting variants (`19.8`, `₹19.8`, `19,80,000`, `32 LPA`,
   `1 month`, `30 days`, per-currency figures, `years_by_technology` values in a "years" context),
-  the API-key regexes and the Telegram token. The phone number is on the resume and is a
-  *contact* constant, not answer-sheet data. Raising here fails the node — fail closed (AC-NF-04).
+  the API-key regexes and the Telegram token, **and the phone number (M-14)** — v1 exempted it on the
+  grounds that it is a contact constant on a resume that reaches employers anyway, which is true and
+  is beside the point: AC-NF-04 scans for it, so the exemption was a silent departure from an
+  approved criterion. Since `ledger_for_model()` now excludes the header (§10.3), nothing needs the
+  exemption. Raising here fails the node — fail closed (AC-NF-04).
 - `BudgetGate.check` reads today's IST total from `spend_ledger` (AC-FM-17 day boundary):
   ≥ soft → one alert (M7) per day; ≥ hard_stop → raise `BudgetHardStop`; global pause flag set →
   raise `PauseRequested` (A-24, AC-HL-25). Approvals, pre-flight and submission make no LLM call
@@ -814,7 +834,10 @@ application threads from those rows.
 | State size | State holds **ids and hashes**, never JD bodies, HTML, PDFs or answer-sheet values. Content lives in `jobagent.db` / `art/`. Checkpoints stay small (gotcha 13) and can never leak §2.1 values | A-6, A-17 |
 | Interrupt nodes | Prefix `await_`; body = read state → **one** `interrupt(payload)` → return the resume value into state (optionally as `Command(goto=...)`); no I/O before the interrupt; not in a loop; not in `try` | `interrupts.md` Rules; AC-ID-13/14 |
 | Notifications | Sent by the node *preceding* an `await_` node, through the outbox with an idempotency key | AC-ID-12 |
-| Retry defaults | `builder.set_node_defaults(retry_policy=RetryPolicy(max_attempts=3))`. **No graph-wide `error_handler`**; handlers are attached per node. *Note (M-4, open — §21): v1's stated rationale for this ban — that a handler on an `await_` node could swallow the interrupt — is **false** for the same reason as M-1: interrupts bypass error handlers. The ban is retained in v2 only because §5.3's "any node raising `BudgetHardStop`/`PauseRequested`" routing genuinely needs a graph-wide default, which is a contradiction v2 does not resolve and M-4 must.* | `fault-tolerance.md` §401; §389–391 |
+| Retry defaults | `builder.set_node_defaults(retry_policy=RetryPolicy(max_attempts=3), error_handler=pause_or_fail_handler)`, overridden per node where different behaviour is needed (`submit`, `fill_form`) | `fault-tolerance.md` §401–520 |
+| Control-flow exceptions are never retried (M-4) | `BudgetHardStop` and `PauseRequested` derive from `RuntimeError`, which is on `default_retry_on`'s non-retryable list. Without this each was retried twice with backoff *before any handler ran* — a pause took effect after up to three attempts per node, and a budget stop was re-evaluated three times | `fault-tolerance.md` "Default behavior" |
+| Error handlers are idempotent (m-9) | Failure provenance is checkpointed, so a handler can run twice: if the process crashes after a node fails but before the handler completes, the handler sees the same `NodeError` on resume. Every state write inside a handler uses `Tracker.transition`'s conditional-`UPDATE` discipline; the AC-ID-13 static check covers `error_handler` functions too | `fault-tolerance.md` "Resume-safe failures" |
+| Graph-wide handler, and why v1 banned it | v1 forbade a graph-wide `error_handler` on the grounds that a handler on an `await_` node could swallow the interrupt. That rationale is **false** — interrupts bypass error handlers entirely (M-1) — and the ban was load-bearing nowhere: §5.3's "any node raising `BudgetHardStop`/`PauseRequested` → `await_pause`" and §13.3's resume_target mechanism both *require* a graph-wide default, while §5.5 attached a handler to exactly one node. As specified, a budget stop in `tailor`, `generate_letter`, `generate_answers` or `factguard` had no handler at all: it exhausted its retries and failed the run, and AC-HL-25 and AC-FM-09 were written against behaviour §5.1 prohibited. v2.4 sets the default and states the real constraint: handler nodes are excluded from certain defaults (§514–520) | `fault-tolerance.md` §389–391, §401–520 |
 | Interrupt node retries | **Verified, and the v1 mitigation is withdrawn (M-1).** `interrupt()` uses the `GraphBubbleUp` mechanism and *bypasses both retry policies and error handlers*, so a retry policy could never have re-executed an interrupt. The `await_*` nodes therefore keep the graph default `max_attempts=3`, decided on its merits: they perform no I/O before the interrupt, so a retry is harmless, and v1's `max_attempts=1` removed retries from seven nodes for *genuine* transient failures on the safety-critical HITL path. | `langgraph/fault-tolerance.md` §389–391, "Behavior with `interrupt()`" |
 | Timeouts | `timeout=TimeoutPolicy(run_timeout=...)` on browser and model nodes; all nodes are `async def` (timeouts are async-only) | `fault-tolerance.md` Limitations |
 | Pause / drain | Graph invocations receive a `RunControl`; `/pause` calls `control.request_drain("user_pause")`; `GraphDrained` is caught by the supervisor and the thread is resumed later with `ainvoke(None, config)` | `fault-tolerance.md` Graceful shutdown; A-24, AC-HL-25 |
@@ -874,7 +897,7 @@ class DiscoveryState(TypedDict):
                                  └──────┬──────┘
                                         ▼
                                  ┌─────────────┐
-                                 │ spawn_apps  │ INSERT applications (UNIQUE job_id → upsert-safe), enqueue thread launches
+                                 │ spawn_apps  │ SKIP any job with an existing applications row (M-9a); else INSERT + launch
                                  └──────┬──────┘
                                         ▼
                                  ┌─────────────┐
@@ -894,6 +917,21 @@ per source is bounded and gives NFR-4 isolation for free.
 **Node policies.** `discover_source`: `timeout=TimeoutPolicy(run_timeout=900)`,
 `error_handler=record_source_failure` (writes `source_results` failed, `goto="dedup"` is *not*
 needed — the fan-in waits for all branches; the handler just returns the update).
+**Launching an application thread (M-9a).** `spawn_apps` never relies on an upsert to make
+relaunch safe. Before launching it calls `aget_state(config)`; if `tasks[*].interrupts` is non-empty
+the thread is **waiting on a human** and must be either resumed with `ainvoke(None, config)` or left
+alone — never invoked with fresh input, which would discard the pending review and re-run the whole
+generation chain at full model cost.
+
+**These two nodes are long, and v1 made their timeout retryable (m-12).** `durability="sync"`
+checkpoints between super-steps, so a node processing 140 jobs writes no checkpoint for up to thirty
+minutes, and `NodeTimeoutError` is retryable by default — worst case three 30-minute attempts, with
+the Run console's "live step" frozen on one node throughout and no headroom in AC-NF-16's 60-minute
+budget. Per-job writes are idempotent so a retry is cheap; the problem is latency and observability,
+not correctness. v2.4: both nodes write per-job progress to `job_evaluations` as it happens and
+stream it to the Run console, and both set `retry_on` to **exclude** `NodeTimeoutError` — a timeout
+here means the batch is too large, not that anything is transient.
+
 `fetch_and_extract` / `score`: `timeout=TimeoutPolicy(run_timeout=1800)`; provider 429/5xx are
 retried per call inside the node (`ModelRetryMiddleware` is for `create_agent`; here a small
 tenacity-style retry around `GuardedModel.ainvoke` **[UNVERIFIED — plain Python; not a LangChain
@@ -1009,10 +1047,10 @@ class ApplicationState(TypedDict):
 | `notify_hitl4` / `await_hitl4` / `apply_hitl4_fix` | HITL-4 payload: sentence, fact class, nearest ledger facts; fix = use resume wording / edit / skip | – | outbox; none; artefact | – |
 | `notify_review_ready` | Status `PENDING_REVIEW`; outbox is **batched** at supervisor level (M1 once per run) | – | upsert | default |
 | `await_review` | `interrupt({"kind":"review", "application_id", "artefact_hashes"})` → `{type, decision_id, ...}` | – | **none before interrupt** | default (M-1) |
-| `record_decision` | Validates decision vs current artefact hashes; writes `decisions` row; status → `APPROVED` / `REJECTED_BY_USER` / re-queue | – | insert (idempotent by `decision_id`) | default |
+| `record_decision` | Validates decision vs current artefact hashes; **transitions** status → `APPROVED` / `REJECTED_BY_USER` / re-queue / **`EXPIRED` on `{type: "expired"}` (m-4 — `dismiss_expired` resumes with this and v1 routed only approve/reject/regenerate/postpone, so the resume fell through to an undefined route)**. The API owns *recording* the row; this node owns the *transition* (m-11) | – | transition (idempotent by `decision_id`) | default |
 | `preflight` | Twelve FR-9.1 checks §9.4; live re-fetch; status `PREFLIGHT_OK` | – | `preflight_results` rows | `timeout=120`, `retry_on=is_network_error` |
-| `fill_form` | Browser: navigate, upload PDF, fill routed values (answer-sheet values loaded **here**, inside `FormFiller`, from the table); **advances multi-page forms under the §9.8 per-page commit protocol**; refuses to start when `submission_enabled` is false; stop on blocker | – | **page-advancing POSTs — irreversible; `page_commits` row written before each** | `retry_policy=RetryPolicy(max_attempts=1)`, `timeout=600`, `error_handler=fill_error_handler` |
-| `submit` | §9.3 protocol: check `submission_enabled` → read tracker state → re-assert the page fingerprint → write `SUBMITTING` → click → evidence → `SUBMITTED` | – | **the irreversible click** | `RetryPolicy(max_attempts=3, retry_on=is_pre_click_error)`, `timeout=TimeoutPolicy(run_timeout=300)` (evidence capture is now 180 s — C-3), `error_handler=submit_error_handler` |
+| `fill_form` | **Resumable by contract (M-11)** — at entry it asks the browser worker whether `fill_session` still holds a live page for this application and, if so, its URL, page index and filled-field set; it then skips navigation and every field already recorded `filled=True`, and re-navigates **only** when the session is gone. Otherwise: upload PDF, fill routed values (answer-sheet values loaded **here**, inside `FormFiller`, from the table); **advances multi-page forms under the §9.8 per-page commit protocol**; refuses to start when `submission_enabled` is false; stop on blocker | – | **page-advancing POSTs — irreversible; `page_commits` row written before each** | `retry_policy=RetryPolicy(max_attempts=1)`, `timeout=600`, `error_handler=fill_error_handler` |
+| `submit` | §9.3 protocol: check `submission_enabled` → read tracker state → re-assert the page fingerprint → write `SUBMITTING` → click → evidence → `SUBMITTED` | – | **the irreversible click** | `RetryPolicy(max_attempts=3, retry_on=is_pre_click_error)`, `timeout=TimeoutPolicy(run_timeout=330)` — partitioned as 90 s pre-click deadline + 180 s evidence + 60 s margin (M-7), `error_handler=submit_error_handler` |
 | `notify_unknown` / `await_unknown` | Outbox (unknown outcome); `interrupt({"kind":"unknown_outcome", ...})` → `confirmed_submitted` / `confirmed_not_submitted` / `check_again_later`. The dangerous branch is gated by §9.5's friction (typed confirmation, waiting period, checkbox) | – | outbox; none | default (M-1) |
 | `notify_handoff` / `await_handoff` | Assisted mode: M2-style message; `interrupt({"kind":"handoff"})` → `i_submitted` / `by_hand` / `abandon` | – | outbox; none | default (M-1) |
 | `notify_blocked` / `await_blocker` | HITL-2: screenshot ref, step; `interrupt({"kind":"blocked", ...})` → **`i_submitted`** / `continue` / `by_hand` / `abandon`. `i_submitted` is the **first** option on the card and is wired to exactly the `await_handoff` handling: `SUBMITTED`, `confirmation_kind=human`, evidence = statement + screenshot (C-2) | – | outbox; none | default |
@@ -1020,7 +1058,15 @@ class ApplicationState(TypedDict):
 | `await_pause` | `interrupt({"kind":"paused", "reason"})` → `Command(goto=state["resume_target"])` | – | none | default (M-1) |
 | `finalize` | Terminal status write; evening-digest counters | – | update | default |
 
-**Interrupt payloads** are plain JSON dicts of ids, hashes and short strings (rule 3 of
+**Interrupt payloads carry a summary (m-2).** AC-HL-24 requires the payload to contain "everything
+the reviewer needs (artefact ids, hashes, summary)" *and* that reviewer actions need no new LLM call.
+v1 kept the second half and discarded the first in a parenthesis — a change to an approved criterion
+made in passing. The review payload therefore carries `{kind, application_id, artefact_hashes,
+summary: {company, title, score_total, tier, flags, change_count}}`: all of it already computed, none
+of it requiring a model call, and it keeps the notification self-sufficient (R-15) when the dashboard
+is not to hand.
+
+**Interrupt payloads** are otherwise plain JSON dicts of ids, hashes and short strings (rule 3 of
 interrupts: no complex values). The dashboard never needs the payload to render — it reads the
 tracker and artefacts by `application_id` (AC-HL-24: no new LLM call to review).
 
@@ -1031,6 +1077,20 @@ reviewable — the form values are shown on the Answers tab, and the FR-9.1 pre-
 everything after the grace window and immediately before the click. A second modal gate would
 add 3 s × 15 and train click-through (UI §3.4 notes). The graph still satisfies AC-ID-25: the
 click lives in `submit`, reachable only via `record_decision → preflight → fill_form`.
+
+**Why `fill_form` has to be resumable, and why that is safe now (M-11).** AC-HL-13 requires that
+after a human solves a CAPTCHA and clicks `continue`, form-filling continues in the same session and
+"no re-navigation loses the entered fields". But LangGraph restarts a node from its first line on
+resume, and v1's `fill_form` began with navigation — so the resume re-navigated, lost the fields, and
+quite possibly re-triggered the challenge. v1 carried an opaque `fill_session` token in state and
+never said anything inspected it.
+
+The obvious alternative — resume mid-form on the live page — is what creates **C-2**. So the two
+findings have to be closed together, and they are: `fill_form` resumes on the live page (this row),
+`await_blocker` offers `i_submitted` as its first option, `recheck_after_blocker` re-runs pre-flight
+#3 and #5 before re-entry, and `submit` re-asserts the page token and DOM fingerprint recorded at
+fill time before it clicks. Resuming on a live page is safe precisely because the click is gated on
+the page still being the one we filled.
 
 **Why edits do not resume the graph.** `edit` (HITL-R2) is handled by the API (§7.4): it writes
 a new artefact version, runs FactGuard synchronously, and updates the application row; the
@@ -1138,7 +1198,7 @@ builder.add_node("recheck_after_blocker", recheck_after_blocker,
                  timeout=TimeoutPolicy(run_timeout=120))        # C-2
 builder.add_node("submit", submit,
                  retry_policy=RetryPolicy(max_attempts=3, retry_on=is_pre_click_error),
-                 timeout=TimeoutPolicy(run_timeout=300),
+                 timeout=TimeoutPolicy(run_timeout=330),   # 90 preclick + 180 evidence + 60 margin (M-7)
                  error_handler=submit_error_handler)
 builder.add_edge(START, "load")
 builder.add_conditional_edges("load", route_after_load)            # documents_only → tailor
@@ -1148,10 +1208,25 @@ application_graph = builder.compile(checkpointer=checkpointer)
 ```
 Static checks (AC-ID-13/14/25, AC-NF-11) run against this module: every function containing
 `interrupt(` must be named `await_*`, contain exactly one call, have no `side_effects` registry
-call before it, no loop, no `try`; the node named `submit` must contain no `interrupt(` and be
-reachable only from `fill_form`; **no module may reference `.inner` or `init_chat_model` outside
-`llm/` (C-5); `Settings.submission_enabled` must default to `False` (C-11); and the only edge into
-`fill_form` from `await_blocker` must pass through `recheck_after_blocker` (C-2)**.
+call before it, no loop, no `try`; the node named `submit` must contain no `interrupt(`;
+**no module may reference `.inner` or `init_chat_model` outside `llm/` (C-5);
+`Settings.submission_enabled` must default to `False` (C-11); the only edge into `fill_form` from
+`await_blocker` must pass through `recheck_after_blocker` (C-2); every function registered as an
+`error_handler` obeys the same interrupt and idempotency rules (m-9); and `submit` re-raises nothing
+un-wrapped — every escape from step (4) is a `PostClickError` (M-5)**.
+
+**AC-ID-25, restored to its own wording (M-9).** The criterion requires the click node to be
+reachable only from *the node that records the approval decision*. v1's static check restated it as
+the weaker and trivially-true "reachable only from `fill_form`", and §5.3 then claimed the criterion
+was satisfied — false on the evidence of its own diagram, which shows `fill_form` reachable from
+`await_blocker` and from `await_unknown`. The AC exists precisely to force an audit of every inbound
+path to the click; that audit is what would have surfaced **C-2**.
+
+The check now enumerates **every** path to `submit` and requires each to pass through a node that
+writes a `decisions` row for the *current* `submit_attempt`. To let it pass honestly rather than by
+redefinition, the `await_blocker` and `await_unknown` resumes write their own decision rows — the
+`decisions.type` enum in §6.3 already carries `continue`, `i_submitted` and
+`confirmed_not_submitted`, so this is a recording change, not a schema change.
 
 ---
 ## 6. Data model and persistence
@@ -1193,7 +1268,20 @@ notifications_outbox         audit_events                     locks       report
 
 **runs** — `id, trigger, started_at, finished_at, status (running|finished|finished_warnings|failed|aborted|skipped_lock_held|missed), settings_snapshot JSON, master_hash, counts JSON (discovered, unique, rejected_by_reason, passed, selected, deferred, fallback), spend_usd, rescue_events INT`.
 
-**source_runs** — `run_id, source, policy, status (ok|partial|failed|rate_limited|skipped), queries INT, results INT, new INT, dupes INT, duration_ms, avg_gap_ms, note`. (AC-DS-02, UI §3.9)
+**source_runs** — `run_id, source, policy, status (ok|partial|failed|rate_limited|**suspect**|skipped), queries INT, results INT, new INT, dupes INT, baseline_median INT, duration_ms, avg_gap_ms, note`. (AC-DS-02, UI §3.9)
+
+**`suspect` is the M-18 status, and it is the one that matters most.** The likeliest real failure for
+a scraping system is not a 403 — it is a board changing its HTML so a CSS/JSON extraction rule matches
+nothing *while the request returns 200*. v1 recorded that as `status='ok'`, `results=0`: a smaller
+funnel on the Today dashboard and no alert of any kind. The system quietly stops finding jobs, on a
+product whose entire value is finding jobs, and the only signal is a number that also means "slow
+day". FR-1.8's audit log recorded it faithfully and nothing read the record.
+
+Each source therefore carries a **trailing yield baseline** — the median `results` over its last 14
+runs — stored on the source config. A run that returns 0 against a non-zero baseline, or drops more
+than 70% against it, is marked `suspect`, writes an `audit_events` row, and appears on the morning
+report's attention list and in M4. **New AC (DS group):** serve a board whose selector no longer
+matches and assert the run is *flagged*, not merely recorded.
 
 **queries** — `id, run_id, source, template, query_text, geography, results INT, issued_at`. (AC-DS-03)
 
@@ -1325,6 +1413,7 @@ emits an event within 1 s (AC-UI-15).
 | Needs-you-now (3.19) | `GET /needs-you` → blocked (HITL-2), questions (HITL-3), claims (HITL-4), unknown outcomes, failed submissions; `POST /applications/{id}/hitl3` `{answers: [{field_id, text, save_as?}], skip_job?}`; `POST /applications/{id}/hitl4` `{action: use_resume_wording|edit|skip_job, text?}`; `POST /applications/{id}/blocker` `{action: i_submitted|continue|by_hand|abandon}` (C-2); `POST /applications/{id}/take-over-browser` (brings window to front); `POST /applications/{id}/unknown-outcome` `{outcome: confirmed_submitted|confirmed_not_submitted|check_again_later, confirmation_text?, checked_ats_account?}` — the `confirmed_not_submitted` branch requires both extra fields and a minimum elapsed time, or `409` (C-3, §9.5); `POST /applications/{id}/handoff` `{action: i_submitted|by_hand|abandon}` |
 | Controls (UI-13) | `POST /control/pause`, `POST /control/resume`, `GET /control` |
 | Guard events (UI-11) | `GET /audit-events?kind=guard&from&to` |
+| Edit-mode live guard (§8.5, S6) | `GET /ledger` → `{master_hash, facts: [{element_key, klass, value, qualifier}], technologies, element_keys}` (m-3 — used by two screens and absent from v1's map). **This is the one endpoint that must never carry answer-sheet data**, and a test asserts its response contains no `answer_sheet` key and none of the current values |
 
 ### 7.2 Decision semantics (the contract the graph relies on)
 
@@ -1336,6 +1425,10 @@ POST /applications/{id}/decisions {type: approve, artefact_hashes, tabs_reviewed
   4. Require fact_checks row for these hashes with status pass|pass_with_confirmed_edits; else 409 {code: "fact_check_required"} — and Approve is disabled in the UI anyway.
   5. (M-22) Require tabs_reviewed ⊇ tabs_with_content(application): always "resume"; "letter" if a letter
      artefact exists; "answers" if any field is routed. Else 409 {code: "tabs_unreviewed", missing: [...]}.
+  5a.(m-11) OWNERSHIP: the API is the sole writer of the `decisions` row; `record_decision` is the sole
+     author of the status transition that follows it. Two components owning one row and one transition is
+     how state machines rot, and UNIQUE(application_id, interrupt_id) was making the duplication merely
+     survivable rather than correct.
   6. INSERT decisions (interrupt_id = pending interrupt id, tabs_reviewed). UNIQUE violation → 200 {already_decided: true, decision_id}.
   7. Transition PENDING_REVIEW → APPROVED_GRACE (effective_at = now + 5 s). Emit SSE.
   8. After effective_at, resume_worker: acquire thread lock → ainvoke(Command(resume={...decision}), config, durability="sync").
@@ -1599,17 +1692,32 @@ individually recorded; a crash in `SUBMITTING` is not, and still goes to `UNKNOW
 
 **Legal transitions** are a fixed table in `tracker/transitions.py`; `Tracker.transition` is a
 single conditional `UPDATE` plus a `transitions` row plus (for `SUBMITTED`) the evidence insert,
-all in one SQLite transaction. There is deliberately **no** transition `UNKNOWN_OUTCOME → SUBMITTING`
+all in one SQLite transaction. `SUBMITTING → UNKNOWN_OUTCOME` is reachable from four places and
+they are all the same rule: step (4)'s shielded write, `submit_error_handler`, the startup
+reconciliation, and the runtime sweep (M-6). There is deliberately **no** transition
+`SUBMITTING → NEEDS_ATTENTION` — v1's error handler tried to make one and would have raised
+`IllegalTransition` from inside an error handler — and no transition `UNKNOWN_OUTCOME → SUBMITTING`
 and **no** transition `SUBMITTING → SUBMITTING`.
 
 ### 9.3 The `submit` node
 
 ```python
 class PreClickError(Exception): ...      # navigation, page load, selector missing, network before dispatch
-class PostClickError(Exception): ...     # anything after click_dispatched — never retried
+class PostClickError(Exception):         # anything after click_dispatched — never retried
+    def __init__(self, original: BaseException): self.original = original
+
+PRECLICK_DEADLINE_S = 90                 # M-7: the pre-click budget, enforced INSIDE the node
+EVIDENCE_TIMEOUT_S = 180                 # C-3
+# Node run_timeout = 90 + 180 + 60 margin = 330 s, so the node timeout can only ever fire
+# while the pre-click deadline is still the binding constraint (M-7).
 
 def is_pre_click_error(exc: BaseException) -> bool:
-    return isinstance(exc, PreClickError) or (isinstance(exc, NodeTimeoutError) and not _click_dispatched_marker(exc))
+    # M-5: the predicate receives ONLY the exception (RetryPolicy.retry_on is
+    # Callable[[Exception], bool]), so it cannot consult a marker keyed by application_id —
+    # with two concurrent threads it could not tell whose click was dispatched, and the spec
+    # never said when the marker was cleared. Step (4) now wraps everything that escapes,
+    # so the predicate is a type test and nothing else.
+    return isinstance(exc, PreClickError)
 
 async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
     tr, bw = runtime.context.tracker, runtime.context.browser
@@ -1633,29 +1741,50 @@ async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
         raise IllegalTransition(app.status)
 
     # (2) Pre-click work — retryable, side-effect free with respect to the ATS.
-    page = await bw.page_for(state["fill_session"])           # raises PreClickError if the page is gone → Command(goto="fill_form") via error handler
-    fp = await bw.page_fingerprint(page)                      # (C-2) same document instance we filled?
-    if fp.dom_hash != state["fill_fingerprint"]:
-        # A human took over and the page moved on — or the ATS replaced it. Never click a page we did not fill.
-        return Command(update={"blocker": {"kind": "page_changed"}}, goto="notify_blocked")
-    await bw.verify_filled(page, state["answers"])            # PreClickError on mismatch
-    selector = await bw.locate_submit(page)                   # PreClickError if not found
-    if await bw.detect_blocker(page):
-        return Command(update={"blocker": ...}, goto="notify_blocked")
+    #     The whole of (2) runs under its own deadline (M-7). Expiry is a PreClickError, so it
+    #     is retried; the NODE timeout is deliberately far away and should never be what fires.
+    async with deadline(PRECLICK_DEADLINE_S, on_expiry=PreClickError):
+        page = await bw.page_for(state["fill_session"])       # PreClickError if the page is gone → Command(goto="fill_form") via error handler
+        fp = await bw.page_fingerprint(page)                  # (C-2) same document instance we filled?
+        if fp.dom_hash != state["fill_fingerprint"]:
+            # A human took over and the page moved on — or the ATS replaced it. Never click a page we did not fill.
+            return Command(update={"blocker": {"kind": "page_changed"}}, goto="notify_blocked")
+        await bw.verify_filled(page, state["answers"])        # PreClickError on mismatch
+
+        # (2a) FINAL freshness check, inside the browser worker, seconds before the click (M-10).
+        #      Pre-flight #1-#3 ran over HTTP before fill_form queued, and fill_form can sit
+        #      behind another form for minutes — so the twelve-check sweep is a preview and THIS
+        #      is the guarantee AC-SB-01 actually needs. Recorded as preflight_results #14.
+        fresh = await bw.recheck_posting(page, app)            # company_match, job_match, still_active
+        await tr.record_preflight(app.id, "still_active_at_click", fresh.ok, phase="preclick")
+        if not fresh.ok:
+            await tr.transition(app.id, {"PREFLIGHT_OK"}, "EXPIRED" if fresh.closed else "PREFLIGHT_FAILED",
+                                detail=f"preclick recheck: {fresh.reason}")
+            return {"submit_result": "preclick_failed"}
+
+        selector = await bw.locate_submit(page)               # PreClickError if not found
+        if await bw.detect_blocker(page):
+            return Command(update={"blocker": ...}, goto="notify_blocked")
 
     # (3) Point of no return — durable BEFORE the click. synchronous=FULL, fsync'd.
     await tr.transition(app.id, {"PREFLIGHT_OK"}, "SUBMITTING", submit_attempt=app.submit_attempt + 1,
                         submitting_written_at=now())
-    _mark_click_dispatching(state["application_id"])          # process-local marker read by is_pre_click_error
 
-    # (4) The click and everything after it. Any exception here is PostClickError.
+    # (4) The click and everything after it. EVERYTHING that escapes is wrapped PostClickError (M-5).
     try:
         await bw.click_submit(page, selector)
-        evidence = await bw.capture_evidence(page, timeout_s=180)  # final URL, confirmation text, screenshot, status (C-3: 60 s was short for a slow ATS and manufactured UNKNOWN_OUTCOME on successes)
+        evidence = await bw.capture_evidence(page, timeout_s=EVIDENCE_TIMEOUT_S)
     except BaseException as e:
-        # includes asyncio.CancelledError and NodeTimeoutError: outcome unknown
-        await tr.transition(app.id, {"SUBMITTING"}, "UNKNOWN_OUTCOME", detail=repr(e))
-        return {"submit_result": "unknown"}
+        # M-6: a node timeout arrives as task cancellation, and a bare `await` inside an except
+        # block in a cancelled task re-raises at the await point — so the durable write could
+        # simply never land, leaving the row at SUBMITTING where NOTHING routes it to a human.
+        # shield() completes the write; then we re-raise rather than returning from a cancelled task.
+        await asyncio.shield(
+            tr.transition(app.id, {"SUBMITTING"}, "UNKNOWN_OUTCOME", detail=repr(e))
+        )
+        if isinstance(e, asyncio.CancelledError):
+            raise
+        raise PostClickError(e) from e
 
     # (5) Evidence and SUBMITTED in ONE transaction (trigger enforces evidence presence).
     if evidence.confirms_submission:
@@ -1666,22 +1795,49 @@ async def submit(state: ApplicationState, runtime: Runtime[AppContext]) -> dict:
 ```
 
 `submit_error_handler(state, error: NodeError) -> Command` (verified: `fault-tolerance.md`
-Error handling) runs after retries are exhausted: if the failure is a `PreClickError` of kind
-`page_lost` → `Command(goto="fill_form")`; any other pre-click failure → status
-`NEEDS_ATTENTION`, `Command(goto="finalize")`; it **never** routes back into `submit`, and it
-never fires for a post-click failure because step (4) converts those into a normal return.
+Error handling) runs after retries are exhausted. It **never** routes back into `submit`, and it
+branches on the tracker row rather than on the exception, because after M-5 the exception may be a
+wrapped `PostClickError` and after M-6 the row is the only thing that is durable:
+
+* row is `SUBMITTING` → `UNKNOWN_OUTCOME` **unconditionally**, enqueue the notification,
+  `Command(goto="notify_unknown")`. v1 sent these to `NEEDS_ATTENTION`, for which §9.2 defines no
+  `SUBMITTING →` transition at all — so the handler itself raised `IllegalTransition` from inside an
+  error handler, behaviour the spec never described (M-6).
+* `PreClickError` of kind `page_lost` → `Command(goto="fill_form")`.
+* any other pre-click failure → `NEEDS_ATTENTION`, `Command(goto="finalize")`.
+
+**Error handlers are re-executed on resume and must be idempotent (m-9).**
+`fault-tolerance.md` "Resume-safe failures": failure provenance is checkpointed, so if the process
+crashes after a node fails but before its handler completes, the handler sees the same `NodeError`
+again on resume. Every state write inside a handler therefore uses the same conditional-`UPDATE`
+discipline as `Tracker.transition` — which is why the branch above is expressed as a transition from
+a named `from` state rather than an unconditional write.
 
 **Why the `try` is acceptable here.** AC-ID-14 bans `try` around `interrupt()`; `submit`
 contains no `interrupt()`. The `try` exists precisely to convert *every* post-dispatch exception,
 including cancellation, into `UNKNOWN_OUTCOME` rather than letting the retry policy see it.
 
-**Timeouts.** `TimeoutPolicy(run_timeout=300)` covers the whole node — raised from 180 s so that
-the 180-second evidence capture (C-3) cannot itself be cut short by the node budget. A timeout during (2) is
-`NodeTimeoutError` with no dispatch marker → retryable (AC-FM-18, `delay(120000)` on page load).
-A timeout during (4) is caught by the `try` → `UNKNOWN_OUTCOME`. If the process is killed between
-(3) and (4), the marker is gone but the tracker row says `SUBMITTING` → gate (1) → `UNKNOWN_OUTCOME`
-(AC-ID-04). If killed after the click but before (5), same path (AC-ID-05). If killed after (5),
-gate (1) returns immediately (AC-ID-06).
+**Timeouts are partitioned, not pooled (M-7).** v1 set one `run_timeout=180` over pre-click work +
+click + 60 s of evidence capture. That had two consequences. AC-FM-18 sets a 120 s page-load delay and
+expects the timeout to fire and be treated as a pre-click failure — but under a 180 s node budget the
+120 s load simply *succeeds*, so the criterion could not be exercised against the design at all. And
+120 s of pre-click work plus evidence capture landed the node timeout inside step (4), after dispatch:
+precisely the case the whole section exists to avoid.
+
+| Budget | Value | Enforced |
+| --- | --- | --- |
+| `PRECLICK_DEADLINE_S` | 90 s | inside step (2), raising `PreClickError` → retryable |
+| `EVIDENCE_TIMEOUT_S` | 180 s | `capture_evidence` (C-3) |
+| node `run_timeout` | **330 s** (90 + 180 + 60 margin) | LangGraph |
+
+So the node timeout can only fire while the pre-click deadline is still the binding constraint, and
+it is no longer reachable inside step (4). **AC-FM-18 is restated against `PRECLICK_DEADLINE_S`**
+rather than the node timeout — the behaviour it was written to observe, now observable.
+
+Kill-path behaviour is unchanged and does not depend on any process-local marker (M-5): if the process
+dies between (3) and (4) the tracker row says `SUBMITTING` → gate (1) → `UNKNOWN_OUTCOME` (AC-ID-04);
+killed after the click but before (5), same path (AC-ID-05); killed after (5), gate (1) returns
+immediately (AC-ID-06).
 
 ### 9.4 Pre-flight (FR-9.1) — runs after approval, immediately before `fill_form`
 
@@ -1694,8 +1850,8 @@ gate (1) returns immediately (AC-ID-06).
 | 5 | `not_duplicate` | Tracker query for same identity / company+title-family with applied-class status other than this application | `PREFLIGHT_FAILED` |
 | 6 | `resume_hash_matches_approved` | sha256 of PDF on disk == `decisions.artefact_hashes.pdf` | `PREFLIGHT_FAILED` |
 | 7 | `no_fabrication` | `fact_checks` row with status pass/pass_with_confirmed_edits for exactly these hashes | `PREFLIGHT_FAILED` |
-| 8 | `letter_tailored` | Letter present iff form has letter field; hash matches approved | `PREFLIGHT_FAILED` |
-| 9 | `answers_accurate` | Answers hash matches approved; every route resolvable now **and resolving to a value whose `answer_sheet.status` is `decided` or `learned` — `unconfirmed` or `open` is a hard fail (C-7)** | `PREFLIGHT_FAILED` |
+| 8 | `artefacts_match_approved` | Letter present iff form has letter field; hash matches approved (m-1 — AC-SB-08 names this check, and `preflight_results.check_name` is testable, so v1's `letter_tailored` would have failed the AC on the name alone) | `PREFLIGHT_FAILED` |
+| 9 | `answers_match_approved` | Answers hash matches approved; every route resolvable now **and resolving to a value whose `answer_sheet.status` is `decided` or `learned` — `unconfirmed` or `open` is a hard fail (C-7)** | `PREFLIGHT_FAILED` |
 | 10 | `contact_correct` | Profile fields to be filled equal §2 constants | `PREFLIGHT_FAILED` |
 | 11 | `location_acceptable` | Eligibility rules 10–12 recomputed from stored facts + current settings | `PREFLIGHT_FAILED` |
 | 12 | `no_false_mandatory_claim` | C13 recomputed against the job's `mandatory` list | `PREFLIGHT_FAILED` |
@@ -1816,13 +1972,35 @@ On `jobagent serve` start, in this order:
    If a task has pending `interrupts` → nothing to do (dashboard shows it). Else if
    `snapshot.next` non-empty → `ainvoke(None, config, durability="sync")` under the thread lock
    (bounded concurrency; browser-dependent nodes queue on the worker).
-6. `APPROVED_GRACE` rows older than the grace window → treated as approved: resume.
+6. `APPROVED_GRACE` rows → **back to `PENDING_REVIEW`, never forward (M-8).** v1 resumed them as
+   approved *because* the row was older than five seconds — which, after any restart, it always is.
+   The grace window is the product's only undo for an irreversible act, and the person it exists for
+   is exactly the one who realises he approved the wrong application and kills the process. v2.4
+   keeps the `decisions` row, flags it `superseded_by_restart`, and raises a Needs-you card: *"You
+   approved <company> just before the service restarted. Re-confirm?"* Conservative handling of an
+   irreversible action after an unexplained crash is to re-ask, not to proceed.
+   **New AC** (mirroring AC-ID-03): kill during the grace window, restart, and assert the fake ATS
+   counter stays 0 until a human re-approves.
 7. Verify the checkpointer file is writable and not corrupt; refuse to start otherwise (AC-FM-14).
    This is a corruption check, **not** an instance check — step 0 is the instance check.
 8. Start serving on the already-bound socket.
 
 **AC-ID-08 is extended (C-10):** the second process must refuse to start at all, and must be shown
 to have written no row — not merely to have lost the thread lock.
+
+**Startup is not enough: the `SUBMITTING` sweep also runs at runtime (M-6).** §9.6 handles
+`SUBMITTING` rows only when the process starts. If the process stays *alive* — a node cancelled by a
+timeout, a handler that failed to write — the row sits at `SUBMITTING` indefinitely, and nothing
+routes it anywhere: no `UNKNOWN_OUTCOME`, so no `notify_unknown`, no `await_unknown`, no Needs-you
+row, no notification. Meanwhile dedup counts the job as applied and the ceiling counts the slot as
+consumed. The application is invisible, which is worse than wrong.
+
+A periodic sweep therefore runs alongside the 10-minute missed-run check (§13.1): any `SUBMITTING`
+row whose `submitting_written_at` is older than the `submit` node `run_timeout` (330 s) is moved to
+`UNKNOWN_OUTCOME` with detail `swept_stale_submitting` and its notification enqueued. The same
+liveness condition as §9.6 step 3 applies — this sweep and that one are the same rule at two
+cadences. **New AC:** cancel the *node* (not the process) between click and evidence capture, and
+assert the human is notified within one sweep interval.
 
 ### 9.7 Assisted mode (Workday)
 
@@ -1904,7 +2082,17 @@ with removals pass AC-AF-16). Header, experience heading/meta, education, awards
 
 ### 10.3 Generation is a plan, not a document
 
-The `generate` model receives: the ledger (facts with element keys and text), the JD text with
+**The ledger sent to a model is a projection, and it excludes the header (M-14).** AC-NF-04 scans
+every LLM request body in the E2E suite for answer-sheet values *and the phone number*, requiring
+zero occurrences. v1 exempted the phone number in a parenthetical sentence in §4.13 and then put the
+whole ledger — including `hdr.contact.phone` — into the `generate` prompt, so the suite would have
+failed, correctly, on the spec's own design, with no DEPARTURE recorded. The fix costs nothing:
+`hdr.contact.*` and `hdr.name` are excluded from `ledger_for_model()`, because **no tailoring
+operation touches the header** — C2 holds it byte-identical — so the model has no use for it. The
+acceptance criterion stays intact and §4.13's exemption is withdrawn.
+
+The `generate` model receives: the ledger **projection** (facts with element keys and text, header
+excluded), the JD text with
 span offsets, the score's `key_matching_skills`, `gaps` and `differentiator_hits`, and the
 schema. It returns a `TailoringPlan` (§4.8) via `with_structured_output(TailoringPlan)`:
 
@@ -2003,8 +2191,26 @@ whitespace, expand common abbreviations) and matches, in order:
 | `unknown` | none of the above | `screen` model classifies the **label text only** into one of the routes above or `unknown`; `unknown` → HITL-3 with question text (AC-HL-14) | label only |
 
 `FormModel.supported_ratio = mapped_required / total_required`; below 0.9 → `unsupported_form`
-fallback (AC-SB-14). The HITL-R3 target (< 10% of forms halt, AC-HL-17) is measured on the
-fixture corpus per release.
+fallback (AC-SB-14).
+
+**AC-HL-17's "< 10% of forms halt" was unreachable against the spec's own defaults (M-12).** Three of
+the commonest questions on an application form — earliest start date, willingness to relocate, and
+years with a named technology — were all defaulted to a halt, and a fourth (expected CTC in a non-INR
+currency) halts on every international application. On a realistic 40-form corpus that is a halt rate
+well above 50%. Phase 3 could not exit against its own gate.
+
+The halt-on-unknown behaviour is **correct** — it is T-4, and inventing an answer is the failure this
+system exists to prevent. The defect was accepting a < 10% target alongside defaults that guarantee
+the opposite, and scheduling the gate before the data that would satisfy it exists. So:
+
+* **Q-D, Q-F and Q-K become blocking prerequisites of Phase 3** (§15, §19), not open questions
+  carried to go-live. They are four table rows Avadh can fill in an hour, and they are the single
+  cheapest de-risking available anywhere in this plan.
+* **AC-HL-17 is restated as conditional:** "< 10% *with a fully populated answer sheet* — including
+  `years_by_technology`, relocation stance, earliest start date and any non-INR currency keys;
+  measured and reported, not gated, until those are supplied."
+
+The HITL-R3 target is measured on the fixture corpus per release.
 
 ### 11.3 Answer-sheet formatting (deterministic)
 
@@ -2161,6 +2367,7 @@ non-pending interrupt is refused; a replayed decision returns `already_decided` 
 | Evening digest | 21:00 IST: `reports(kind=evening)` — approved / edited / rejected (with reasons) / submitted / unknown-outcome counts; Telegram M5 (AC-TK-05). |
 | Stale approvals | Every `telegram.stale_hours` (48 h) with pending items → M9. |
 | Retention | 03:00 daily (§6.5). |
+| **Stale-`SUBMITTING` sweep (M-6)** | Every 10 min, alongside the missed-run check: any `SUBMITTING` row older than the `submit` node `run_timeout` (330 s), whose owning process is not alive, → `UNKNOWN_OUTCOME` + notification. Without a *runtime* sweep (§9.6 handles startup only), a node cancelled while the process stays alive leaves an application at `SUBMITTING` forever — unnotified, unreachable from Needs-you, but counted as applied by dedup and as consumed by the ceiling. |
 | Follow-ups | Applications with `follow_up_date ≤ today` and outcome `none` appear in the morning report attention list; no outreach (AC-TK-13). |
 | Spend day | Calendar day in IST for `spend_ledger.day_ist`; a run crossing midnight splits accordingly (AC-FM-17). |
 
@@ -2181,17 +2388,57 @@ lock, so a pending approval never blocks discovery (AC-TK-12).
 ### 13.3 Budget enforcement (Q-8, TR-11, TR-12, A-15, G-C7)
 
 ```
-per call:   BudgetGate.check(stage)
-              total = SUM(spend_ledger.usd WHERE day_ist = today)
-              if total ≥ ceiling_usd (100):        raise BudgetHardStop("ceiling")      # absolute
-              if total ≥ hard_stop_usd (20):       raise BudgetHardStop("hard_stop")
+per call:   BudgetGate.reserve(stage, prompt)                       # M-23: reserve, then spend
+              estimate = estimated_tokens(prompt) × price(stage)
+              total    = SUM(spend_ledger.usd WHERE day_ist = today)   # recorded AND pending
+              if total + estimate ≥ ceiling_usd (100):  raise BudgetHardStop("ceiling")   # absolute
+              if total + estimate ≥ hard_stop_usd (20): raise BudgetHardStop("hard_stop")
               if total ≥ soft_alert_usd (5) and not alerted_today: outbox M7; header amber
-after call: SpendLedger.record(usage_metadata × prices)
+              INSERT spend_ledger(status='pending', usd=estimate) -> reservation_id
+after call: SpendLedger.settle(reservation_id, usage_metadata × prices)   # status='recorded'
+on failure: SpendLedger.release(reservation_id)
 ```
+
+**Why a reservation and not a read (M-23).** v1's gate compared the sum of *recorded* spend against
+the threshold, and recording happens after the call returns. With an `asyncio.Semaphore(4)` inside a
+discovery node plus two concurrent application threads, up to six calls can be dispatched after the
+total has already crossed `hard_stop_usd` — on the `generate` stage, with long ledger + JD prompts,
+that is a meaningful overshoot of a control whose stated purpose (TR-12) is to catch a runaway loop
+*early*. Reserving first makes the gate count what is in flight.
+
+The second half of M-23 is already closed by **C-5**: the mapper agent's calls used to bypass
+`SpendLedger` entirely, so the day total, the header meter, the per-stage report and the soft alert
+were all understated by an unbounded amount on any day with a career-page form — which breaks
+AC-NF-09's "within 1%" by construction. Those calls now go through the wrapper.
+
+**New AC:** with `hard_stop_usd=$20` and six concurrent calls in flight, assert the day total never
+exceeds $20 by more than one call's cost.
 Behaviour on `BudgetHardStop`: the raising node's `error_handler` stores `resume_target=<node>`
 and routes to `await_pause` (application graph) or marks remaining jobs `paused_budget`
 (discovery). In-flight nodes finish; approvals, pre-flight, fill and submit make no LLM call and
-continue to work (AC-FM-09). At 00:00 IST the scheduler resumes `await_pause` threads with
+continue to work (AC-FM-09).
+
+**Edit keeps working at the hard stop, and that is not an oversight to be argued about (M-17).**
+v1's sentence above listed approvals, pre-flight, fill and submit — and omitted **edit**, which is
+part of the same HITL-R2 decision set and *does* make a model call, once per save, through the judge.
+At `hard_stop_usd` those endpoints raised `BudgetHardStop` inside a synchronous API request. The
+reviewer, looking at an application he wants to correct one line of, was left with two options:
+approve it as written, or reject it. **A cost control had disabled the mechanism by which a human
+fixes a false claim** — in a system whose entire safety argument ends at that human.
+
+It was also an unbounded, user-driven cost path: a reviewer editing sentence by sentence triggered a
+full judge pass per save, on top of the repair loop's up-to-two regenerations, each of which re-runs
+FactGuard.
+
+Both are fixed by splitting the edit path:
+
+| On every save | On approval |
+| --- | --- |
+| C1–C9, C12, C13, C14 — **all deterministic, zero model calls, never budget-gated** | C10/C11 (judge) run **once**, on demand, when the reviewer asks to approve |
+
+Judge results are cached per claim hash, so an unchanged claim is never re-judged, and saves are
+debounced. The judge pass at approval draws on a small dedicated reserve that the hard stop does not
+touch — a truthfulness control is not something a spending limit may switch off. At 00:00 IST the scheduler resumes `await_pause` threads with
 `Command(resume="continue")`. Settings validation: `soft < hard ≤ ceiling ≤ 100` (AC-FM-10).
 Alerts fire once per day per level (M7 again at $25 and $50 per UI §7.1).
 
@@ -2220,7 +2467,15 @@ a per-application view, which is why it is a report rather than a flag.
 | Guard events, HITL decisions, rescues | `audit_events` | Guard-events panel; Reports |
 | Health | `GET /status` | Header dot; missed-run banner |
 
-`rescue_events` (G-I12): any transition `by='reconcile'`, any lock steal, any `NEEDS_ATTENTION`,
+`rescue_events` (G-I12, narrowed by m-8) counts **human interventions outside the designed gates
+HITL-1..5** — a manual DB edit, a by-hand completion of an application the agent could not finish, an
+operator forcing a status. It deliberately does *not* count reconcile transitions or lock steals:
+R-11 rates "PC asleep / service not running" at likelihood **High**, every service restart produces
+reconcile transitions, and v1's definition therefore made AC-NF-17's "≥ 18 of 20 runs rescue-free"
+unreachable by counting ordinary Windows behaviour as a rescue. Reconcile transitions and lock steals
+are tracked separately as `recovery_events`, a health metric rather than a quality one.
+
+The v1 definition, for the record — any transition `by='reconcile'`, any lock steal, any `NEEDS_ATTENTION`,
 any manual DB edit detected by the settings/history checksum. Reported weekly from month 2
 (AC-NF-17).
 
@@ -2455,7 +2710,16 @@ the deferred Phase 2 tasks, and `submission_enabled` is turned on only at T-7.3.
 | T-0.5 | `clock`, `faults.maybe_kill`, logging with secret scrubber | S |
 | T-0.6 | Fixture corpus skeleton: ≥ 120 JDs by category tags, ≥ 40 forms, dup groups (test plan §0.2) — content authored across phases | L |
 
-### Phase 1 — Ledger and FactGuard (exit: AC-AF-01..13, AC-AF-15, AC-AF-16 green)
+> **Phase gates are derived from the tasks in that phase, and deferrals are stated (M-20).** v1's
+> gates reached forward into work not yet scheduled: Phase 1 claimed AC-AF-11 (which needs the
+> question router, T-3.6, Phase 3) and AC-AF-12 (which requires pre-flight #12 to fail the
+> application — T-2.9, Phase 2); Phase 2 claimed AC-ID-16 (needs dedup and discovery, Phase 4),
+> AC-ID-18 (needs tailoring, Phase 3) and AC-ID-22 (needs the fallback surface, Phase 4/5). Since
+> Phase 2's exit is the gate that certifies the submission protocol, an unmeetable gate there would
+> either be waived — against a test plan whose §17 says "no exceptions, no waivers" — or would
+> silently redefine "green" at the exact point where that matters most.
+
+### Phase 1 — Ledger and FactGuard (exit: AC-AF-01..10, AC-AF-13, AC-AF-15, AC-AF-16 green · **deferred: AC-AF-11 → Phase 3, AC-AF-12 → Phase 2**)
 
 | Task | Description | Cx |
 | --- | --- | --- |
@@ -2467,7 +2731,7 @@ the deferred Phase 2 tasks, and `submission_enabled` is turned on only at T-7.3.
 | T-1.6 | Mutation suite: 40 seeded fabrications (AC-AF-15); 10 legitimate tailorings (AC-AF-16) | L |
 | T-1.7 | `GuardedModel`, `PromptGuard`, `SpendLedger`, `BudgetGate`, local `Tracer` | L |
 
-### Phase 2 — Tracker, graphs, submission protocol (exit: AC-ID-01..25, AC-FM-05..07, AC-FM-14, AC-FM-18 green against the fake ATS)
+### Phase 2 — Tracker, graphs, submission protocol (exit: AC-ID-01..15, 17, 19..21, 23..25, AC-AF-12, AC-FM-05..07, AC-FM-14, AC-FM-18 green against the fake ATS · **deferred: AC-ID-16 and AC-ID-22 → Phase 4, AC-ID-18 → Phase 3**)
 
 | Task | Description | Cx |
 | --- | --- | --- |
@@ -2485,7 +2749,11 @@ the deferred Phase 2 tasks, and `submission_enabled` is turned on only at T-7.3.
 | T-2.9 | Pre-flight (§9.4) with live re-fetch; AC-SB-01..11 | M |
 | T-2.10 | `UNKNOWN_OUTCOME` resolution endpoints + `await_unknown`; AC-ID-04 second branch, AC-UI-14 | S |
 
-### Phase 3 — Tailoring, render, letters, forms (exit: AC-RT-*, AC-CL-*, AC-AF-14/17/18/19/21/22, AC-HL-14..17 green)
+### Phase 3 — Tailoring, render, letters, forms (exit: AC-RT-*, AC-CL-*, AC-AF-11, AC-AF-14/17/18/19/21/22, AC-HL-14..16 green; **AC-HL-17 measured and reported, not gated, until Q-D/Q-F/Q-K are supplied — M-12**)
+
+> **Entry prerequisite (M-12): Q-D, Q-F and Q-K must be answered before this phase starts.** They
+> are four table rows; leaving them open guarantees a >50% halt rate and makes this phase's own exit
+> gate unreachable.
 
 | Task | Description | Cx |
 | --- | --- | --- |
@@ -2547,9 +2815,52 @@ the deferred Phase 2 tasks, and `submission_enabled` is turned on only at T-7.3.
 | T-7.3 | Supervised first live week: **the act of turning `submission_enabled` on** (C-11), with ceiling 1/day as a second and independent limit, ATS confirmation reconciliation daily; raise only after 5 clean days | M |
 | T-7.4 | Month-2 metrics: rescue events, callback rate | S |
 
+### 15.1 Throughput budget for one browser (M-10)
+
+v1 never performed this calculation, and AC-NF-16's 60-minute end-to-end budget does not survive it.
+The browser worker is deliberately serialised — one form at a time (§3.2, NFR-5) — so browser work
+for the whole day is strictly additive:
+
+| Stage | Worst case per application | 20 applications |
+| --- | --- | --- |
+| `probe_form` | 180 s | 60 min |
+| `fill_form` | 600 s | 200 min |
+| `submit` (pre-click 90 s + evidence 180 s) | 270 s | 90 min |
+| **Total serial browser time** | **~17.5 min** | **~5.8 h** |
+
+Typical cases are far below worst case, but the ceiling is real and it exceeds a working morning.
+Three consequences, all recorded rather than hoped away:
+
+1. **The recommended ceiling for Release 2 is 8–10 submitting applications/day, not 20.** The
+   `daily_ceiling` setting still accepts up to 40; the *recommendation* is what changes, and the
+   measured supply (§15.0: ~7 reachable roles/week) makes the point moot in practice.
+2. **Raising browser concurrency is possible but not free**: each worker needs its own persistent
+   profile directory, and HITL-2 hand-off gets harder because "the window that is open" stops being
+   unambiguous. Deferred to Release 2 with that cost stated.
+3. **AC-SB-01 is restated (M-10).** v1 bound a 60-second window to the whole twelve-check pre-flight
+   sweep — which cannot hold, because pre-flight runs over HTTP through `PacedClient` while
+   `fill_form` then queues behind whatever form is currently being filled, up to its 600-second
+   timeout. "FIFO" describes ordering; it does not bound waiting. The freshness guarantee now binds
+   the **final pre-click re-check inside `submit` step (2a)** to the click — structurally satisfied,
+   seconds apart, rather than hoped for.
+
 **Totals:** 65 tasks (11 S · 29 M · 22 L · 3 XL) — v2 adds T-0.7, T-0.8, T-2.4a, T-2.4b, T-2.4c
 and upgrades T-0.4 from S to M. Summing the complexity bands gives ≈ 120–200
-implementer-days; the safety core (Phases 1–3, 32 tasks) is roughly half of that. Phases 1–3 are
+implementer-days.
+
+**Stated plainly, because v1 never did (M-21): that is six to nine months of calendar time for one
+person.** v1 printed the day count as a total and then offered parallelism — "Phase 4 can proceed in
+parallel with Phase 3", "Phase 6 can start after T-5.2" — which means nothing with a single
+implementer. The upper bound is also soft: **XL** is defined as "> 5 days" with no ceiling, and all
+three XL tasks (T-4.2's eight adapters, T-5.2's entire endpoint surface, T-6.3's whole review screen)
+are plausibly 15+ days each, so 200 days is optimistic by construction. Those three are decomposed
+per adapter, per endpoint group and per component before Phase 4 begins, so the estimate acquires a
+real upper bound rather than an open one.
+
+Two of M-21's four required changes are already done and are the reason this section reads as it
+does: the discovery spike was pulled forward and **run** (§15.0), and the staged scope it argued for
+is now the release plan. The safety core (Phases 1–3) is roughly half the total; Release 1 as scoped
+in §15.0 is roughly half again. Phases 1–3 are
 sequential; Phase 4 can proceed in parallel with Phase 3 after Phase 2; Phase 6 can start after
 T-5.2 stabilises the API.
 
@@ -2574,6 +2885,7 @@ T-5.2 stabilises the API.
 | R-13 | **Judge model cost** on 10–20 apps × ~15 claims/day | Low | Low | Judge on `analyse` tier; batched per artefact; well under $5/day | Low |
 | R-14 | **Element keys drift** if the master is edited — provenance silently resolves to the *wrong* line | Critical | **High** (a job-seeker edits his résumé) | C-8: explicit `id`s are mandatory before Phase 1; `build_ledger` refuses a mismatched master instead of deriving; content-anchored keys; master bytes and ledger persisted per `master_hash`; AC asserts a pointer resolves to the same text or fails loudly | Low |
 | R-15 | **Localhost Telegram links** leave blocked gates unseen for hours | Medium | Medium | Self-sufficient messages; stale reminders; configurable base URL | Medium |
+| **R-16** | **Schedule and opportunity cost (M-21)** — six to nine months of solo work on a tool whose purpose is to get its author employed, during which the author is not employed. v1's register listed fifteen risks and omitted this one, which is the largest | **High** | **High** (it is not a risk of failure; it is the default outcome of the v1 plan) | §15.0 splits the work so a usable non-submitting product ships in roughly half the time; the discovery spike was run before the investment rather than in month four; XL tasks decomposed for a real upper bound; and the by-hand list means the tool has value from the first day it produces documents | Medium — irreducible while the scope is "a system" rather than "a shortlist" |
 
 **Three highest-severity risks: R-1 (double submission), R-2 (fabrication past the verifier),
 R-3 (review rubber-stamping).** R-1 and R-2 are the two test groups that gate real submission;
@@ -2597,6 +2909,20 @@ R-3 is why the tailoring contract is narrowed.
 | D-10 | Analysis §5.11 suggests `HumanInTheLoopMiddleware` on a `submit_application` tool | No submit tool exists; the click is a graph node after the gate | Stronger separation; the middleware would put the irreversible action inside an agent loop |
 | D-11 | Analysis interpretation "screen → analyse two-pass scoring" | `screen` extracts `JobFacts`; `analyse` produces the single `Score` (no numeric first-pass score) | Avoids two scores to reconcile; rules run on facts, rubric runs once |
 | D-12 | UI §3.15 "Score thresholds — display only" vs analysis "configurable with defaults" | Thresholds and rubric weights are constants in code, displayed in Settings | FR-4.1 "never overridable by score" and §9 metrics depend on fixed thresholds |
+
+**Departures from REQUIREMENTS v0.5 as approved (m-7).** `requirements-analysis.md` §2 raised ten
+inconsistencies against v0.4 and asked for them to be fixed "before the spec cites it". Five are
+still present in the v0.5 this spec declares approved, and v1 silently built the right behaviour over
+three of them without a tag. They are recorded here rather than left implicit; the underlying lines
+should be corrected in **REQUIREMENTS v0.6**.
+
+| # | Approved text | What this spec does | Why |
+| --- | --- | --- | --- |
+| D-13 | §5 preamble: "gates 5–6 are a posture decision (Q-2)" | HITL-5 is **non-negotiable**; no setting can disable it (§12.5, M-13) | The whole safety argument terminates at HITL-5. A "posture decision" is what produced `approve_enabled` |
+| D-14 | §5 HITL-3 row lists CTC / notice period as halt triggers | They resolve from the answer sheet and do **not** halt (§11.2) | Contradicts AC-HL-16; halting on a value the owner has already supplied is friction with no safety benefit |
+| D-15 | §4.3 scoring table: "90–100 — Exceptional — **apply immediately** (Tier 1)" | Score affects **ordering only**; nothing bypasses HITL-1 | This is the one sentence in the requirements that contradicts HITL-1, and it sits in the table an implementer reads while building `selection`. It is the most dangerous of the five |
+| D-16 | FR-4.1 omits geography | Geography is eligibility rule 10 (§4.5) | G-C10; without it the pool includes roles he cannot take |
+| D-17 | FR-1.1 lists Wellfound with no Q-3 policy | Wellfound is `discovery_only` (§4.2) | No submit-capable adapter exists for it, and inventing one was never in scope |
 
 Everything else in the assumption register (A-1..A-24) is adopted as written.
 
@@ -2647,6 +2973,15 @@ marked **[UNVERIFIED]** in the body are *not* LangChain/LangGraph APIs (third-pa
 | Model strings `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`, `anthropic:claude-opus-4-8` | `langchain/models.md` §1053; many pages; `langchain/middleware__built-in.md` §948 |
 | LangChain 1.0 removed `LLMChain`, `AgentExecutor`, `initialize_agent`, `RetrievalQA` — none used | `CORE-CONCEPTS.md` critical version note |
 
+**§18 is generated, not hand-maintained (m-10).** v1 attributed `claude-haiku-4-5-20251001` to
+`langchain/models.md §1053`; in the supplied subset that string appears in
+`middleware__custom.md` (§724, §745) while `models.md` carries `claude-sonnet-4-6`. The full crawl may
+well contain it where claimed, so this is not a false verification — but the value of this table is
+that a reader can *check* it, and one bad line number costs more than it saves. A committed script
+(`knowledge-base/_tools/build_verification_table.py`) greps each symbol and regenerates the table, so
+§18 can be diffed and re-derived after every knowledge-base refresh rather than maintained by hand.
+Its output is checked in CI: a citation that no longer resolves fails the build.
+
 Items explicitly **not** from the knowledge base (standard libraries / external services, marked
 [UNVERIFIED] where they appear): FastAPI, uvicorn, SQLAlchemy, APScheduler, Playwright API
 details, httpx, `cryptography`, pdfminer.six/pypdf/PyMuPDF, Greenhouse/Lever board JSON
@@ -2671,14 +3006,14 @@ Carried from the analysis (§6) with the default this spec builds on; plus new o
 | Q-A | Resume tailoring in scope for v1? | Yes | Phase 3 shrinks to letters/answers; HITL-5 view loses the diff |
 | Q-B | Seed company watchlist (30–50 companies with board URLs)? | Empty → discovery limited to aggregators until filled | Directly determines day-one yield on submit-capable sources (R-5) |
 | Q-C | Workday assisted in v1? | Yes | Full automation would add an XL task and HITL-2 on most tenants |
-| Q-D | `years_by_technology` values for AI / RAG / LLMs / Python / MCP / LangChain / enterprise AI? | Empty → HITL-3 each time | Fewer halts; values must be Avadh's own statement |
+| Q-D | `years_by_technology` values for AI / RAG / LLMs / Python / MCP / LangChain / enterprise AI? | **BLOCKING PREREQUISITE OF PHASE 3 (M-12).** Empty → HITL-3 every time, which is correct behaviour and makes AC-HL-17 unreachable | ~20 minutes of Avadh's time; the single cheapest de-risking in this plan. Values must be his own statement — no model ever produces one (D-7) |
 | Q-E | Any EU / Canada / UAE work permit (O-2)? | None → sponsorship required | Widens eligible pool; single setting |
-| Q-F | Relocation stance and earliest start date (O-2)? | HITL-3 when asked | Fewer halts |
+| Q-F | Relocation stance and earliest start date (O-2)? | **BLOCKING PREREQUISITE OF PHASE 3 (M-12)** — two of the commonest fields on any form | Two table rows; without them every form halts |
 | Q-G | Hosted tracing acceptable? | No (local only) | Would ship resume/JD text to LangSmith |
 | Q-H | Hard-stop spend level? | $20 | — |
 | Q-I | Approve from Telegram? | **CLOSED 2026-09-15: No, and the capability is removed** (M-13). Not merely defaulted off — one-tap approve is spot-checking by another name, and a flag that can disable HITL-5 makes §12.5's central guarantee false | Re-opening it means re-opening AC-HL-26, and would need a DEPARTURE against FR-9.3 |
 | Q-J | Repost block window? | 180 days | — |
-| Q-K | Expected CTC in AED/EUR/CAD? | HITL-3 | Add per-currency answer-sheet keys |
+| Q-K | Expected CTC in AED/EUR/CAD? | **BLOCKING PREREQUISITE OF PHASE 3 (M-12)** — halts on *every* international application otherwise | Add per-currency answer-sheet keys; never converted by the system (G-M10) |
 | Q-L | Auto-select "prefer not to say" on EEO? | Yes | — |
 | **Q-M (new)** | Accept D-3 (documents-only tailoring for fallback jobs ≥ 80) and its review-time cost? | Yes, threshold 80, counted against ceiling | Off → by-hand list has no downloads |
 | **Q-N (new)** | Accept D-6 (no promote-to-queue for score < 70)? | Yes | Allowing it breaks the §9 zero-below-threshold metric |
@@ -2742,66 +3077,108 @@ and five of the ten CRITICALs, to automate a handful of applications a week is n
 submission saves only ~20% of implementer-days, and the larger lever on time-to-first-output is
 the 19-screen SPA, which Release 1 cuts to four screens for what is a single-user system.
 
+
+### v2.4 — the remaining 27
+
+v2.0–v2.3 closed the ten CRITICALs and nine MAJORs. v2.4 closes everything that was left: **16
+MAJOR and 11 MINOR**, so all 46 review findings are now addressed in this document.
+
+**Area A — the submission protocol (6).**
+
+| # | What was wrong | What v2.4 does | §|
+| --- | --- | --- | --- |
+| M-5 | `is_pre_click_error` was handed only the exception but read a marker keyed by `application_id` — with two concurrent threads it could not tell whose click was dispatched, and nothing said when the marker cleared | Step (4) wraps every escape in `PostClickError`; the predicate becomes `isinstance(exc, PreClickError)`; a static check forbids un-wrapped re-raises | 9.3, 5.5 |
+| M-6 | The post-click `except` awaited inside a cancelled task, so the durable `UNKNOWN_OUTCOME` write could never land — leaving a row at `SUBMITTING` that **nothing** routes to a human, while dedup counts it applied and the ceiling counts it spent | `asyncio.shield()` on that write, then re-raise; a **runtime** sweep every 10 min, not only at startup; `submit_error_handler` routes a `SUBMITTING` row to `UNKNOWN_OUTCOME` unconditionally (v1's `NEEDS_ATTENTION` route had no legal transition and would have raised from inside a handler) | 9.3, 9.6, 13.1, 9.2 |
+| M-7 | One 180 s budget covered pre-click work + click + evidence, so AC-FM-18's 120 s page-load delay simply *succeeded* — the criterion was not exercisable — and a slow ATS put the node timeout **after** dispatch | Partitioned: 90 s pre-click deadline (raises `PreClickError`), 180 s evidence, 330 s node. AC-FM-18 restated against the pre-click deadline | 9.3, 5.3, 5.5 |
+| M-8 | A crash during the 5-second grace window was treated as approval on restart — *because* the row was then older than five seconds, which after any restart it always is | Restart sends `APPROVED_GRACE → PENDING_REVIEW`, keeps the decision row flagged `superseded_by_restart`, and raises a Needs-you card asking for re-confirmation | 9.6 |
+| M-9 | AC-ID-25 requires the click to be reachable only from the node that records the approval; the static check restated it as "reachable only from `fill_form`" and §5.3 claimed satisfaction — false on its own diagram | The check enumerates every path to `submit` and requires each to pass a node writing a `decisions` row for the current attempt; `await_blocker` and `await_unknown` resumes write theirs | 5.5 |
+| M-9a | The applied-block set omitted every *active* status, so a carried-over `PENDING_REVIEW` job was re-discovered, re-scored, and relaunched with fresh input on a thread holding a pending interrupt — discarding the review and re-running generation at full cost | New verdict `already_in_flight` covering the eight active statuses; `spawn_apps` skips any job with an existing row; launching is forbidden when `aget_state` shows pending interrupts | 4.3, 4.5, 5.2 |
+
+**Area D — LangGraph correctness (4).** M-4: `BudgetHardStop`/`PauseRequested` now derive from
+`RuntimeError` so `default_retry_on` never retries control flow (v1 retried a pause twice with
+backoff before any handler ran), and `set_node_defaults(error_handler=…)` resolves the contradiction
+where §5.3 required a graph-wide handler that §5.1 forbade on a rationale M-1 had already disproved.
+m-9: error handlers are re-executed on resume and must be idempotent — now a convention row and part
+of the static check. m-6: `include_raw=True` returns a parsed/raw **pair**, so the retry branches on
+the parse-failure field rather than a caught exception, and the failure-path semantics are marked
+`[UNVERIFIED]` honestly. m-12: the two 30-minute discovery nodes stream per-job progress and exclude
+`NodeTimeoutError` from retry — a timeout there means the batch is too large, not that it is transient.
+
+**Area E — traceability (6).** M-18 is the one that matters: a board changing its HTML so a selector
+matches nothing returns **200**, which v1 recorded as `status='ok', results=0` — indistinguishable
+from a quiet day, on a product whose whole value is finding jobs. Sources now carry a 14-run trailing
+yield baseline and a `suspect` status that reaches the morning report. m-1 aligns pre-flight check
+names with AC-SB-08; m-2 restores the summary AC-HL-24 asks for in the interrupt payload; m-3 adds
+`GET /ledger` to the endpoint map with the rule that it may never carry answer-sheet data; m-4 adds
+the missing `expired` branch to `record_decision`; m-11 names one owner for the decision row (the
+API) and one for the transition (the node).
+
+**Area F — test-plan alignment (5).** M-10: AC-SB-01's 60-second freshness bound could not hold,
+because pre-flight runs over HTTP while `fill_form` queues behind another form for up to ten minutes
+— the final re-check now happens inside `submit` step (2a), seconds before the click, and §15.1 adds
+the throughput budget v1 never computed (≈5.8 h of serial browser time for 20 applications, which is
+why the recommended ceiling drops to 8–10). M-11: `fill_form` is resumable by contract, which
+AC-HL-13 requires and LangGraph's restart-from-the-top semantics otherwise prevent. M-12: AC-HL-17's
+"< 10% halt" was unreachable beside defaults that halt on start date, relocation and per-technology
+years — Q-D/Q-F/Q-K become blocking prerequisites of Phase 3 and the AC is restated as conditional.
+M-14: the header is excluded from the ledger projection sent to models, so the phone number stops
+reaching prompts and AC-NF-04 stays intact rather than being exempted in a parenthesis. m-8: rescue
+events are narrowed to human interventions, since v1's definition counted every service restart and
+made AC-NF-17 unreachable.
+
+**Area G — budget (2).** M-23: `BudgetGate` **reserves** before the call and settles after, because
+comparing recorded spend against the threshold let six concurrent calls dispatch past the hard stop.
+M-17 is the sharper one: at `hard_stop_usd` the edit endpoints raised inside a synchronous request,
+so the reviewer looking at a sentence he wanted to correct could only approve it or reject it — **a
+cost control disabling the mechanism by which a human fixes a false claim.** The edit path now runs
+all deterministic checks with zero model calls and never budget-gated, with the judge once at
+approval from a dedicated reserve.
+
+**Area H — operational readiness (3).** M-20 re-derives each phase gate from that phase's tasks and
+states the deferrals, so Phase 2's certification of the submission protocol cannot be met by
+redefining "green". M-21 states the elapsed cost in words — six to nine months for one person — and
+adds it to §16 as **R-16**, the largest risk in the register and the one v1 omitted; its other two
+requirements (pull the discovery spike forward, consider a staged scope) were already executed in
+v2.1. m-10 makes §18 a generated table checked in CI rather than hand-maintained citations.
+
+Plus **m-7**: five inconsistencies in the approved REQUIREMENTS v0.5 that v1 silently built over —
+now recorded as departures **D-13..D-17**. The one worth naming is D-15: "90–100 — apply
+immediately" is the only line in the requirements that contradicts HITL-1, and it sits in the
+scoring table an implementer reads while building `selection`.
+
 ---
 
-## 21. Findings not closed in v2
+## 21. Status of the review's 46 findings
 
-The review raised 46 findings. v2 closes **19** of them — the ten CRITICALs, eight MAJORs (M-1,
-M-2, M-3, M-15 in v2.0; M-16 and M-19 in v2.2; M-22 and M-13 in v2.3) and one MINOR, all listed in
-§20. **The remaining 27 are open, not resolved**, and this section exists so that no reader mistakes
-a v2 badge for a clean bill of health. A re-review should assume every item below still stands.
+**All 46 are now addressed in this document** — 10 CRITICAL, 24 MAJOR, 12 MINOR — across v2.0
+(the ten criticals plus M-1, M-2, M-3, M-15), v2.2 (M-16, M-19, m-5), v2.3 (M-22, M-13) and v2.4
+(the remaining 16 MAJOR and 11 MINOR). §20 maps each one to the sections that changed.
 
-**MAJOR, open (16).** M-4 (§5.1 forbids a graph-wide `error_handler` while §5.3 and §13.3 require
-one; `BudgetHardStop` and `PauseRequested` are retried three times before any handler fires — v2
-corrects the false *rationale* in §5.1 but not the contradiction) · M-5 (`is_pre_click_error`
-cannot key the dispatch marker to an application) · M-6 (the post-click `except` awaits during
-cancellation, and nothing sweeps rows stuck in `SUBMITTING` while the process stays alive) · M-7
-(the `submit` timeout budget is not partitioned — v2 raises it to 300 s for C-3 but does not
-partition it) · M-8 (a crash inside the 5-second grace window auto-submits on restart) · M-9
-(AC-ID-25 is silently weakened) · M-9a (`spawn_apps` can relaunch a thread already under review) ·
-M-10 (AC-SB-01's 60-second bound is unachievable with a serialised browser worker, and no
-throughput budget exists) · M-11 (AC-HL-13 contradicts LangGraph resume semantics) · M-12
-(AC-HL-17's "< 10% of forms halt" is unreachable under the spec's own defaults) · M-14 (AC-NF-04
-fails by design and the exception is untagged) · M-17 (at the budget hard stop the reviewer can approve and reject but cannot
-edit) · M-18 (a source that breaks silently is indistinguishable from a quiet day) · M-20 (phase
-exit gates cite acceptance criteria that
-later phases implement) · M-21 (the schedule is six to nine months for one person and never says
-so) · M-22 (the primary approve key advances to the next application, chaining approvals and making
-the undo unreachable) · M-23 (the budget hard stop is a floor, not a ceiling).
+**What that sentence does not mean.** Three limits, stated here so the count is not read as more
+than it is:
 
-**MINOR, open (11).** m-1, m-2, m-3, m-4, m-6, m-7, m-8, m-9, m-10, m-11, m-12 — as listed in the
-review report.
+1. **This is a specification, not an implementation.** A finding is closed when the document no
+   longer specifies the defective behaviour. Every fix still has to be built and tested; the
+   acceptance criteria named throughout §20 are the evidence, and none of them has run yet. The
+   distance between "the spec is right" and "the system is right" is the whole of §15.
+2. **Roughly a dozen findings introduced new acceptance criteria or amended existing ones**
+   (AC-FM-18 against the pre-click deadline, AC-SB-01 against the final re-check, AC-HL-17 made
+   conditional, AC-NF-17 narrowed, AC-HL-19 and AC-HL-24 amended, AC-ID-08/16/25 extended, plus
+   several new ones). **`docs/test-plan.md` has not been updated to match.** Until it is, the test
+   plan and the spec disagree, and the test plan is the document the go-live gate reads. That is
+   the single most important piece of follow-up work in this project right now.
+3. **Some fixes trade one property for another, and the trade is recorded rather than hidden.**
+   The recommended submitting ceiling drops from 20/day to 8–10 (M-10). Release 1's thin-cut UI
+   makes Approve fewer keystrokes away, not more (M-22). `fill_form` resuming on a live page is
+   safe only because three other mechanisms hold it (M-11 with C-2). A reader who wants to
+   disagree with any of those should be able to find them without reading the diff.
 
-**What the Release 1 split does to this list.** The split itself closes nothing, and must not be
-read as doing so. What it does is move most of them out of the critical path: M-5, M-6, M-7, M-8,
-M-9, M-9a, M-10, M-11, M-14 and M-23 live in the submission protocol and the form-filling path,
-which Release 1 does not build. They must be closed before Release 2 begins, and §15.0's entry
-trigger is the point at which that work becomes due.
-
-**Every MAJOR that sat inside Release 1's own path is now closed**: M-16 and M-19 in v2.2
-(FactGuard's override and NFR-3 reconstruction, both Phase 1), M-22 and M-13 in v2.3 (the
-rubber-stamping pair, both in the review screen Release 1 builds). That was deliberate sequencing —
-each was cheaper to fix in the spec than in shipped code, and Phase 1 and the review screen are the
-first two things Release 1 builds.
-
-**What is not fixed is the thing R-3 has always named.** M-22 removes the cheapest rubber-stamping
-path — approval without the evidence being rendered — and M-13 removes the flag that could disable
-HITL-5 outright. Neither makes a careful reviewer out of a tired one. A `1`,`2`,`3`,`A` chord still
-approves in four keystrokes, and under the thin-cut UI (§15.0) Approve is fewer keystrokes away than
-it was, not more. Release 1's real backstop is structural rather than behavioural: it is
-documents-only, so a rubber-stamped artefact is not sent anywhere by the machine — Avadh still has
-to send it himself. **That backstop disappears in Release 2**, which is the strongest argument in
-this document for not entering Release 2 casually.
-
-**The reviewer's structural objection, unanswered.** The review's sharpest point is not on this
-list, because it is not a defect to patch: *"The human cannot be made safe by measurement alone."*
-The design's answer to rubber-stamping is telemetry — `review_seconds`, a median, a flag in a
-report the reviewer writes for himself — while the primary approve key advances to the next
-application (M-22), approval is reachable from tab 1 without ever rendering tab 3, and the undo
-window is five seconds and is left behind by the very keystroke that starts it. v2 closes C-7, so
-the reviewer can now *see* the values he is certifying, which was the most concrete part of that
-objection. The rest — making Approve cost something proportionate to its consequence — is M-22,
-M-13 and the UI work behind them, and it remains open.
+**The structural objection remains, and it is not a finding.** *"The human cannot be made safe by
+measurement alone."* M-22 removed the cheapest rubber-stamping path and M-13 removed the flag that
+could switch HITL-5 off, but neither turns a tired reviewer into a careful one. Release 1's real
+protection is structural: it is documents-only, so a rubber-stamped artefact is not sent anywhere by
+the machine — Avadh still has to send it himself. **That protection disappears in Release 2**, which
+remains the strongest argument in this document for entering Release 2 deliberately, and late.
 
 ---
 
