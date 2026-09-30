@@ -753,3 +753,63 @@ def check_mandatory_gap(
             )
             break
     return violations
+
+
+# ============================== C1 — structural whitelist ====================
+def check_structure(master_html: str, tailored_html: str) -> list[Violation]:
+    """C1 (AF-06, RT-02) — every DOM change must be one of the six allowed operations.
+
+    This runs on the artefact rather than the plan, so it catches a document
+    `apply_plan` never produced: hand-edited HTML, a model that emitted markup, a
+    corrupted artefact. It is the check that makes "the diff the reviewer sees is the
+    diff the verifier checked" true rather than aspirational.
+    """
+    from .tailor import structural_diff
+
+    return [
+        Violation(
+            check="C1",
+            claim_text=change.element_key,
+            detail=change.detail or "change outside the tailoring whitelist",
+        )
+        for change in structural_diff(master_html, tailored_html)
+        if change.kind == "violation"
+    ]
+
+
+# ============================== C2 — immutables ==============================
+def check_immutables(master_html: str, tailored_html: str, ledger: Ledger) -> list[Violation]:
+    """C2 (AF-05, RT-07/10/11) — the header, dates, degree and title are byte-exact.
+
+    Inflating a job title is the cheapest lie available and the hardest to spot in a
+    diff, because it looks like tailoring. These elements are simply not tailorable.
+    """
+    from .tailor import letter_spacing_deltas
+
+    violations: list[Violation] = []
+    for key, expected in ledger.immutable.items():
+        try:
+            actual = element_text(tailored_html, key)
+        except KeyError:
+            violations.append(
+                Violation(
+                    check="C2",
+                    claim_text=key,
+                    detail=f"immutable element {key!r} is missing from the tailored version",
+                )
+            )
+            continue
+        if actual != expected:
+            violations.append(
+                Violation(
+                    check="C2",
+                    claim_text=key,
+                    detail=f"immutable {key!r} changed: {expected[:50]!r} -> {actual[:50]!r}",
+                )
+            )
+
+    violations.extend(
+        Violation(check="C2", claim_text="<style>", detail=detail)
+        for detail in letter_spacing_deltas(master_html, tailored_html)
+    )
+    return violations
